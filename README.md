@@ -103,4 +103,8 @@ The older `NativeDrive` prototype and private original-data regression fixtures 
 
 This is an unofficial reconstruction and may contain visual, audio or simulation discrepancies. Report the browser, car, track/replay, sound/display settings and reproduction steps. Do not attach ROMs, game archives or credentials.
 
-Stunts and its original artwork/data belong to their respective rights holders. Third-party packages retain their licenses. No blanket open-source license has been assigned to this source; public availability alone is not a license grant.
+## License
+
+Unless a file carries a separate third-party notice, the original source code contributed to this project is licensed under the **GNU General Public License, version 3 only (GPL-3.0-only)**. See [LICENSE](LICENSE).
+
+Third-party code, synthesizers and fonts retain their existing licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the notices in `vendor/`. This license grant does **not** cover the original Stunts executables, artwork, game data, Roland ROMs, or data extracted from those files. Those materials remain subject to their respective rights holders’ terms and are not included in this repository.

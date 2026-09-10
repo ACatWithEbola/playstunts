@@ -59,5 +59,6 @@
     "vite": "8.0.13",
     "wrangler": "4.92.0"
   },
-  "type": "module"
+  "type": "module",
+  "license": "GPL-3.0-only"
 }
