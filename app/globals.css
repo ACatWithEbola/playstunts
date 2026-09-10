@@ -78,8 +78,10 @@
 .stunts-universe .stunts-shortcuts{border:1px solid #29495f;background:#0b151e;padding:0 14px 14px;}
 .stunts-universe .stunts-shortcuts>h2{margin:0 -14px;color:var(--stunts-yellow);}
 .stunts-shortcuts h3{font-size:16px;color:#c1d2df;margin:18px 0 10px;}
-.stunts-shortcuts dl{margin:0;display:grid;grid-template-columns:minmax(80px,auto) 1fr;gap:10px 12px;font-size:14px;}
+.stunts-shortcuts dl{margin:0;display:grid;grid-template-columns:8.5rem minmax(0,1fr);gap:12px 14px;font-size:14px;line-height:1.5;align-items:start;}
 .stunts-shortcuts dt,.stunts-shortcuts dd{margin:0;min-width:0;}
+.stunts-shortcuts dt{display:flex;align-items:center;gap:4px;white-space:nowrap;}
+.stunts-shortcuts .stunts-shortcut-note{margin:-4px 0 16px;color:#9eb3c1;font-size:13px;}
 .stunts-shortcuts kbd{font-size:12px;padding:2px 4px;}
 .stunts-shortcuts p{font-size:14px;}
 @media(max-width:1000px){.stunts-universe .stunts-setup-column{grid-column:2;}}
