@@ -1,0 +1,11 @@
+'use client';
+import {useEffect,useRef,useState} from 'react';
+import {playBrowserSetupBell} from '@/lib/game/browser-setup-bell';
+import {loadBrowserSetupSelection} from '@/lib/game/browser-setup-selection';
+import {runBrowserNativeSetup} from '@/lib/game/browser-native-setup';
+export default function NativeSetupCheck({publicView=false}:{publicView?:boolean}={}){
+ const canvas=useRef<HTMLCanvasElement>(null),active=useRef<AbortController|null>(null);const [running,setRunning]=useState(false),[status,setStatus]=useState('Ready.');
+ useEffect(()=>()=>active.current?.abort(),[]);
+ const start=async()=>{if(active.current)return;const controller=new AbortController();active.current=controller;setRunning(true);setStatus('Loading original files…');const audio=new AudioContext();try{await audio.resume();const result=await runBrowserNativeSetup(canvas.current!,controller.signal,{browserSettings:publicView,ready(){setStatus('SETUP running.');},bell:()=>playBrowserSetupBell(audio,controller.signal)});const saved=await loadBrowserSetupSelection(controller.signal);setStatus(publicView?(result.exitCode===0?'Setup closed. Return to the game to use the saved settings.':'Setup ended with an error.'): `SETUP exited with code ${result.exitCode}. Virtual directory: ${result.directory}. Saved video ${saved.selection.video}, sound ${saved.selection.sound}.`);}catch(error){setStatus(controller.signal.aborted?'SETUP stopped.':String(error));}finally{await audio.close();active.current=null;setRunning(false);}};
+ return <main style={{padding:24,background:'#111',color:'#eee',minHeight:'100vh'}}><a href="/">← Back to game</a><h1>{publicView?"Stunts Setup":"Original SETUP check"}</h1><p>{publicView?"Use the arrow keys and Enter. Exit saves your choices; Escape leaves without saving.":"Original menus and installation in browser storage. Play reads the saved configuration; unfinished backends are reported before launch."}</p><button disabled={running} onClick={()=>void start()}>Run SETUP</button>{' '}<button disabled={!running} onClick={()=>active.current?.abort()}>Stop</button><p role="status">{status}</p><canvas ref={canvas} width={720} height={400} tabIndex={0} aria-label="Original SETUP text screen" style={{width:'min(100%, 960px)',aspectRatio:'4 / 3',background:'black',imageRendering:'pixelated'}}/></main>;
+}

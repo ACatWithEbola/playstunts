@@ -1,0 +1,49 @@
+/* Proportions follow the supplied front-facing MT-32 photograph. */
+.mt32-panel-viewport{container-type:inline-size;width:100%;max-width:1400px;margin:38px 0 24px}
+.mt32-panel{position:relative;display:grid;grid-template-columns:41% 1fr;align-items:center;gap:5%;width:100%;aspect-ratio:6/1;box-sizing:border-box;padding:1.4cqw 3cqw 1.6cqw 5.5cqw;border:1px solid #41454c;border-top:3px solid #727477;border-radius:3px;background:linear-gradient(178deg,#34383e 0%,#181e29 17%,#111824 88%,#24282e);box-shadow:0 10px 18px #0006,inset 0 -3px 3px #080d15;color:#aabbd3}
+.mt32-face{position:relative;align-self:stretch;min-width:0;padding:1.35cqw 1.2cqw 1cqw 1.4cqw;background:linear-gradient(110deg,#171c23,#0b1018);border:1px solid #42464b;border-top-color:#7e8286;border-left-color:#747b84;box-shadow:inset 0 2px 3px #0008,1px 1px 2px #000}
+.mt32-brand{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:.5cqw;margin-bottom:1.2cqw;white-space:nowrap;font-family:Arial,sans-serif}
+.mt32-brand strong{font-size:2.05cqw;letter-spacing:-.09cqw;line-height:1;font-weight:700;text-shadow:0 1px 1px #c2d7ed33}
+.mt32-brand small{grid-column:2;grid-row:1;font-size:.8cqw;line-height:.92;letter-spacing:-.025cqw;font-weight:700}
+.mt32-brand>span{grid-column:3;grid-row:1;font-size:2.3cqw;line-height:1;font-weight:600;letter-spacing:-.14cqw}
+.mt32-screen-group{display:grid;grid-template-columns:minmax(0,1fr) 7.2cqw;gap:.8cqw;align-items:start;min-width:0}
+.mt32-lcd{position:relative;isolation:isolate;box-sizing:border-box;width:100%;height:3.6cqw;padding:.48cqw .65cqw;border:1px solid #1b2510;border-radius:.45cqw;background:#26300f;color:#c3dc54;box-shadow:inset 0 1px 4px #0008;font:1.75cqw/2.5cqw 'Courier New',monospace;white-space:pre;overflow:hidden}
+.mt32-lcd-on{background:linear-gradient(#5d8108,#618605);box-shadow:inset 0 1px 3px #a0ac3855,0 0 5px #8b9c1822}
+.mt32-lcd-cells{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));width:100%;height:2.5cqw;gap:0}
+.mt32-panel .mt32-lcd-cell{display:block;position:relative;width:auto;height:2.5cqw;background:transparent;font:inherit;font-style:normal;text-align:center;white-space:pre}
+.mt32-lcd-active::after{content:'';position:absolute;inset:.3cqw .08cqw;background:#bdd348}
+.mt32-screen-caption{padding-top:.05cqw;font:bold .65cqw Arial,sans-serif;white-space:nowrap}
+.mt32-midi{display:flex;flex-direction:column;align-items:center;gap:.35cqw}
+.mt32-midi i{order:2;width:.4cqw;height:.4cqw;border-radius:50%;background:#192115}
+.mt32-midi i.lit{background:#d3d957;box-shadow:0 0 5px #d8ed60}
+.mt32-screw{display:none}
+.mt32-front-controls{position:relative;display:grid;grid-template-columns:29% 40% 20%;justify-content:space-between;align-items:center;gap:4%;border:0;padding:0;margin:0;min-width:0}
+.mt32-front-controls legend{position:absolute;top:-1.3cqw;left:0;width:29%;padding:0;font:bold .8cqw Arial,sans-serif;text-align:center;line-height:1cqw}
+.mt32-front-controls legend::before,.mt32-front-controls legend::after{content:'';position:absolute;top:.5cqw;height:1px;background:#8594aa;width:38%}.mt32-front-controls legend::before{left:0}.mt32-front-controls legend::after{right:0}
+.mt32-part-buttons{display:grid;grid-template-columns:repeat(3,1fr);column-gap:1.25cqw;row-gap:1.2cqw}
+.mt32-part-key{display:flex;flex-direction:column;align-items:center;gap:.45cqw;min-width:0}
+.mt32-part-key span{font:bold .8cqw/1 Arial,sans-serif;white-space:nowrap}
+.mt32-front-controls button{display:block;box-sizing:border-box;width:100%;height:2.65cqw;padding:0;border:2px solid #0b111c;border-top-color:#535d6d;border-left-color:#343e50;background:linear-gradient(110deg,#1c2638,#192333);box-shadow:2px 2px 2px #0009,inset 1px 1px 2px #0d1420;cursor:pointer;border-radius:1px}
+.mt32-part-key button{width:2.55cqw}
+.mt32-front-controls button:active{background:#101b2b;box-shadow:inset 2px 2px 3px #000;border-top-color:#263140}
+.mt32-front-controls button:focus-visible{outline:2px solid #aec4de;outline-offset:3px}
+.mt32-front-controls button:disabled{cursor:default}
+.mt32-function-buttons{display:grid;grid-template-columns:1fr 1fr;gap:.8cqw 1.9cqw;align-self:start;margin-top:-1.35cqw}
+.mt32-function-key{display:flex;flex-direction:column;gap:.65cqw;align-items:center;min-width:0}
+.mt32-function-key span{font:bold .75cqw/1 Arial,sans-serif;white-space:nowrap}
+.mt32-select-dial{position:relative;display:flex;flex-direction:column;align-items:center;gap:1cqw;font:bold .78cqw/1 Arial,sans-serif;white-space:nowrap;align-self:start;margin-top:-1.5cqw}
+.mt32-select-dial input{position:absolute;inset:1.8cqw 0 0;width:100%;height:7cqw;opacity:0;cursor:ew-resize;z-index:2}
+.mt32-knob{position:relative;display:block;width:6cqw;height:6cqw;border-radius:50%;border:.23cqw solid #090f18;background:radial-gradient(circle at 40% 32%,#293349,#192438 70%);box-shadow:.3cqw .3cqw .35cqw #0009,inset .12cqw .07cqw .1cqw #737d8d;outline:.17cqw dotted #9fa7af;outline-offset:.5cqw;margin-top:.3cqw}
+.mt32-knob::after{content:'';position:absolute;top:.15cqw;left:calc(50% - .1cqw);width:.2cqw;height:1.5cqw;background:#8590a0;box-shadow:1px 0 1px #060c14}
+.mt32-select-dial:focus-within .mt32-knob{outline-color:#d3e2f5}
+.mt32-external-controls{display:flex;align-items:center;gap:30px;margin:0 0 26px;color:#bdc7ce}.mt32-volume{display:flex;align-items:center;gap:12px;font:10px Arial,sans-serif;letter-spacing:.5px}.mt32-volume input{width:100px;accent-color:#aabc82}.mt32-volume output{font:11px monospace}.mt32-power{display:flex;align-items:center;gap:10px;font:10px Arial,sans-serif}.mt32-power>i{display:none}.mt32-power-switch{background:#151b23;border:1px solid #697680;border-radius:3px;color:#d8ddd4;font:10px monospace;padding:7px 9px;cursor:pointer}.mt32-power-switch[aria-pressed=true]{border-color:#a7b59b;background:#303831}
+.mt32-score-buttons{display:flex;flex-wrap:wrap;gap:10px}.mt32-score-buttons button{padding:10px 20px;border:1px solid #686c70;border-radius:4px;background:#272c30;color:#f5f3eb;cursor:pointer}.mt32-score-buttons button:disabled{opacity:.4;cursor:default}
+.mt32-settings{max-width:1040px;margin:24px 0;padding:18px;border:1px solid #3c464e;border-radius:6px}.mt32-settings summary{cursor:pointer;font-size:18px}.mt32-settings p{color:#adb9c2;margin:12px 0}.mt32-settings fieldset{border:0;padding:0}.mt32-setting-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:20px;margin:20px 0}.mt32-setting-grid label{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:14px}.mt32-setting-grid select{background:#252d33;color:#eee;padding:6px;border:1px solid #64717a;border-radius:3px}.mt32-setting-grid input[type=range]{width:130px;accent-color:#b8ca8b}.mt32-setting-grid output{font-size:12px;color:#c4d4b2}.mt32-settings button{padding:10px;border:1px solid #64717a;background:#252d33;color:#eee;border-radius:4px}
+/* LED backlight is steady; LCD electrodes modulate its transmission.
+ * Optical colours/contrast follow the supplied photograph, not measured spectra. */
+.mt32-dot-matrix{position:relative;z-index:1;display:block;width:100%;height:100%}
+.mt32-lcd-electrodes{fill:#899448;opacity:.045}
+.mt32-lcd-on .mt32-lcd-electrodes{fill:#b9ca50;opacity:.085}
+.mt32-lcd-pixels{fill:#c4dc58}
+.mt32-lcd::after{content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit;box-shadow:inset 0 .08cqw .15cqw #dbe29422,inset 0 -.09cqw .18cqw #14240755;background:linear-gradient(165deg,#dde8b008,transparent 48%);z-index:2}
+.mt32-select-dial input{touch-action:none}

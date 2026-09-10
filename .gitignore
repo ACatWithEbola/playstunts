@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.next/
+.vinext/
+.wrangler/
+.openai/
+.env*
+*.tsbuildinfo
+public/game/
+local-assets/
+*.rom
+*.exe
+*.EXE
+.DS_Store
+public/
+__pycache__/
+*.pyc
