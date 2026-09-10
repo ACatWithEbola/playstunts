@@ -1,3 +1,4 @@
+import {bundledTrackReplays} from './bundled-track-replays.ts';
 import showroomMaterials from '../../public/game/track-materials.json';
 import {createUpgradedCarMenu} from './upgraded-car-menu';
 import type {createUpgradedRaceScene} from './upgraded-race-scene';
@@ -75,9 +76,8 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
  ]);
 
  const mainMenuArt=await binary('main-menu-art.bin');
- const original=new Map(options.assets.tracks.map(t=>[nativeFileKey('',t.name,'.trk'),async()=>Uint8Array.from(t.raw)]));
+ const original=bundledTrackReplays(options.assets.tracks,binary);
  for(const [name,entry] of Object.entries(scores))original.set(nativeFileKey('',name,'.hig'),()=>binary('high-scores/'+entry.file));
- for(const name of ['DEFAULT','CTKFIN','Flaute1'])original.set(nativeFileKey('',name,'.rpl'),()=>binary('replays/'+name+'.RPL'));
  const files=await createNativeFileStore(original,await openNativeFilePersistence());
  const drivingSettings={...(options.settings??{mouse:false,joystick:false,graphics:2})};
  let activeRace:Awaited<ReturnType<typeof createNativeManualRaceRuntime>>|undefined,racePoll:(()=>void|Promise<void>)|undefined;
