@@ -1,0 +1,1580 @@
+[
+  {
+    "path": "game/fontdef.fnt",
+    "bytes": 1837,
+    "sha256": "e23751b411c0914cbb52ac1fe3bc32811502ef8267b3f85c9d276299a542c811",
+    "source": "FONTDEF.FNT"
+  },
+  {
+    "path": "game/fontn.fnt",
+    "bytes": 1443,
+    "sha256": "1474388e2c8f7b42a328afab8f77e663c4040e816de8870c5e2c01dad2592f60",
+    "source": "FONTN.FNT"
+  },
+  {
+    "path": "game/high-scores/CLEANER.HIG",
+    "bytes": 364,
+    "sha256": "f1d677d3808f356a59fb78aeb136ad1a8fea71aae29920c11a3a78fa355683b5",
+    "source": "CLEANER.HIG"
+  },
+  {
+    "path": "game/high-scores/CTK2003a.HIG",
+    "bytes": 364,
+    "sha256": "f5ad8841ab08c3d7d448b5fd1f086eb660455a9743c9a2069ac395be87309f4c",
+    "source": "CTK2003a.HIG"
+  },
+  {
+    "path": "game/high-scores/CTRACK04.HIG",
+    "bytes": 364,
+    "sha256": "18f25ff3586126f9fee075484b66b55318a22a19351d6ee4d14f36f6cca935f0",
+    "source": "CTRACK04.HIG"
+  },
+  {
+    "path": "game/high-scores/CTRACK05.HIG",
+    "bytes": 364,
+    "sha256": "ece0ff77d440e3114ea963b1bf0a415c93c409cb2979ab0a26ec6f8b32455212",
+    "source": "CTRACK05.HIG"
+  },
+  {
+    "path": "game/high-scores/CTRACK06.HIG",
+    "bytes": 364,
+    "sha256": "14b7756e1b0b525ccd41dc89f3640b15e65249e670bb2d0425d5881b5ae89b20",
+    "source": "CTRACK06.HIG"
+  },
+  {
+    "path": "game/high-scores/CTRACK07.HIG",
+    "bytes": 364,
+    "sha256": "921ce9d3b8c9a57682e165a463d45fce62ff51a7b66dda0ebec170a237c7d1ce",
+    "source": "CTRACK07.HIG"
+  },
+  {
+    "path": "game/high-scores/CTRACK08.HIG",
+    "bytes": 364,
+    "sha256": "49b09a3ee0a5c965ac9fc96f169258e304a4c5029ea4d56b8ad40ad8e350f6f0",
+    "source": "CTRACK08.HIG"
+  },
+  {
+    "path": "game/high-scores/CTRACK09.HIG",
+    "bytes": 364,
+    "sha256": "6e555be5c7f9e66b3e2223b1d4c597d271bd343b8be0b6c6bda8582f0af8750b",
+    "source": "CTRACK09.HIG"
+  },
+  {
+    "path": "game/high-scores/CTRACK10.HIG",
+    "bytes": 364,
+    "sha256": "42676fc2c6a455d07066420fc7871d3a7eaa3884c9ce0cd90657866ad0c85087",
+    "source": "CTRACK10.HIG"
+  },
+  {
+    "path": "game/high-scores/CTRACK11.HIG",
+    "bytes": 364,
+    "sha256": "aed8bdad2a4ce38a8b8f9931dc7c568e291b54412225c6c513b9f28df3de8ff6",
+    "source": "CTRACK11.HIG"
+  },
+  {
+    "path": "game/high-scores/DEFAULT.HIG",
+    "bytes": 364,
+    "sha256": "988eb74ffa7635881036c62816c21f6f594652ccf49ac1071c83aaa8d5a20d1d",
+    "source": "DEFAULT.HIG"
+  },
+  {
+    "path": "game/high-scores/EVRYJUMP.HIG",
+    "bytes": 364,
+    "sha256": "1df167d36ebd06128ad8ec40467b57b135f5421fa3bed8296449f0c43842cb55",
+    "source": "EVRYJUMP.HIG"
+  },
+  {
+    "path": "game/high-scores/EXERCISE.HIG",
+    "bytes": 364,
+    "sha256": "4c7cb84a86f6ab1c9ec6e8693299471f171d26ddda66024bf95612f54d0942ca",
+    "source": "EXERCISE.HIG"
+  },
+  {
+    "path": "game/high-scores/FAST.HIG",
+    "bytes": 364,
+    "sha256": "f31e612f208f8c0c48bb50c9b247d5b009d2f1ed748c162da72b9677ce49d5b9",
+    "source": "FAST.HIG"
+  },
+  {
+    "path": "game/high-scores/FAST2.HIG",
+    "bytes": 364,
+    "sha256": "e7b0822823c52e912cf50444d063cb6aeb67577846690c08e5f59b50a5a5e56d",
+    "source": "FAST2.HIG"
+  },
+  {
+    "path": "game/high-scores/FUNHILLS.HIG",
+    "bytes": 364,
+    "sha256": "61678c7b0614e3891f95208aac06acfab13127bc1d3355fa97a75690bc716d3a",
+    "source": "JUMP&JOY.HIG"
+  },
+  {
+    "path": "game/high-scores/FUNISLES.HIG",
+    "bytes": 364,
+    "sha256": "e389e9c91582b5fbfcbe50c7e0d5ac62ff1a2426fefa2f89311cd972f03f1961",
+    "source": "FUNISLES.HIG"
+  },
+  {
+    "path": "game/high-scores/HEAVY.HIG",
+    "bytes": 364,
+    "sha256": "a6d600f01a48c0079162fb0c0f95661450df02654980414c9d9fdaf3584b1144",
+    "source": "HEAVY.HIG"
+  },
+  {
+    "path": "game/high-scores/HEIZ!.HIG",
+    "bytes": 364,
+    "sha256": "653ac8f0ebdd9de5d9562841c6dd246bc8ff5af2534772bac44e7ccc70d50d02",
+    "source": "HEIZ!.HIG"
+  },
+  {
+    "path": "game/high-scores/HEIZ2!.HIG",
+    "bytes": 364,
+    "sha256": "220b183757bcc8935d43f6badc281feb4492e94566cebc16923d35367245883d",
+    "source": "HEIZ2!.HIG"
+  },
+  {
+    "path": "game/high-scores/HEIZ3.HIG",
+    "bytes": 364,
+    "sha256": "b3e0bdb6848a1def82c5a8f33e79e8f067c43e349604040e6f86c1b2018eb9df",
+    "source": "HEIZ3.HIG"
+  },
+  {
+    "path": "game/high-scores/HELL.HIG",
+    "bytes": 364,
+    "sha256": "ff79515e648dc574d45067a83b39de8ad27ef5ff2100fed5690cd96b2eca6c4f",
+    "source": "HELL.HIG"
+  },
+  {
+    "path": "game/high-scores/HELL2.HIG",
+    "bytes": 364,
+    "sha256": "1b6c098e4307603509a52fa8aa62ebb57674c9a22d05651f6dd0589e8e467d24",
+    "source": "HELL2.HIG"
+  },
+  {
+    "path": "game/high-scores/HELL3.HIG",
+    "bytes": 364,
+    "sha256": "26d4bc19bca130d1c9bcdf5adca11f1b8e71f29532c3c00b95d8d88f021f05c6",
+    "source": "HELL3.HIG"
+  },
+  {
+    "path": "game/high-scores/HELL4.HIG",
+    "bytes": 364,
+    "sha256": "512524c97c0f75ccffeee91394483085e1ef16ae0c545697f99a0c8d29022bb8",
+    "source": "HELL4.HIG"
+  },
+  {
+    "path": "game/high-scores/HELL5.HIG",
+    "bytes": 364,
+    "sha256": "d1095ffdac5b9a58341a85098bc75f02fd02a07d9b72cfdd9ef23b8cd8f6f93d",
+    "source": "HELL5.HIG"
+  },
+  {
+    "path": "game/high-scores/HIRNRISS.HIG",
+    "bytes": 364,
+    "sha256": "a6f332472283c2661722564ab982df7689de3658268d6ca77dbb8f18d01d5f07",
+    "source": "HIRNRISS.HIG"
+  },
+  {
+    "path": "game/high-scores/JTK.HIG",
+    "bytes": 364,
+    "sha256": "c8c9cd317488e38a4a747c943085eb6eb3ea430e79a7f610a039ef21f67fa444",
+    "source": "JTK.HIG"
+  },
+  {
+    "path": "game/high-scores/JUMP&JOY.HIG",
+    "bytes": 364,
+    "sha256": "61678c7b0614e3891f95208aac06acfab13127bc1d3355fa97a75690bc716d3a",
+    "source": "JUMP&JOY.HIG"
+  },
+  {
+    "path": "game/high-scores/JUMP.HIG",
+    "bytes": 364,
+    "sha256": "199f0c9f3392eba880fbdeaa089c79d4cc585a37af7f33e086e281188692ae3f",
+    "source": "JUMP.HIG"
+  },
+  {
+    "path": "game/high-scores/KING.HIG",
+    "bytes": 364,
+    "sha256": "1fc1930a68a3e27072228ce6b272aa85c7a53c12cdf7cad806b4830b47692f1c",
+    "source": "KING.HIG"
+  },
+  {
+    "path": "game/high-scores/MEGAJUMP.HIG",
+    "bytes": 364,
+    "sha256": "4788b2136b528798ac72a6b9592aba5c68ad8c6977f03789ba07a261765170ba",
+    "source": "MEGAJUMP.HIG"
+  },
+  {
+    "path": "game/high-scores/MONSTER.HIG",
+    "bytes": 364,
+    "sha256": "1c1c0bb92a5c6adb01c8f3c68dfec2c550cf4c6b2d11a2680302ca0c79fdec19",
+    "source": "MONSTER.HIG"
+  },
+  {
+    "path": "game/high-scores/SCHPASS.HIG",
+    "bytes": 364,
+    "sha256": "db5ecf0b0cbda66fec984b7af81b0e48b1c3ee8d4a7985858ec145ec549f6253",
+    "source": "SCHPASS.HIG"
+  },
+  {
+    "path": "game/high-scores/THE_EDGE.HIG",
+    "bytes": 364,
+    "sha256": "834af9b38ede02a4112c41fce56d994c356b1eab3816f3b3579fcd49ce9c0c20",
+    "source": "THE_EDGE.HIG"
+  },
+  {
+    "path": "game/high-scores/TRY_IT.HIG",
+    "bytes": 364,
+    "sha256": "d601b0087fa70427b8d7a056df5a2cf29183420c95d7ae1bd677f76d2073b947",
+    "source": "TRY_IT.HIG"
+  },
+  {
+    "path": "game/high-scores/WHAT_THE.HIG",
+    "bytes": 364,
+    "sha256": "22ac9bad34626d8c68793869113362e355dad55bf20030a76bc82ef546a61113",
+    "source": "WHAT_THE.HIG"
+  },
+  {
+    "path": "game/opponents/opp1.pre",
+    "bytes": 1254,
+    "sha256": "93999e7124093e1dab0d26e0f92b9d3b6f05e5ec993d1c1e67794b81b0b61590",
+    "source": "OPP1.PRE"
+  },
+  {
+    "path": "game/opponents/opp2.pre",
+    "bytes": 1320,
+    "sha256": "81046a0fc962278e2d7b948f5a908441e852d6fbd8e2f214e10ff5f9c27a3c06",
+    "source": "OPP2.PRE"
+  },
+  {
+    "path": "game/opponents/opp3.pre",
+    "bytes": 995,
+    "sha256": "12df38100c11b4e2b86009e83ccb7497eba991522d7b25eb9f7486b018842778",
+    "source": "OPP3.PRE"
+  },
+  {
+    "path": "game/opponents/opp4.pre",
+    "bytes": 1372,
+    "sha256": "a6208509cd07824c0aabb9bacb376ffdc9631c0b9c31748f68c3e58caf565ef4",
+    "source": "OPP4.PRE"
+  },
+  {
+    "path": "game/opponents/opp5.pre",
+    "bytes": 1256,
+    "sha256": "ccb12f9b3c1ac4d255c0ae15993711296fecad675085e00fd2424daa419f5103",
+    "source": "OPP5.PRE"
+  },
+  {
+    "path": "game/opponents/opp6.pre",
+    "bytes": 1294,
+    "sha256": "d87eb6b75c234d26f776174ee4b3fc8c5f93fb9c1f1a06f9a31e28057ee4e648",
+    "source": "OPP6.PRE"
+  },
+  {
+    "path": "game/original-resources/ADENG1.VCE",
+    "bytes": 1152,
+    "sha256": "b60349d495ac9a604506a8904745ea125909410f8201cbe16af43b6b7da20e0c",
+    "source": "ADENG1.VCE"
+  },
+  {
+    "path": "game/original-resources/ADSKIDMS.VCE",
+    "bytes": 3008,
+    "sha256": "dd45b2fd36780088d602984273d7ef5a382f73ca24e88bf0eb04151e492dffa6",
+    "source": "ADSKIDMS.VCE"
+  },
+  {
+    "path": "game/original-resources/ALPINE.PVS",
+    "bytes": 7423,
+    "sha256": "fe3ccb7836e52fdf1bcef031aaf29f7c184de5b6209ec38909ddca2fedd711ae",
+    "source": "ALPINE.PVS"
+  },
+  {
+    "path": "game/original-resources/CARANSX.RES",
+    "bytes": 932,
+    "sha256": "c1bac12d2bc0b84b9d132553aea400d494cdb5646d8ffcad88953b73f7710d5f",
+    "source": "CARANSX.RES"
+  },
+  {
+    "path": "game/original-resources/CARAUDI.RES",
+    "bytes": 962,
+    "sha256": "94168342b0e96b4d88f628060ff5531ec329287f76c777b2fb64645aa4893abf",
+    "source": "CARAUDI.RES"
+  },
+  {
+    "path": "game/original-resources/CARCOUN.RES",
+    "bytes": 971,
+    "sha256": "49675cd82b090a2cd51e0e0812282745bd5d2c87901feca43ee933a1185c08ff",
+    "source": "CARCOUN.RES"
+  },
+  {
+    "path": "game/original-resources/CARFGTO.RES",
+    "bytes": 942,
+    "sha256": "8487ec8258f939cd66a0fe8b45c738fcb3f31c35cc084a1e1bdebd0f47ee4a0f",
+    "source": "CARFGTO.RES"
+  },
+  {
+    "path": "game/original-resources/CARJAGU.RES",
+    "bytes": 951,
+    "sha256": "01f6be51ea1da4bcb8f2c040ae1ac245a682e1dc8020d1f10347f7062fdf67cb",
+    "source": "CARJAGU.RES"
+  },
+  {
+    "path": "game/original-resources/CARLANC.RES",
+    "bytes": 969,
+    "sha256": "09e589c18fbad3af6b396463145ad210b02a943ae1a33937ba80278415a0bfcc",
+    "source": "CARLANC.RES"
+  },
+  {
+    "path": "game/original-resources/CARLM02.RES",
+    "bytes": 954,
+    "sha256": "91bfb375cfa9e39c0932396406f4573ebdc84ca398b19e4f5a366194dcdfe0bb",
+    "source": "CARLM02.RES"
+  },
+  {
+    "path": "game/original-resources/CARP962.RES",
+    "bytes": 951,
+    "sha256": "bc38aa99ddb882fd71946ffbf3dca3d43172b2a5850b27409d7e358e6f252497",
+    "source": "CARP962.RES"
+  },
+  {
+    "path": "game/original-resources/CARPC04.RES",
+    "bytes": 952,
+    "sha256": "53443980bdc8bb881e3b2b6cf4a2b9097d5bb98c36fab91fbec2458ea0190dd4",
+    "source": "CARPC04.RES"
+  },
+  {
+    "path": "game/original-resources/CARPMIN.RES",
+    "bytes": 957,
+    "sha256": "7c8ae2eb12df43d948a82f5809c4816d9c94def52d18f884a054a725b0c54ca1",
+    "source": "CARPMIN.RES"
+  },
+  {
+    "path": "game/original-resources/CARVETT.RES",
+    "bytes": 940,
+    "sha256": "b690b8e51ad539b3ece24e1475b6e2a80a0a59bcd525ee720fdb268025fb84c6",
+    "source": "CARVETT.RES"
+  },
+  {
+    "path": "game/original-resources/CITY.PVS",
+    "bytes": 7044,
+    "sha256": "2d2bc4c0da18073ba0c4fe3e2b09f46826a0cf4369a7cbd0b26228e775aad94d",
+    "source": "CITY.PVS"
+  },
+  {
+    "path": "game/original-resources/CLEANER.TRK",
+    "bytes": 1802,
+    "sha256": "26a20682909d9f263d3d1b5f7d296717387eb850f25b71d22866e9383e4df03d",
+    "source": "CLEANER.TRK"
+  },
+  {
+    "path": "game/original-resources/COUNTRY.PVS",
+    "bytes": 3323,
+    "sha256": "8ecc889173d2e0f7f995b2d026d5fcccb8d0717a37decbdc06fea19d98ab03b0",
+    "source": "COUNTRY.PVS"
+  },
+  {
+    "path": "game/original-resources/CRED.RES",
+    "bytes": 435,
+    "sha256": "1cafa5744d80151ad2a3c32b6eb1c8a4659f3e7002b8c6bd5150f95f2353fa49",
+    "source": "CRED.RES"
+  },
+  {
+    "path": "game/original-resources/CTK2003A.TRK",
+    "bytes": 1802,
+    "sha256": "066a9eb163c5e53f9dce973cfc2c444f3a4816517861b9feb607584da60cffb3",
+    "source": "CTK2003a.TRK"
+  },
+  {
+    "path": "game/original-resources/CTKFIN.RPL",
+    "bytes": 2996,
+    "sha256": "6e043773c95fe8b920416d66c22009e84a7eafca4bc51e6356d1bb53e00d8cc2",
+    "source": "CTKFIN.RPL"
+  },
+  {
+    "path": "game/original-resources/CTRACK01.TRK",
+    "bytes": 1802,
+    "sha256": "ae9b9dda0d1497b662fcfc3444661052f6a4eacec7bfc478fbdefa3ff84f1f6b",
+    "source": "ctrack01.trk"
+  },
+  {
+    "path": "game/original-resources/CTRACK02.TRK",
+    "bytes": 1802,
+    "sha256": "d8ee19fb01e7c793cfeded0bb06ee8662fe6e9982117fb1ffc0e1f3a277a1f07",
+    "source": "ctrack02.trk"
+  },
+  {
+    "path": "game/original-resources/CTRACK03.TRK",
+    "bytes": 1802,
+    "sha256": "cbfe1bc56f746714aa9f1c1dec9d75ea022275750dcffcf11c3798e3efd549e5",
+    "source": "ctrack03.trk"
+  },
+  {
+    "path": "game/original-resources/CTRACK04.TRK",
+    "bytes": 1802,
+    "sha256": "3ff48cdf5f316982004a566e4c9431f7b6f858213832b0191234d7698c047050",
+    "source": "CTRACK04.TRK"
+  },
+  {
+    "path": "game/original-resources/CTRACK05.TRK",
+    "bytes": 1802,
+    "sha256": "b66437795d772cc2b44dffd762c472d0ac8d704e7b8bf719e7519fafc6c5d5ea",
+    "source": "CTRACK05.TRK"
+  },
+  {
+    "path": "game/original-resources/CTRACK06.TRK",
+    "bytes": 1802,
+    "sha256": "b6a2cf6f7c6550b7c70488ffa8077acbc93c37e1b69d8c4598be5eb0ce6b2350",
+    "source": "CTRACK06.TRK"
+  },
+  {
+    "path": "game/original-resources/CTRACK07.TRK",
+    "bytes": 1802,
+    "sha256": "169221d52c63de79dc3f0cdab1d649a062f6156beea2341573273d3ae08825ba",
+    "source": "CTRACK07.TRK"
+  },
+  {
+    "path": "game/original-resources/CTRACK08.TRK",
+    "bytes": 1802,
+    "sha256": "0073d7d3a872dc45d63cd9bca832cf5cea8e419f8bf7def6dbd5a8cd02146932",
+    "source": "CTRACK08.TRK"
+  },
+  {
+    "path": "game/original-resources/CTRACK09.TRK",
+    "bytes": 1802,
+    "sha256": "2fd1f6b62b2d87aab4f62e2f134e6bfdf617359d289077ae427929475e527d97",
+    "source": "KING.TRK"
+  },
+  {
+    "path": "game/original-resources/CTRACK10.TRK",
+    "bytes": 1802,
+    "sha256": "8d736f47a612dbbc1a82d8cd70c7073c8ff9e092b645c29b0c9faf24f7dd129d",
+    "source": "CTRACK10.TRK"
+  },
+  {
+    "path": "game/original-resources/CTRACK11.TRK",
+    "bytes": 1802,
+    "sha256": "4496c7ab518d2bf5cfe9133f7160d3ad4e92d02150add7e8fc04c5d7a849e928",
+    "source": "CTRACK11.TRK"
+  },
+  {
+    "path": "game/original-resources/DEFAULT.RPL",
+    "bytes": 4183,
+    "sha256": "3a132c6b8d6b63795f45418da6cc1e34cbbe246a81a228255bf8393dfc8fcf08",
+    "source": "DEFAULT.RPL"
+  },
+  {
+    "path": "game/original-resources/DEFAULT.TRK",
+    "bytes": 1802,
+    "sha256": "4111e30379c39020d10f30eef15b7e46aca87a7716e499cde2e89c7c545388fd",
+    "source": "DEFAULT.TRK"
+  },
+  {
+    "path": "game/original-resources/DESERT.PVS",
+    "bytes": 5561,
+    "sha256": "10be89e39069512fb5f7574e1069fa53ed7e3e01012127297ebdd46779a0bb7c",
+    "source": "DESERT.PVS"
+  },
+  {
+    "path": "game/original-resources/EVRYJUMP.TRK",
+    "bytes": 1802,
+    "sha256": "3c42e8477ff2125caf32a1fcd67f3d6328d42b7a7e60d054823d50665592d197",
+    "source": "EVRYJUMP.TRK"
+  },
+  {
+    "path": "game/original-resources/EXERCISE.TRK",
+    "bytes": 1802,
+    "sha256": "c072f7fdf39c42c4251d324ad3efde806c883298c7e79a524c513fe76a664ca0",
+    "source": "EXERCISE.TRK"
+  },
+  {
+    "path": "game/original-resources/FAST.TRK",
+    "bytes": 1802,
+    "sha256": "5e03089530051995bb3b3f84b5458efb36a8d9e957b985a5675f13df0ebe066d",
+    "source": "FAST.TRK"
+  },
+  {
+    "path": "game/original-resources/FAST2.TRK",
+    "bytes": 1802,
+    "sha256": "ed8507fef06534a9b9dc61950a16fdca6bb87ce73ead407da922854849e98691",
+    "source": "FAST2.TRK"
+  },
+  {
+    "path": "game/original-resources/FLAUTE1.RPL",
+    "bytes": 2996,
+    "sha256": "6e043773c95fe8b920416d66c22009e84a7eafca4bc51e6356d1bb53e00d8cc2",
+    "source": "CTKFIN.RPL"
+  },
+  {
+    "path": "game/original-resources/FONTDEF.FNT",
+    "bytes": 1837,
+    "sha256": "e23751b411c0914cbb52ac1fe3bc32811502ef8267b3f85c9d276299a542c811",
+    "source": "FONTDEF.FNT"
+  },
+  {
+    "path": "game/original-resources/FONTLED.FNT",
+    "bytes": 670,
+    "sha256": "9e6b9fec9644c42b3859a39847032ff1dc0e7503e7d678d0a4b78b887846dcd6",
+    "source": "FONTLED.FNT"
+  },
+  {
+    "path": "game/original-resources/FONTN.FNT",
+    "bytes": 1443,
+    "sha256": "1474388e2c8f7b42a328afab8f77e663c4040e816de8870c5e2c01dad2592f60",
+    "source": "FONTN.FNT"
+  },
+  {
+    "path": "game/original-resources/FUNHILLS.TRK",
+    "bytes": 1802,
+    "sha256": "73cc53d49e688f631e1ca1de8f9ead3307d3ce1bb06834fa88ecdd7f3446ad69",
+    "source": "FUNHILLS.TRK"
+  },
+  {
+    "path": "game/original-resources/FUNISLES.TRK",
+    "bytes": 1802,
+    "sha256": "ac0437fce02ab866855708bbfcb766dc8410d923b6c378c865bb27aba1b059e7",
+    "source": "FUNISLES.TRK"
+  },
+  {
+    "path": "game/original-resources/GAME.PRE",
+    "bytes": 15433,
+    "sha256": "79814f1a0091b236553095e3e6d0262fbc55e03b321cb9858e7f3877dc05bed2",
+    "source": "GAME.PRE"
+  },
+  {
+    "path": "game/original-resources/GAME1.P3S",
+    "bytes": 17556,
+    "sha256": "5cec619a4c5fd032c26ef32696e54c710c16daeda057c84cc463d4ec2a53df73",
+    "source": "GAME1.P3S"
+  },
+  {
+    "path": "game/original-resources/GAME2.P3S",
+    "bytes": 21852,
+    "sha256": "3089a20554403ff6b34dd291ca3ed08064e333e12a9f49c506ef2498667b848f",
+    "source": "GAME2.P3S"
+  },
+  {
+    "path": "game/original-resources/GEENG.SFX",
+    "bytes": 2074,
+    "sha256": "3a8b263a1643f4dcd5879c0f3deb149f796f1ce44c821280814ea39f4858da2e",
+    "source": "GEENG.SFX"
+  },
+  {
+    "path": "game/original-resources/HEAVY.TRK",
+    "bytes": 1802,
+    "sha256": "44fbdea66aab452830fb81907ed39ad7287b1ff47d7fd8ffa2804b40717590d9",
+    "source": "HEAVY.TRK"
+  },
+  {
+    "path": "game/original-resources/HEIZ!.TRK",
+    "bytes": 1802,
+    "sha256": "9708da6eb3cc4876fde13eadb7f1c5ef983a7374af6945f07d68687c7b3944e4",
+    "source": "HEIZ!.TRK"
+  },
+  {
+    "path": "game/original-resources/HEIZ2!.TRK",
+    "bytes": 1802,
+    "sha256": "b8d9dd308b3d641b02c9323748c1e3725ceb1340a784ddfa9fd1ad28eaa3c5fc",
+    "source": "HEIZ2!.TRK"
+  },
+  {
+    "path": "game/original-resources/HEIZ3.TRK",
+    "bytes": 1802,
+    "sha256": "03ff6ecc69d5b6c089f5007e9a12a06d28a2e8d6530e51e7b10e655361e7bed0",
+    "source": "HEIZ3.TRK"
+  },
+  {
+    "path": "game/original-resources/HELL.TRK",
+    "bytes": 1802,
+    "sha256": "1d38f28348b23ed6d90562ab0428883cfc4557823645e885285329d000c1e5d1",
+    "source": "HELL.TRK"
+  },
+  {
+    "path": "game/original-resources/HELL2.TRK",
+    "bytes": 1802,
+    "sha256": "ebc662820572c87a0c1651f2b03e3f377405206d749a5c98eb8b6ac2a286f9d9",
+    "source": "HELL2.TRK"
+  },
+  {
+    "path": "game/original-resources/HELL3.TRK",
+    "bytes": 1802,
+    "sha256": "d54a34ad78c8031278ab7af36f63ada0c6dd8840a95a94d85ef7e96ff924bdd9",
+    "source": "HELL3.TRK"
+  },
+  {
+    "path": "game/original-resources/HELL4.TRK",
+    "bytes": 1802,
+    "sha256": "7a15866c9a62e863cf8ffcc613b211d43bae9e135db07878e885a7687c194672",
+    "source": "HELL4.TRK"
+  },
+  {
+    "path": "game/original-resources/HELL5.TRK",
+    "bytes": 1802,
+    "sha256": "27051d84eb2f0ee945880dd930e3755c923b10f221d95e38a1546fdd544594d3",
+    "source": "HELL5.TRK"
+  },
+  {
+    "path": "game/original-resources/HIRNRISS.TRK",
+    "bytes": 1802,
+    "sha256": "66b3781ef4507db1617605e9b7a2dc65a6743257f1e19181c97fb0f6b077df2c",
+    "source": "HIRNRISS.TRK"
+  },
+  {
+    "path": "game/original-resources/JTK.TRK",
+    "bytes": 1802,
+    "sha256": "f6bcc29d638557bf809179c6e8243ed3d0c7cf87223cecd953c18a74293f22d4",
+    "source": "JTK.TRK"
+  },
+  {
+    "path": "game/original-resources/JUMP&JOY.TRK",
+    "bytes": 1802,
+    "sha256": "b1600d09d3a79614638455a55930e645eabc4479c61a0048bec541c3d8f0f61b",
+    "source": "JUMP&JOY.TRK"
+  },
+  {
+    "path": "game/original-resources/JUMP.TRK",
+    "bytes": 1802,
+    "sha256": "d3ab1c6ac7bbfe79b03c7e7ef67bd1c594278c98d9df68c1c112ecc00631c3b8",
+    "source": "JUMP.TRK"
+  },
+  {
+    "path": "game/original-resources/KING.TRK",
+    "bytes": 1802,
+    "sha256": "2fd1f6b62b2d87aab4f62e2f134e6bfdf617359d289077ae427929475e527d97",
+    "source": "KING.TRK"
+  },
+  {
+    "path": "game/original-resources/MAIN.RES",
+    "bytes": 1164,
+    "sha256": "f0b3eb33a36d3634279cd12c314100aceae3442b7e3bdd8d3cdbce1ebe486799",
+    "source": "MAIN.RES"
+  },
+  {
+    "path": "game/original-resources/MEGAJUMP.TRK",
+    "bytes": 1802,
+    "sha256": "514491b1b8b562cc19b1256fabac6c40f9798ff08b89ae32ef22d0bad7c30ef7",
+    "source": "MEGAJUMP.TRK"
+  },
+  {
+    "path": "game/original-resources/MISC.PRE",
+    "bytes": 2597,
+    "sha256": "73c2cb26d6cb7b3036cad977b9bc2ba95a9a2b5ed8115a2d2b5ccc88980b7a39",
+    "source": "MISC.PRE"
+  },
+  {
+    "path": "game/original-resources/MONSTER.TRK",
+    "bytes": 1802,
+    "sha256": "c01b6488dbd03e8aafac329dcddfb97431974f545f99acf09068fb3ef21f7b03",
+    "source": "MONSTER.TRK"
+  },
+  {
+    "path": "game/original-resources/MT15.DRV",
+    "bytes": 1667,
+    "sha256": "d07ebbc3a9f24ee6a76123165b6ea667b0b6ed9ff197f6f138ce09a0f39fb9ed",
+    "source": "MT15.DRV"
+  },
+  {
+    "path": "game/original-resources/MT32.PLB",
+    "bytes": 1271,
+    "sha256": "214d755560a2cfd9484af01af59f2b5d66def5a4aca2746c306bb982ca2b8968",
+    "source": "MT32.PLB"
+  },
+  {
+    "path": "game/original-resources/MTENG1.VCE",
+    "bytes": 976,
+    "sha256": "9154e632f4529be60c674af9a0cd421a1e2f162011d5efa70fa2776b6b317567",
+    "source": "MTENG1.VCE"
+  },
+  {
+    "path": "game/original-resources/MTSKIDMS.VCE",
+    "bytes": 1184,
+    "sha256": "16ea0a59dd6295a0c221d36d522babda048ca8f8cfda562b9e68eeceb12a295c",
+    "source": "MTSKIDMS.VCE"
+  },
+  {
+    "path": "game/original-resources/OPP1.PRE",
+    "bytes": 1254,
+    "sha256": "93999e7124093e1dab0d26e0f92b9d3b6f05e5ec993d1c1e67794b81b0b61590",
+    "source": "OPP1.PRE"
+  },
+  {
+    "path": "game/original-resources/OPP1LOSE.PVS",
+    "bytes": 10733,
+    "sha256": "fb51ce1a70d43e7b37338196c846efb9d912df19340360613290c28e7287e872",
+    "source": "OPP1LOSE.PVS"
+  },
+  {
+    "path": "game/original-resources/OPP1WIN.PVS",
+    "bytes": 10143,
+    "sha256": "bc0cdd93f72919e5e0eaddd4ce85c478cabb003cecdb0af9e6d96a4b5891cdbb",
+    "source": "OPP1WIN.PVS"
+  },
+  {
+    "path": "game/original-resources/OPP2.PRE",
+    "bytes": 1320,
+    "sha256": "81046a0fc962278e2d7b948f5a908441e852d6fbd8e2f214e10ff5f9c27a3c06",
+    "source": "OPP2.PRE"
+  },
+  {
+    "path": "game/original-resources/OPP2LOSE.PVS",
+    "bytes": 18883,
+    "sha256": "52bcb2d70ef7d584498055ef622f6672c20e6e3cd6186bf2156a0847e9f51ffb",
+    "source": "OPP2LOSE.PVS"
+  },
+  {
+    "path": "game/original-resources/OPP2WIN.PVS",
+    "bytes": 20830,
+    "sha256": "aa81afc7b0bb1a8090f4f5a740719266a714a894ae11af35569c55de82fb5675",
+    "source": "OPP2WIN.PVS"
+  },
+  {
+    "path": "game/original-resources/OPP3.PRE",
+    "bytes": 995,
+    "sha256": "12df38100c11b4e2b86009e83ccb7497eba991522d7b25eb9f7486b018842778",
+    "source": "OPP3.PRE"
+  },
+  {
+    "path": "game/original-resources/OPP3LOSE.PVS",
+    "bytes": 11578,
+    "sha256": "bed7a07c1af6da7b0b8adb44550fb134bcef4c9be163d9f19a606033f7e5698f",
+    "source": "OPP3LOSE.PVS"
+  },
+  {
+    "path": "game/original-resources/OPP3WIN.PVS",
+    "bytes": 21125,
+    "sha256": "fae077d108455d63ad2df102a9dcb017679f2823bdb7b2d7a63c4298c19d0e35",
+    "source": "OPP3WIN.PVS"
+  },
+  {
+    "path": "game/original-resources/OPP4.PRE",
+    "bytes": 1372,
+    "sha256": "a6208509cd07824c0aabb9bacb376ffdc9631c0b9c31748f68c3e58caf565ef4",
+    "source": "OPP4.PRE"
+  },
+  {
+    "path": "game/original-resources/OPP4LOSE.PVS",
+    "bytes": 26093,
+    "sha256": "763754a4f49ad49b231ab310a84d2917d5b76ae93051aebef1e9c4dfcea8e4c3",
+    "source": "OPP4LOSE.PVS"
+  },
+  {
+    "path": "game/original-resources/OPP4WIN.PVS",
+    "bytes": 25855,
+    "sha256": "59680ff08501cfbfa36f618948db87f793147ac948b5b27c632f3d70bac12a0e",
+    "source": "OPP4WIN.PVS"
+  },
+  {
+    "path": "game/original-resources/OPP5.PRE",
+    "bytes": 1256,
+    "sha256": "ccb12f9b3c1ac4d255c0ae15993711296fecad675085e00fd2424daa419f5103",
+    "source": "OPP5.PRE"
+  },
+  {
+    "path": "game/original-resources/OPP5LOSE.PVS",
+    "bytes": 22016,
+    "sha256": "0c246410b9f65ae29f344f0354c59c337b37650d4f33bdf62128359bae57baa1",
+    "source": "OPP5LOSE.PVS"
+  },
+  {
+    "path": "game/original-resources/OPP5WIN.PVS",
+    "bytes": 33740,
+    "sha256": "15b2babda5efe8cd576800d8944d099e993f2a680dc79416c09c42b2a72c9078",
+    "source": "OPP5WIN.PVS"
+  },
+  {
+    "path": "game/original-resources/OPP6.PRE",
+    "bytes": 1294,
+    "sha256": "d87eb6b75c234d26f776174ee4b3fc8c5f93fb9c1f1a06f9a31e28057ee4e648",
+    "source": "OPP6.PRE"
+  },
+  {
+    "path": "game/original-resources/OPP6LOSE.PVS",
+    "bytes": 28687,
+    "sha256": "65827c18afb439af2178d00240f453410bc750018742f311de6cd9b94597d020",
+    "source": "OPP6LOSE.PVS"
+  },
+  {
+    "path": "game/original-resources/OPP6WIN.PVS",
+    "bytes": 24653,
+    "sha256": "1234dfaafeefae1410b0d7f4c35b1fe472535a05cb0be7222ad9329fc989e2a2",
+    "source": "OPP6WIN.PVS"
+  },
+  {
+    "path": "game/original-resources/PC15.DRV",
+    "bytes": 2190,
+    "sha256": "62a0c2f5b138cd0a2fc80949ea7c1773dd313a7398c44588d5036b97138b4185",
+    "source": "PC15.DRV"
+  },
+  {
+    "path": "game/original-resources/PCENG1.VCE",
+    "bytes": 1088,
+    "sha256": "1771c6959011bc20bd2acf78be08a4ff795510b13c74696e006e381825f44ab1",
+    "source": "PCENG1.VCE"
+  },
+  {
+    "path": "game/original-resources/PCSKIDMS.VCE",
+    "bytes": 1232,
+    "sha256": "5030e94cddcbf76d0b0750fa7fb656d3f7bf15819a8d7f161991ff57d1362b06",
+    "source": "PCSKIDMS.VCE"
+  },
+  {
+    "path": "game/original-resources/SCHPASS.TRK",
+    "bytes": 1802,
+    "sha256": "14c669776a6097457b9ebf183fb54440e4ae562ad49576299eb9bfb11dfb5ff9",
+    "source": "SCHPASS.TRK"
+  },
+  {
+    "path": "game/original-resources/SDCRED.PES",
+    "bytes": 3608,
+    "sha256": "62fd4dfa4f4e6f30905a08af52eba1eaff3bc079ca5a4de17d7367457321b506",
+    "source": "SDCRED.PES"
+  },
+  {
+    "path": "game/original-resources/SDCSEL.PVS",
+    "bytes": 12362,
+    "sha256": "ffefac20280034739c875b57c383d06e49c7b2d03340323d90594912d5f3b8ac",
+    "source": "SDCSEL.PVS"
+  },
+  {
+    "path": "game/original-resources/SDGAME.PVS",
+    "bytes": 12286,
+    "sha256": "77ccbb605166439ab30d59028b466f626e38c0c26322a2c31c15d8a5c2b95da0",
+    "source": "SDGAME.PVS"
+  },
+  {
+    "path": "game/original-resources/SDGAME2.PVS",
+    "bytes": 1252,
+    "sha256": "363728c09a46ef4d8d0e4375af5fbff4274a469487efe86177793cee4c419a32",
+    "source": "SDGAME2.PVS"
+  },
+  {
+    "path": "game/original-resources/SDMAIN.PVS",
+    "bytes": 1176,
+    "sha256": "a33b54cff282fed2d68134fcf334f4e44917f906a6556013e0f6c6dd546cdd3b",
+    "source": "SDMAIN.PVS"
+  },
+  {
+    "path": "game/original-resources/SDMSEL.PVS",
+    "bytes": 15577,
+    "sha256": "fa238c39546d755a0954aac27668cae2024b17c8da513cf509912b8080251e8d",
+    "source": "SDMSEL.PVS"
+  },
+  {
+    "path": "game/original-resources/SDOSEL.PVS",
+    "bytes": 39363,
+    "sha256": "43dc5b1ef38b2d345ce0674c5e1d8b13f8961024fdb5ef510d2ed945c2c2ba7d",
+    "source": "SDOSEL.PVS"
+  },
+  {
+    "path": "game/original-resources/SDTEDIT.PES",
+    "bytes": 16076,
+    "sha256": "1fd465adc42719645022b1afd68f2f64e85378dd38ff41f408c3d55173b56330",
+    "source": "SDTEDIT.PES"
+  },
+  {
+    "path": "game/original-resources/SDTITL.PVS",
+    "bytes": 11231,
+    "sha256": "89c40a7b7f0fd414619053725763beeb93d3c517628a9c0a250feb2269c2636d",
+    "source": "SDTITL.PVS"
+  },
+  {
+    "path": "game/original-resources/SKIDOVER.KMS",
+    "bytes": 4303,
+    "sha256": "206903922664eaf9cb7d53b11dd5efd782c3c3e0d065ea99dd872e5410fe0f98",
+    "source": "SKIDOVER.KMS"
+  },
+  {
+    "path": "game/original-resources/SKIDSLCT.KMS",
+    "bytes": 8612,
+    "sha256": "eef1c083d32d0c2e068d937164fca2d3aac078b31621d30e43ad74d742cfe630",
+    "source": "SKIDSLCT.KMS"
+  },
+  {
+    "path": "game/original-resources/SKIDTITL.KMS",
+    "bytes": 2590,
+    "sha256": "72042e590bb41ba9f097c76b19aefe80138328d2fd274539abcf0c738da4ca5d",
+    "source": "SKIDTITL.KMS"
+  },
+  {
+    "path": "game/original-resources/SKIDVICT.KMS",
+    "bytes": 4221,
+    "sha256": "20cd9d6402d4936d0cddf74f95460d32330e49f5229f5af2bf49a9ecc902b80a",
+    "source": "SKIDVICT.KMS"
+  },
+  {
+    "path": "game/original-resources/STANSX.P3S",
+    "bytes": 5140,
+    "sha256": "cceeb64db104076739fa440614d6e49b579d65a3b961ae7a64bc31eabfc75c5b",
+    "source": "STANSX.P3S"
+  },
+  {
+    "path": "game/original-resources/STAUDI.P3S",
+    "bytes": 7026,
+    "sha256": "f1befd53b5a99a36c7de6f7478d02d550e496235c35bf32f1b4f6dfbc649cdc1",
+    "source": "STAUDI.P3S"
+  },
+  {
+    "path": "game/original-resources/STCOUN.P3S",
+    "bytes": 5338,
+    "sha256": "32a5ed896367173125d0adbc01745819d9bdfb331b79aa5aac9eef94b2e9d8f6",
+    "source": "STCOUN.P3S"
+  },
+  {
+    "path": "game/original-resources/STDAANSX.PVS",
+    "bytes": 14776,
+    "sha256": "9a0e8e91ad6ffed3b6f7e225dd6b4e7b31eaca6bf0aa35c4c64009d5c9cb35a8",
+    "source": "STDAANSX.PVS"
+  },
+  {
+    "path": "game/original-resources/STDAAUDI.PVS",
+    "bytes": 15167,
+    "sha256": "d75610884ef4f0aaff9e53362ed9ba4d913c8f699a9f8299e71954f3b3d41377",
+    "source": "STDAAUDI.PVS"
+  },
+  {
+    "path": "game/original-resources/STDACOUN.PVS",
+    "bytes": 12896,
+    "sha256": "1bebc0b9831acad8c6b5f2f8372993d4eacd759e9d4358f6235f97d27851e48b",
+    "source": "STDACOUN.PVS"
+  },
+  {
+    "path": "game/original-resources/STDAFGTO.PVS",
+    "bytes": 15364,
+    "sha256": "cf208925803939e99f75456cbbf511d21b2b15cec397d6b535c9c997948c0126",
+    "source": "STDAFGTO.PVS"
+  },
+  {
+    "path": "game/original-resources/STDAJAGU.PVS",
+    "bytes": 16200,
+    "sha256": "bdaa07647d77f87d2e289ae1a61a7f0e6149f49944431a54fc172e07bbf0a5c9",
+    "source": "STDAJAGU.PVS"
+  },
+  {
+    "path": "game/original-resources/STDALANC.PVS",
+    "bytes": 19460,
+    "sha256": "47b9768caaa4cc88c67ff79e847dd0bc2c3fccd21c61d34a1aecb71b1b585061",
+    "source": "STDALANC.PVS"
+  },
+  {
+    "path": "game/original-resources/STDALM02.PVS",
+    "bytes": 17252,
+    "sha256": "2b0c1a141bbfc2d237a7ad6f555fd10888275df3063d69430b7dd91d7658798e",
+    "source": "STDALM02.PVS"
+  },
+  {
+    "path": "game/original-resources/STDAP962.PVS",
+    "bytes": 13659,
+    "sha256": "a17178accd8c46bdfbba9b81908f554db4821fa59afa6f2a0c329b22ce331d35",
+    "source": "STDAP962.PVS"
+  },
+  {
+    "path": "game/original-resources/STDAPC04.PVS",
+    "bytes": 15727,
+    "sha256": "06b5f575323e608e03093dda4c0e7560b3c26f09e40198f0e9c488d7f05fbc36",
+    "source": "STDAPC04.PVS"
+  },
+  {
+    "path": "game/original-resources/STDAPMIN.PVS",
+    "bytes": 11069,
+    "sha256": "2ae22dd37858a33dab37e38a232a3de20a6d77f9a6826a575a9196d904c1522a",
+    "source": "STDAPMIN.PVS"
+  },
+  {
+    "path": "game/original-resources/STDAVETT.PVS",
+    "bytes": 15240,
+    "sha256": "3c4c2408ae481bf21332cce8716ca0af14d5bf31761a5902595490b26cb989a1",
+    "source": "STDAVETT.PVS"
+  },
+  {
+    "path": "game/original-resources/STDBANSX.PVS",
+    "bytes": 772,
+    "sha256": "4abe8479da6d55260ade384c777141af98b1cee642468ca19fcf6804b21de449",
+    "source": "STDBANSX.PVS"
+  },
+  {
+    "path": "game/original-resources/STDBAUDI.PVS",
+    "bytes": 841,
+    "sha256": "42c7253ae45c97612958c2d87c777e66c44dff6e9b97e2b9c8d2d73774386011",
+    "source": "STDBAUDI.PVS"
+  },
+  {
+    "path": "game/original-resources/STDBCOUN.PVS",
+    "bytes": 951,
+    "sha256": "a6ff453d39265017034da029c70692fd813c307f31a148761d5b6d64e2846324",
+    "source": "STDBCOUN.PVS"
+  },
+  {
+    "path": "game/original-resources/STDBFGTO.PVS",
+    "bytes": 955,
+    "sha256": "e229810bf3bcf7dafb5c37c4c45bf9a532366aa15e3951c1f470a61bc9151ff7",
+    "source": "STDBFGTO.PVS"
+  },
+  {
+    "path": "game/original-resources/STDBJAGU.PVS",
+    "bytes": 743,
+    "sha256": "23cb86d6cf8970adde57c1a35a0c67400313bff42c308f5c3d4d1da6156fe44e",
+    "source": "STDBJAGU.PVS"
+  },
+  {
+    "path": "game/original-resources/STDBLANC.PVS",
+    "bytes": 1069,
+    "sha256": "9275ba85ebaae29ff1070941ca133a795c17c0bc288a6ba305424f2b0a627a50",
+    "source": "STDBLANC.PVS"
+  },
+  {
+    "path": "game/original-resources/STDBLM02.PVS",
+    "bytes": 912,
+    "sha256": "35612c48d1261726796d9ee8d313a64b870c320a010ffa32996e6f7cfbc5a03e",
+    "source": "STDBLM02.PVS"
+  },
+  {
+    "path": "game/original-resources/STDBP962.PVS",
+    "bytes": 720,
+    "sha256": "747287acfcb12be1910783a8002d940b9edfef968c220de41d3a65e6a8894c6a",
+    "source": "STDBP962.PVS"
+  },
+  {
+    "path": "game/original-resources/STDBPC04.PVS",
+    "bytes": 933,
+    "sha256": "3129d123e04fd6c0cb25591bd5fa80ea3edf988d24e72fe4d988bf730b670180",
+    "source": "STDBPC04.PVS"
+  },
+  {
+    "path": "game/original-resources/STDBPMIN.PVS",
+    "bytes": 796,
+    "sha256": "3d5632d190a9251baa268a00cf2154865e44808b90167c904aadbd1ca7a32687",
+    "source": "STDBPMIN.PVS"
+  },
+  {
+    "path": "game/original-resources/STDBVETT.PVS",
+    "bytes": 1097,
+    "sha256": "11cf1f3a19b3457e19e2f8ba774ef885ec7bb71c4e66abe97cf9fc1e043e7ebe",
+    "source": "STDBVETT.PVS"
+  },
+  {
+    "path": "game/original-resources/STFGTO.P3S",
+    "bytes": 4183,
+    "sha256": "74c9a13aa2e2898b2f9f93ff4f828ec952593ccf5782ab163580c8f4168b516c",
+    "source": "STFGTO.P3S"
+  },
+  {
+    "path": "game/original-resources/STJAGU.P3S",
+    "bytes": 5544,
+    "sha256": "694ef4f7d651b1c90498766531fe81949e9bdc9f1deef0309f18db9560c690c3",
+    "source": "STJAGU.P3S"
+  },
+  {
+    "path": "game/original-resources/STLANC.P3S",
+    "bytes": 4004,
+    "sha256": "2b04b188e7af144d84a42d2d581936fc08e08421f0679971ddb6a6988fe66f37",
+    "source": "STLANC.P3S"
+  },
+  {
+    "path": "game/original-resources/STLM02.P3S",
+    "bytes": 5853,
+    "sha256": "7c1b6cee531390be1fcbbcaf19b805b707fa5b0a9db4365bcf950c619ae2c124",
+    "source": "STLM02.P3S"
+  },
+  {
+    "path": "game/original-resources/STP962.P3S",
+    "bytes": 5838,
+    "sha256": "5a4ce4afafb8d5aaf1742e2bd7b15c54ae28d37b2af5ed7c12d1af934aad5940",
+    "source": "STP962.P3S"
+  },
+  {
+    "path": "game/original-resources/STPC04.P3S",
+    "bytes": 4097,
+    "sha256": "fcfb213b7b4d1855ada36500246d5bd2e662939b257e4d12eab6518d65402c3a",
+    "source": "STPC04.P3S"
+  },
+  {
+    "path": "game/original-resources/STPMIN.P3S",
+    "bytes": 2697,
+    "sha256": "39133a9963a2646cde87d28e12b5771e3977c5e19884132a8948ffcba241269c",
+    "source": "STPMIN.P3S"
+  },
+  {
+    "path": "game/original-resources/STVETT.P3S",
+    "bytes": 6283,
+    "sha256": "e8d35eac0d4fa1f9497b7956f1f6eb8e09dfe90012519e9e1833ad0a9d11064e",
+    "source": "STVETT.P3S"
+  },
+  {
+    "path": "game/original-resources/TD15.DRV",
+    "bytes": 2993,
+    "sha256": "38c79e87a697f6cfa89169c64fb4a4dde742abdb39fc0589f9dd843a0e4b3de9",
+    "source": "TD15.DRV"
+  },
+  {
+    "path": "game/original-resources/TDENG1.VCE",
+    "bytes": 912,
+    "sha256": "6086e58bd402e97d64fb851d7e17c5f25828ff3cdb242961e8c156ab6536e778",
+    "source": "TDENG1.VCE"
+  },
+  {
+    "path": "game/original-resources/TDSKIDMS.VCE",
+    "bytes": 2528,
+    "sha256": "1e9098699fe2a8bdd285ce0951b7b8ee6b85e9d48cf483cd08a09d7fe4106187",
+    "source": "TDSKIDMS.VCE"
+  },
+  {
+    "path": "game/original-resources/TEDIT.PRE",
+    "bytes": 5026,
+    "sha256": "98317a557a812e36aa4c77c059a0885e0ef7de075a2c11e1a8f4a17e19c7f90e",
+    "source": "TEDIT.PRE"
+  },
+  {
+    "path": "game/original-resources/THE_EDGE.TRK",
+    "bytes": 1802,
+    "sha256": "a3c21745ccd30a03797061fdb7ded9bb2d4ee8c45563aae3fe1bd3d0e77e5bba",
+    "source": "THE_EDGE.TRK"
+  },
+  {
+    "path": "game/original-resources/TITLE.P3S",
+    "bytes": 2703,
+    "sha256": "9620ffbb27e5e30ba22855be56ace08fdb31df7b9d0a5d948d7bdf06b5a75c02",
+    "source": "TITLE.P3S"
+  },
+  {
+    "path": "game/original-resources/TROPICAL.PVS",
+    "bytes": 5467,
+    "sha256": "0a96c09128ed94eb148c47988f3b719e065330835372a936a68c08555d757f58",
+    "source": "TROPICAL.PVS"
+  },
+  {
+    "path": "game/original-resources/TRY_IT.TRK",
+    "bytes": 1802,
+    "sha256": "158664ac0008e858e861e98eda75c760df1a50254176c1f403fc0fa99d68375d",
+    "source": "TRY_IT.TRK"
+  },
+  {
+    "path": "game/original-resources/WHAT_THE.TRK",
+    "bytes": 1802,
+    "sha256": "edc70814115589a5bc638b1a79c0bebb750e1af34ff3ad0667f0758fe5d1ca33",
+    "source": "WHAT_THE.TRK"
+  },
+  {
+    "path": "game/replays/CTKFIN.RPL",
+    "bytes": 2996,
+    "sha256": "6e043773c95fe8b920416d66c22009e84a7eafca4bc51e6356d1bb53e00d8cc2",
+    "source": "CTKFIN.RPL"
+  },
+  {
+    "path": "game/replays/DEFAULT.RPL",
+    "bytes": 4183,
+    "sha256": "3a132c6b8d6b63795f45418da6cc1e34cbbe246a81a228255bf8393dfc8fcf08",
+    "source": "DEFAULT.RPL"
+  },
+  {
+    "path": "game/replays/Flaute1.RPL",
+    "bytes": 2996,
+    "sha256": "6e043773c95fe8b920416d66c22009e84a7eafca4bc51e6356d1bb53e00d8cc2",
+    "source": "CTKFIN.RPL"
+  },
+  {
+    "path": "game/sdgame.pvs",
+    "bytes": 12286,
+    "sha256": "77ccbb605166439ab30d59028b466f626e38c0c26322a2c31c15d8a5c2b95da0",
+    "source": "SDGAME.PVS"
+  },
+  {
+    "path": "game/setup-media/-START-.BAT",
+    "bytes": 6,
+    "sha256": "1fa7a0f8deb27ead8ce985490fdd72fa4eeb70d92600e56c26ca01c8a31f7f52",
+    "source": "-START-.BAT"
+  },
+  {
+    "path": "game/setup-media/AD15.DRV",
+    "bytes": 3285,
+    "sha256": "7f3004efdb757c9af7b07f876ce6ff4a096d36ab9e2d660aba28f27355557dca",
+    "source": "AD15.DRV"
+  },
+  {
+    "path": "game/setup-media/CGA.COD",
+    "bytes": 78885,
+    "sha256": "4b56bb8aeb7fc3168be3894959d64c6bb11ac1506770ddc98a9eb2f95b2b26ad",
+    "source": "CGA.COD"
+  },
+  {
+    "path": "game/setup-media/CGA.DIF",
+    "bytes": 16620,
+    "sha256": "bdac94e72970594cabd20b1b3bfbd71622ef19c545929d8d985eb3943ec29fb5",
+    "source": "CGA.DIF"
+  },
+  {
+    "path": "game/setup-media/CGA.HDR",
+    "bytes": 30,
+    "sha256": "8c8a3c20fadfe7321dd6e3040932c03e5cc9792b187f6d65249ab3acff04e86c",
+    "source": "CGA.HDR"
+  },
+  {
+    "path": "game/setup-media/CLEANER.HIG",
+    "bytes": 364,
+    "sha256": "f1d677d3808f356a59fb78aeb136ad1a8fea71aae29920c11a3a78fa355683b5",
+    "source": "CLEANER.HIG"
+  },
+  {
+    "path": "game/setup-media/CTK2003A.HIG",
+    "bytes": 364,
+    "sha256": "f5ad8841ab08c3d7d448b5fd1f086eb660455a9743c9a2069ac395be87309f4c",
+    "source": "CTK2003a.HIG"
+  },
+  {
+    "path": "game/setup-media/CTRACK01.HIG",
+    "bytes": 364,
+    "sha256": "cff65f1ecbd2ee8198e004181f23e0d12177d75834fbb5ece48ce37c20932418",
+    "source": "ctrack01.hig"
+  },
+  {
+    "path": "game/setup-media/CTRACK02.HIG",
+    "bytes": 364,
+    "sha256": "be5f24e6dc9f8859d3e35440aef61dec0107174caa087f1658b1e17a28c75dda",
+    "source": "ctrack02.hig"
+  },
+  {
+    "path": "game/setup-media/CTRACK03.HIG",
+    "bytes": 364,
+    "sha256": "689f5757623b070f6b2bbd6d113b9bd32e54fe5d74fe98a248743605370a3f46",
+    "source": "ctrack03.hig"
+  },
+  {
+    "path": "game/setup-media/CTRACK04.HIG",
+    "bytes": 364,
+    "sha256": "18f25ff3586126f9fee075484b66b55318a22a19351d6ee4d14f36f6cca935f0",
+    "source": "CTRACK04.HIG"
+  },
+  {
+    "path": "game/setup-media/CTRACK05.HIG",
+    "bytes": 364,
+    "sha256": "ece0ff77d440e3114ea963b1bf0a415c93c409cb2979ab0a26ec6f8b32455212",
+    "source": "CTRACK05.HIG"
+  },
+  {
+    "path": "game/setup-media/CTRACK06.HIG",
+    "bytes": 364,
+    "sha256": "14b7756e1b0b525ccd41dc89f3640b15e65249e670bb2d0425d5881b5ae89b20",
+    "source": "CTRACK06.HIG"
+  },
+  {
+    "path": "game/setup-media/CTRACK07.HIG",
+    "bytes": 364,
+    "sha256": "921ce9d3b8c9a57682e165a463d45fce62ff51a7b66dda0ebec170a237c7d1ce",
+    "source": "CTRACK07.HIG"
+  },
+  {
+    "path": "game/setup-media/CTRACK08.HIG",
+    "bytes": 364,
+    "sha256": "49b09a3ee0a5c965ac9fc96f169258e304a4c5029ea4d56b8ad40ad8e350f6f0",
+    "source": "CTRACK08.HIG"
+  },
+  {
+    "path": "game/setup-media/CTRACK09.HIG",
+    "bytes": 364,
+    "sha256": "6e555be5c7f9e66b3e2223b1d4c597d271bd343b8be0b6c6bda8582f0af8750b",
+    "source": "CTRACK09.HIG"
+  },
+  {
+    "path": "game/setup-media/CTRACK10.HIG",
+    "bytes": 364,
+    "sha256": "42676fc2c6a455d07066420fc7871d3a7eaa3884c9ce0cd90657866ad0c85087",
+    "source": "CTRACK10.HIG"
+  },
+  {
+    "path": "game/setup-media/CTRACK11.HIG",
+    "bytes": 364,
+    "sha256": "aed8bdad2a4ce38a8b8f9931dc7c568e291b54412225c6c513b9f28df3de8ff6",
+    "source": "CTRACK11.HIG"
+  },
+  {
+    "path": "game/setup-media/D.SAM",
+    "bytes": 364,
+    "sha256": "61678c7b0614e3891f95208aac06acfab13127bc1d3355fa97a75690bc716d3a",
+    "source": "JUMP&JOY.HIG"
+  },
+  {
+    "path": "game/setup-media/DEFAULT.HIG",
+    "bytes": 364,
+    "sha256": "988eb74ffa7635881036c62816c21f6f594652ccf49ac1071c83aaa8d5a20d1d",
+    "source": "DEFAULT.HIG"
+  },
+  {
+    "path": "game/setup-media/EGA.CMN",
+    "bytes": 101474,
+    "sha256": "a8e190922e6428d95d048a4550c6f7c1e3b33b156373795b68dd0f61617624d4",
+    "source": "EGA.CMN"
+  },
+  {
+    "path": "game/setup-media/EGA.COD",
+    "bytes": 90580,
+    "sha256": "cfd70c65aa84181329c1e1603acfa363e65ac1152166ad7814d0d4cce6e8b748",
+    "source": "EGA.COD"
+  },
+  {
+    "path": "game/setup-media/EGA.HDR",
+    "bytes": 30,
+    "sha256": "417b5d7840951ce6d442b9ab9163a78d2e14a65f542934b2856ff91a9c056d90",
+    "source": "EGA.HDR"
+  },
+  {
+    "path": "game/setup-media/EVRYJUMP.HIG",
+    "bytes": 364,
+    "sha256": "1df167d36ebd06128ad8ec40467b57b135f5421fa3bed8296449f0c43842cb55",
+    "source": "EVRYJUMP.HIG"
+  },
+  {
+    "path": "game/setup-media/EXERCISE.HIG",
+    "bytes": 364,
+    "sha256": "4c7cb84a86f6ab1c9ec6e8693299471f171d26ddda66024bf95612f54d0942ca",
+    "source": "EXERCISE.HIG"
+  },
+  {
+    "path": "game/setup-media/FAST.HIG",
+    "bytes": 364,
+    "sha256": "f31e612f208f8c0c48bb50c9b247d5b009d2f1ed748c162da72b9677ce49d5b9",
+    "source": "FAST.HIG"
+  },
+  {
+    "path": "game/setup-media/FAST2.HIG",
+    "bytes": 364,
+    "sha256": "e7b0822823c52e912cf50444d063cb6aeb67577846690c08e5f59b50a5a5e56d",
+    "source": "FAST2.HIG"
+  },
+  {
+    "path": "game/setup-media/FUNHILLS.HIG",
+    "bytes": 364,
+    "sha256": "61678c7b0614e3891f95208aac06acfab13127bc1d3355fa97a75690bc716d3a",
+    "source": "JUMP&JOY.HIG"
+  },
+  {
+    "path": "game/setup-media/FUNISLES.HIG",
+    "bytes": 364,
+    "sha256": "e389e9c91582b5fbfcbe50c7e0d5ac62ff1a2426fefa2f89311cd972f03f1961",
+    "source": "FUNISLES.HIG"
+  },
+  {
+    "path": "game/setup-media/HEAVY.HIG",
+    "bytes": 364,
+    "sha256": "a6d600f01a48c0079162fb0c0f95661450df02654980414c9d9fdaf3584b1144",
+    "source": "HEAVY.HIG"
+  },
+  {
+    "path": "game/setup-media/HEIZ!.HIG",
+    "bytes": 364,
+    "sha256": "653ac8f0ebdd9de5d9562841c6dd246bc8ff5af2534772bac44e7ccc70d50d02",
+    "source": "HEIZ!.HIG"
+  },
+  {
+    "path": "game/setup-media/HEIZ2!.HIG",
+    "bytes": 364,
+    "sha256": "220b183757bcc8935d43f6badc281feb4492e94566cebc16923d35367245883d",
+    "source": "HEIZ2!.HIG"
+  },
+  {
+    "path": "game/setup-media/HEIZ3.HIG",
+    "bytes": 364,
+    "sha256": "b3e0bdb6848a1def82c5a8f33e79e8f067c43e349604040e6f86c1b2018eb9df",
+    "source": "HEIZ3.HIG"
+  },
+  {
+    "path": "game/setup-media/HELL.HIG",
+    "bytes": 364,
+    "sha256": "ff79515e648dc574d45067a83b39de8ad27ef5ff2100fed5690cd96b2eca6c4f",
+    "source": "HELL.HIG"
+  },
+  {
+    "path": "game/setup-media/HELL2.HIG",
+    "bytes": 364,
+    "sha256": "1b6c098e4307603509a52fa8aa62ebb57674c9a22d05651f6dd0589e8e467d24",
+    "source": "HELL2.HIG"
+  },
+  {
+    "path": "game/setup-media/HELL3.HIG",
+    "bytes": 364,
+    "sha256": "26d4bc19bca130d1c9bcdf5adca11f1b8e71f29532c3c00b95d8d88f021f05c6",
+    "source": "HELL3.HIG"
+  },
+  {
+    "path": "game/setup-media/HELL4.HIG",
+    "bytes": 364,
+    "sha256": "512524c97c0f75ccffeee91394483085e1ef16ae0c545697f99a0c8d29022bb8",
+    "source": "HELL4.HIG"
+  },
+  {
+    "path": "game/setup-media/HELL5.HIG",
+    "bytes": 364,
+    "sha256": "d1095ffdac5b9a58341a85098bc75f02fd02a07d9b72cfdd9ef23b8cd8f6f93d",
+    "source": "HELL5.HIG"
+  },
+  {
+    "path": "game/setup-media/HIRNRISS.HIG",
+    "bytes": 364,
+    "sha256": "a6f332472283c2661722564ab982df7689de3658268d6ca77dbb8f18d01d5f07",
+    "source": "HIRNRISS.HIG"
+  },
+  {
+    "path": "game/setup-media/JTK.HIG",
+    "bytes": 364,
+    "sha256": "c8c9cd317488e38a4a747c943085eb6eb3ea430e79a7f610a039ef21f67fa444",
+    "source": "JTK.HIG"
+  },
+  {
+    "path": "game/setup-media/JUMP&JOY.HIG",
+    "bytes": 364,
+    "sha256": "61678c7b0614e3891f95208aac06acfab13127bc1d3355fa97a75690bc716d3a",
+    "source": "JUMP&JOY.HIG"
+  },
+  {
+    "path": "game/setup-media/JUMP.HIG",
+    "bytes": 364,
+    "sha256": "199f0c9f3392eba880fbdeaa089c79d4cc585a37af7f33e086e281188692ae3f",
+    "source": "JUMP.HIG"
+  },
+  {
+    "path": "game/setup-media/KING.HIG",
+    "bytes": 364,
+    "sha256": "1fc1930a68a3e27072228ce6b272aa85c7a53c12cdf7cad806b4830b47692f1c",
+    "source": "KING.HIG"
+  },
+  {
+    "path": "game/setup-media/LHARC.EXE",
+    "bytes": 33984,
+    "sha256": "6732b17a2ec3124b2e264faede477f27bd67d848fddc4309401734cfc3527984",
+    "source": "LHARC.EXE"
+  },
+  {
+    "path": "game/setup-media/LOAD.EXE",
+    "bytes": 21776,
+    "sha256": "bcd542f438d17811287ce17a715b27228ff62e9e1f5287a180873ceb9d985027",
+    "source": "LOAD.EXE"
+  },
+  {
+    "path": "game/setup-media/MCGA.COD",
+    "bytes": 70850,
+    "sha256": "2d29d6b7d054b8596205ab01a3520330fa3c2b53eacdffb0cccb116412d023ef",
+    "source": "MCGA.COD"
+  },
+  {
+    "path": "game/setup-media/MCGA.DIF",
+    "bytes": 16594,
+    "sha256": "003756313ae5651975686f09e5925bf9aca26f05e66183db36a2ced599c1d8e9",
+    "source": "MCGA.DIF"
+  },
+  {
+    "path": "game/setup-media/MCGA.HDR",
+    "bytes": 30,
+    "sha256": "270dfe5520198192d1f1c2689976426ef86141f8974369c11cf9599e9fce0360",
+    "source": "MCGA.HDR"
+  },
+  {
+    "path": "game/setup-media/MEGAJUMP.HIG",
+    "bytes": 364,
+    "sha256": "4788b2136b528798ac72a6b9592aba5c68ad8c6977f03789ba07a261765170ba",
+    "source": "MEGAJUMP.HIG"
+  },
+  {
+    "path": "game/setup-media/MONSTER.HIG",
+    "bytes": 364,
+    "sha256": "1c1c0bb92a5c6adb01c8f3c68dfec2c550cf4c6b2d11a2680302ca0c79fdec19",
+    "source": "MONSTER.HIG"
+  },
+  {
+    "path": "game/setup-media/SCHPASS.HIG",
+    "bytes": 364,
+    "sha256": "db5ecf0b0cbda66fec984b7af81b0e48b1c3ee8d4a7985858ec145ec549f6253",
+    "source": "SCHPASS.HIG"
+  },
+  {
+    "path": "game/setup-media/SETUP.EXE",
+    "bytes": 15072,
+    "sha256": "abd0de414c44a2563165f2560f1c2cbf9dfc2361378f38a4520e5f366392ab86",
+    "source": "SETUP.EXE"
+  },
+  {
+    "path": "game/setup-media/ST.COM",
+    "bytes": 208,
+    "sha256": "6217aa82089c22a9589154a5de8281c8068b0d083e0dd24ed008f09143b6c536",
+    "source": "ST.COM"
+  },
+  {
+    "path": "game/setup-media/STUNTS.COM",
+    "bytes": 1248,
+    "sha256": "e34fae0c90b954bbf1bff5da91bada9dc926dca239aef0d12c12aa077ba6f373",
+    "source": "STUNTS.COM"
+  },
+  {
+    "path": "game/setup-media/STUNTS.OVL",
+    "bytes": 768,
+    "sha256": "23d1857cdc4b98f84bad1bda4f8b3b57e6073d95bc3df7face1ba4107d13f743",
+    "source": "STUNTS.OVL"
+  },
+  {
+    "path": "game/setup-media/STUNTS_K.EXE",
+    "bytes": 5411,
+    "sha256": "54b224695deccf9e56c1544c423299767817e45073f60c1e5789ee2010bc5558",
+    "source": "stunts_k.exe"
+  },
+  {
+    "path": "game/setup-media/TDY.COD",
+    "bytes": 77028,
+    "sha256": "9532effe1e9ae578b5123e33cd7a19f2d89e11ba7bd4319ee3674fff4656f579",
+    "source": "TDY.COD"
+  },
+  {
+    "path": "game/setup-media/TDY.DIF",
+    "bytes": 16248,
+    "sha256": "4c751ff6da21f36621b3742f7a64b3c18a6780e05338738475f902d52b16a348",
+    "source": "TDY.DIF"
+  },
+  {
+    "path": "game/setup-media/TDY.HDR",
+    "bytes": 30,
+    "sha256": "bd3e4799e0f8df300bc346b1f630eaa73a08c68832ac390835633e6e22ae61c1",
+    "source": "TDY.HDR"
+  },
+  {
+    "path": "game/setup-media/THE_EDGE.HIG",
+    "bytes": 364,
+    "sha256": "834af9b38ede02a4112c41fce56d994c356b1eab3816f3b3579fcd49ce9c0c20",
+    "source": "THE_EDGE.HIG"
+  },
+  {
+    "path": "game/setup-media/TRY_IT.HIG",
+    "bytes": 364,
+    "sha256": "d601b0087fa70427b8d7a056df5a2cf29183420c95d7ae1bd677f76d2073b947",
+    "source": "TRY_IT.HIG"
+  },
+  {
+    "path": "game/setup-media/WHAT_THE.HIG",
+    "bytes": 364,
+    "sha256": "22ac9bad34626d8c68793869113362e355dad55bf20030a76bc82ef546a61113",
+    "source": "WHAT_THE.HIG"
+  },
+  {
+    "path": "game/sound-banks/ADENG1.VCE",
+    "bytes": 1152,
+    "sha256": "b60349d495ac9a604506a8904745ea125909410f8201cbe16af43b6b7da20e0c",
+    "source": "ADENG1.VCE"
+  },
+  {
+    "path": "game/sound-banks/ADSKIDMS.VCE",
+    "bytes": 3008,
+    "sha256": "dd45b2fd36780088d602984273d7ef5a382f73ca24e88bf0eb04151e492dffa6",
+    "source": "ADSKIDMS.VCE"
+  },
+  {
+    "path": "game/sound-banks/GEENG.SFX",
+    "bytes": 2074,
+    "sha256": "3a8b263a1643f4dcd5879c0f3deb149f796f1ce44c821280814ea39f4858da2e",
+    "source": "GEENG.SFX"
+  },
+  {
+    "path": "game/sound-banks/SKIDSLCT.KMS",
+    "bytes": 8612,
+    "sha256": "eef1c083d32d0c2e068d937164fca2d3aac078b31621d30e43ad74d742cfe630",
+    "source": "SKIDSLCT.KMS"
+  },
+  {
+    "path": "game/sound-banks/SKIDTITL.KMS",
+    "bytes": 2590,
+    "sha256": "72042e590bb41ba9f097c76b19aefe80138328d2fd274539abcf0c738da4ca5d",
+    "source": "SKIDTITL.KMS"
+  }
+]

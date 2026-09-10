@@ -29,25 +29,54 @@ The main reconstructed game runs TypeScript rather than executing the DOS game. 
 
 [Original resource checksums](docs/original-file-checksums.json) identify the reference resources. [Runtime checksums](docs/runtime-file-checksums.json) list the reference site's local asset set. Neither manifest contains the assets, nor grants permission to redistribute them.
 
-## Available tools
+## Prepare your local files
+
+Clone this repository, then enter its directory:
 
 ```sh
+git clone https://github.com/ACatWithEbola/playstunts.git
+cd playstunts
 npm ci
-npm test
-python3 tools/extract.py /path/to/your/stunts local-assets/extracted
-npm run assets:check
+python3 -m venv .venv
 ```
 
-The extractor decodes resource containers, shapes, car data and tracks into `local-assets/extracted`. It is a development tool, **not a complete game installer**. The checker reports missing/different files without downloading anything. Missing assets are expected in a clean clone.
+Activate the Python environment:
 
-After supplying the complete prepared runtime assets in `public/`, the application commands are:
+- macOS/Linux: `source .venv/bin/activate`
+- Windows PowerShell: `.venv\Scripts\Activate.ps1`
+
+Then install the tested image-encoding dependency and run the tools:
+
+```sh
+python -m pip install -r tools/requirements.txt
+python -m unittest discover -s tools -p "test_*.py"
+python tools/prepare_assets.py --original "/path/to/your/Stunts" --output local-assets/prepared
+```
+
+Replace the quoted path with your own extracted DOS game directory, not a ZIP file. The output directory must not already exist. To rerun, choose a new output directory; the tool deliberately refuses to overwrite existing files. It reads your originals and writes generated files separately. It does not download game data or ROMs.
+
+This currently prepares original-file copies, the car/track/shape catalog, cockpit PNGs, instrument panels, gauges, windshield animation data and complete car model banks. **This remains partial preparation.** Read `local-assets/prepared/preparation-report.json`; `complete: false` means the output is not a usable full runtime. Do not replace a working site's assets with this partial output.
+
+To compare your output with the reference file inventory:
+
+```sh
+python tools/check_assets.py --public-dir local-assets/prepared
+```
+
+Missing files and differences are reported with a nonzero exit code. The inventory includes historical/reference assets; it is not yet a minimal installation manifest. JSON formatting and filename case can also produce byte differences. A passing file check alone would not prove correct gameplay.
+
+### Not yet reproducible
+
+Startup-state generation, additional render/editor/audio catalogs, presentation assets and sound-runtime preparation are still incomplete. The missing steps cannot currently be replaced by copying the original DOS files. [Setup details](docs/SETUP.md) explain the known dependencies. This section will be replaced by verified end-to-end instructions once the generators are complete.
+
+After the **complete** runtime asset set exists in `public/`, use:
 
 ```sh
 npm run typecheck
 npm run dev -- --host 127.0.0.1 --port 3000
 ```
 
-Open http://localhost:3000. These commands do not obtain or generate the omitted assets.
+Open http://localhost:3000. These commands do not generate the omitted files. The complete clean-checkout procedure has not yet passed. Keep all local game data and ROMs out of Git.
 
 ## How it was made
 
