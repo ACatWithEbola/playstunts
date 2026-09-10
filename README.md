@@ -82,7 +82,8 @@ The file checker verifies the required runtime files and your installation's has
 - **A / Z**: shift up/down with manual gears; Space / Enter also work.
 - Escape: game menu. C or F1–F4: camera views.
 - Setup selects MCGA, EGA, CGA, Tandy or Hercules. Upgraded graphics uses full colour; switching back restores the selected original mode.
-- Import original **`.TRK`** files using **Tracks and save backups**. Supported track files are 1,802 bytes.
+- Import original **`.TRK`** files using **Tracks, replays and save backups**. Supported track files are 1,802 bytes.
+- Import original **`.RPL`** recordings with **Upload replay (.RPL)** beside the track upload. Upload before starting the game, then load the file from the in-game replay menu. Names must use 1–8 letters, numbers, underscores or hyphens. Existing files are kept. Recordings must use the supported original format and contain 1–12,000 frames.
 - Saves are browser-local and tied to the hostname/port. Export a backup before changing browser or address. A Git checkout does not contain your hosted-game saves.
 
 ## How it works
