@@ -113,3 +113,5 @@ Third-party code, synthesizers and fonts retain their existing licenses; see [TH
 ### Social sharing image
 
 The live site uses a branded 1731 × 909 PNG sharing card (approximately 1.91:1). Original-art-derived promotional imagery is not redistributed in this source repository. To supply your own card, place it at `public/og.png` before building and update its dimensions, image URL and site URL in `app/layout.tsx` for your deployment. By default the metadata references the publicly hosted playstunts.com card; remove the image metadata if your deployment will not use a sharing image. The live card was generated using the original cover as a reference, with the yellow Stunts wordmark, red car, “PLAY IN YOUR BROWSER” and “playstunts.com” on black.
+
+Saved tracks and replays can also be exported individually: open **Tracks, replays and save backups → Download tracks & replays**, then choose a file. Downloads preserve the saved binary bytes and DOS filename (.TRK or .RPL); copy them to your original game directory. Only files saved or imported in this browser appear; save an unsaved track or run in the game first.
