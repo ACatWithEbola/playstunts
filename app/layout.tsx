@@ -1,4 +1,17 @@
 import type { Metadata } from 'next';
 import './globals.css';
-export const metadata: Metadata={icons:{icon:[{url:'/stunts-favicon.png',type:'image/png',sizes:'64x64'}]},title:'Stunts — Browser edition',description:'Try the native Stunts reconstruction: opening, menus, track editor, racing and replays.'};
-export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}
+
+const title = 'Play Stunts — The classic racing game in your browser';
+const description = 'Play Stunts / 4D Sports Driving in your browser. Choose your car, build tracks, race and watch replays — with original or upgraded graphics.';
+const sharingImage = [{ url: 'https://playstunts.com/og.png', width: 1731, height: 909, alt: 'Stunts — Play in your browser at playstunts.com' }];
+export const metadata: Metadata = {
+  metadataBase: new URL('https://playstunts.com'),
+  title,
+  description,
+  icons: { icon: [{ url: '/stunts-favicon.png', type: 'image/png', sizes: '64x64' }] },
+  openGraph: { type: 'website', url: 'https://playstunts.com/', siteName: 'Play Stunts', title, description, images: sharingImage },
+  twitter: { card: 'summary_large_image', title, description, images: sharingImage.map(image => image.url) },
+};
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return <html lang="en"><body>{children}</body></html>;
+}

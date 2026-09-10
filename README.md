@@ -109,3 +109,7 @@ This is an unofficial reconstruction and may contain visual, audio or simulation
 Unless a file carries a separate third-party notice, the original source code contributed to this project is licensed under the **GNU General Public License, version 3 only (GPL-3.0-only)**. See [LICENSE](LICENSE).
 
 Third-party code, synthesizers and fonts retain their existing licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the notices in `vendor/`. This license grant does **not** cover the original Stunts executables, artwork, game data, Roland ROMs, or data extracted from those files. Those materials remain subject to their respective rights holders’ terms and are not included in this repository.
+
+### Social sharing image
+
+The live site uses a branded 1731 × 909 PNG sharing card (approximately 1.91:1). Original-art-derived promotional imagery is not redistributed in this source repository. To supply your own card, place it at `public/og.png` before building and update its dimensions, image URL and site URL in `app/layout.tsx` for your deployment. By default the metadata references the publicly hosted playstunts.com card; remove the image metadata if your deployment will not use a sharing image. The live card was generated using the original cover as a reference, with the yellow Stunts wordmark, red car, “PLAY IN YOUR BROWSER” and “playstunts.com” on black.
