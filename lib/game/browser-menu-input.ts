@@ -63,7 +63,7 @@ export function createBrowserMenuInput(element:HTMLCanvasElement,options:{joysti
   // The browser gamepad is a calibrated virtual axis:0..62, centre31.
   joystickSteering:()=>originalJoystickSteering(Math.round((gamepad().axis+1)*31),0,256),
   resetMouse(mode=1){mouseBounds=mode?[24,296,0,200]:[0,320,0,200];if(mode){x=160;y=100;}pointerEdges.length=0;},
-  controls:()=>originalDrivingKeyControls(options.drivingBindings?.()??[57,28,71,72,73,77,81,80,79,75],scanHeld,()=>gamepad().mask),
+  controls:()=>originalDrivingKeyControls(options.drivingBindings?.()??[57,28,71,72,73,77,81,80,79,75],scan=>scanHeld(scan)||(scan===57&&scanHeld(30))||(scan===28&&scanHeld(44)),()=>gamepad().mask),
   // Original resource/menu handovers retain IRQ9 scan bits. Inactive adapters
   // track physical releases and pointer movement without queuing inactive
   // actions for their next screen. Physical mouse holds survive handover too.

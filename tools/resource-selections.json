@@ -1,0 +1,709 @@
+{
+  "misc-dialog-text": {
+    "source": "MISC.PRE",
+    "includeHash": true,
+    "resources": {
+      "eavs": [
+        "MISC.PRE",
+        "eavs"
+      ],
+      "ebau": [
+        "MISC.PRE",
+        "ebau"
+      ],
+      "ebca": [
+        "MISC.PRE",
+        "ebca"
+      ],
+      "ebcl": [
+        "MISC.PRE",
+        "ebcl"
+      ],
+      "ebco": [
+        "MISC.PRE",
+        "ebco"
+      ],
+      "ebct": [
+        "MISC.PRE",
+        "ebct"
+      ],
+      "ebdo": [
+        "MISC.PRE",
+        "ebdo"
+      ],
+      "ebdr": [
+        "MISC.PRE",
+        "ebdr"
+      ],
+      "ebev": [
+        "MISC.PRE",
+        "ebev"
+      ],
+      "ebhi": [
+        "MISC.PRE",
+        "ebhi"
+      ],
+      "ebla": [
+        "MISC.PRE",
+        "ebla"
+      ],
+      "ebma": [
+        "MISC.PRE",
+        "ebma"
+      ],
+      "ebmm": [
+        "MISC.PRE",
+        "ebmm"
+      ],
+      "ebnx": [
+        "MISC.PRE",
+        "ebnx"
+      ],
+      "ebra": [
+        "MISC.PRE",
+        "ebra"
+      ],
+      "ebrp": [
+        "MISC.PRE",
+        "ebrp"
+      ],
+      "econ": [
+        "MISC.PRE",
+        "econ"
+      ],
+      "ecop": [
+        "MISC.PRE",
+        "ecop"
+      ],
+      "ednf": [
+        "MISC.PRE",
+        "ednf"
+      ],
+      "eelt": [
+        "MISC.PRE",
+        "eelt"
+      ],
+      "ehna": [
+        "MISC.PRE",
+        "ehna"
+      ],
+      "eimp": [
+        "MISC.PRE",
+        "eimp"
+      ],
+      "einh": [
+        "MISC.PRE",
+        "einh"
+      ],
+      "ejum": [
+        "MISC.PRE",
+        "ejum"
+      ],
+      "emid": [
+        "MISC.PRE",
+        "emid"
+      ],
+      "emop": [
+        "MISC.PRE",
+        "emop"
+      ],
+      "emph": [
+        "MISC.PRE",
+        "emph"
+      ],
+      "eolt": [
+        "MISC.PRE",
+        "eolt"
+      ],
+      "eowt": [
+        "MISC.PRE",
+        "eowt"
+      ],
+      "eppt": [
+        "MISC.PRE",
+        "eppt"
+      ],
+      "erac": [
+        "MISC.PRE",
+        "erac"
+      ],
+      "etop": [
+        "MISC.PRE",
+        "etop"
+      ],
+      "gstu": [
+        "MISC.PRE",
+        "gstu"
+      ],
+      "gver": [
+        "MISC.PRE",
+        "gver"
+      ]
+    }
+  },
+  "main-dialog-text": {
+    "source": "MAIN.RES",
+    "includeHash": true,
+    "resources": {
+      "emon": [
+        "MAIN.RES",
+        "emon"
+      ],
+      "emof": [
+        "MAIN.RES",
+        "emof"
+      ],
+      "eson": [
+        "MAIN.RES",
+        "eson"
+      ],
+      "esof": [
+        "MAIN.RES",
+        "esof"
+      ],
+      "edos": [
+        "MAIN.RES",
+        "edos"
+      ],
+      "emrl": [
+        "MAIN.RES",
+        "emrl"
+      ],
+      "ekey": [
+        "MAIN.RES",
+        "ekey"
+      ],
+      "emou": [
+        "MAIN.RES",
+        "emou"
+      ],
+      "ejoy": [
+        "MAIN.RES",
+        "ejoy"
+      ],
+      "eloa": [
+        "MAIN.RES",
+        "eloa"
+      ],
+      "elsu": [
+        "MAIN.RES",
+        "elsu"
+      ],
+      "elsd": [
+        "MAIN.RES",
+        "elsd"
+      ],
+      "erep": [
+        "MAIN.RES",
+        "erep"
+      ],
+      "eihd": [
+        "MAIN.RES",
+        "eihd"
+      ],
+      "ewai": [
+        "MAIN.RES",
+        "ewai"
+      ]
+    }
+  },
+  "track-menu-text": {
+    "source": [
+      "MAIN.RES",
+      "TEDIT.PRE"
+    ],
+    "includeHash": false,
+    "resources": {
+      "ehs0": [
+        "MAIN.RES",
+        "ehs0"
+      ],
+      "etrk": [
+        "MAIN.RES",
+        "etrk"
+      ],
+      "ebcl": [
+        "TEDIT.PRE",
+        "ebcl"
+      ],
+      "ebet": [
+        "TEDIT.PRE",
+        "ebet"
+      ],
+      "ebex": [
+        "TEDIT.PRE",
+        "ebex"
+      ],
+      "eblo": [
+        "TEDIT.PRE",
+        "eblo"
+      ],
+      "ebmm": [
+        "TEDIT.PRE",
+        "ebmm"
+      ],
+      "ebmt": [
+        "TEDIT.PRE",
+        "ebmt"
+      ],
+      "ebsa": [
+        "TEDIT.PRE",
+        "ebsa"
+      ],
+      "ebsc": [
+        "TEDIT.PRE",
+        "ebsc"
+      ],
+      "ebti": [
+        "TEDIT.PRE",
+        "ebti"
+      ],
+      "echl": [
+        "TEDIT.PRE",
+        "echl"
+      ],
+      "echx": [
+        "TEDIT.PRE",
+        "echx"
+      ],
+      "eeat": [
+        "TEDIT.PRE",
+        "eeat"
+      ],
+      "eeed": [
+        "TEDIT.PRE",
+        "eeed"
+      ],
+      "eeft": [
+        "TEDIT.PRE",
+        "eeft"
+      ],
+      "eefu": [
+        "TEDIT.PRE",
+        "eefu"
+      ],
+      "eeie": [
+        "TEDIT.PRE",
+        "eeie"
+      ],
+      "eejd": [
+        "TEDIT.PRE",
+        "eejd"
+      ],
+      "eejs": [
+        "TEDIT.PRE",
+        "eejs"
+      ],
+      "eems": [
+        "TEDIT.PRE",
+        "eems"
+      ],
+      "eenp": [
+        "TEDIT.PRE",
+        "eenp"
+      ],
+      "eens": [
+        "TEDIT.PRE",
+        "eens"
+      ],
+      "eeok": [
+        "TEDIT.PRE",
+        "eeok"
+      ],
+      "eest": [
+        "TEDIT.PRE",
+        "eest"
+      ],
+      "eete": [
+        "TEDIT.PRE",
+        "eete"
+      ],
+      "eewa": [
+        "TEDIT.PRE",
+        "eewa"
+      ],
+      "eeww": [
+        "TEDIT.PRE",
+        "eeww"
+      ],
+      "efla": [
+        "TEDIT.PRE",
+        "efla"
+      ],
+      "emen": [
+        "TEDIT.PRE",
+        "emen"
+      ],
+      "emss": [
+        "TEDIT.PRE",
+        "emss"
+      ],
+      "esbr": [
+        "TEDIT.PRE",
+        "esbr"
+      ],
+      "esbs": [
+        "TEDIT.PRE",
+        "esbs"
+      ],
+      "escd": [
+        "TEDIT.PRE",
+        "escd"
+      ],
+      "esch": [
+        "TEDIT.PRE",
+        "esch"
+      ],
+      "esci": [
+        "TEDIT.PRE",
+        "esci"
+      ],
+      "escn": [
+        "TEDIT.PRE",
+        "escn"
+      ],
+      "esco": [
+        "TEDIT.PRE",
+        "esco"
+      ],
+      "escp": [
+        "TEDIT.PRE",
+        "escp"
+      ],
+      "eses": [
+        "TEDIT.PRE",
+        "eses"
+      ],
+      "eseu": [
+        "TEDIT.PRE",
+        "eseu"
+      ],
+      "esex": [
+        "TEDIT.PRE",
+        "esex"
+      ],
+      "esgw": [
+        "TEDIT.PRE",
+        "esgw"
+      ],
+      "esid": [
+        "TEDIT.PRE",
+        "esid"
+      ],
+      "esii": [
+        "TEDIT.PRE",
+        "esii"
+      ],
+      "esip": [
+        "TEDIT.PRE",
+        "esip"
+      ],
+      "eslp": [
+        "TEDIT.PRE",
+        "eslp"
+      ],
+      "esph": [
+        "TEDIT.PRE",
+        "esph"
+      ],
+      "espi": [
+        "TEDIT.PRE",
+        "espi"
+      ],
+      "esps": [
+        "TEDIT.PRE",
+        "esps"
+      ],
+      "esra": [
+        "TEDIT.PRE",
+        "esra"
+      ],
+      "esrb": [
+        "TEDIT.PRE",
+        "esrb"
+      ],
+      "esrd": [
+        "TEDIT.PRE",
+        "esrd"
+      ],
+      "esre": [
+        "TEDIT.PRE",
+        "esre"
+      ],
+      "esri": [
+        "TEDIT.PRE",
+        "esri"
+      ],
+      "esrp": [
+        "TEDIT.PRE",
+        "esrp"
+      ],
+      "esrw": [
+        "TEDIT.PRE",
+        "esrw"
+      ],
+      "essr": [
+        "TEDIT.PRE",
+        "essr"
+      ],
+      "esst": [
+        "TEDIT.PRE",
+        "esst"
+      ],
+      "estb": [
+        "TEDIT.PRE",
+        "estb"
+      ],
+      "estd": [
+        "TEDIT.PRE",
+        "estd"
+      ],
+      "esti": [
+        "TEDIT.PRE",
+        "esti"
+      ],
+      "estp": [
+        "TEDIT.PRE",
+        "estp"
+      ],
+      "estu": [
+        "TEDIT.PRE",
+        "estu"
+      ],
+      "estv": [
+        "TEDIT.PRE",
+        "estv"
+      ],
+      "esub": [
+        "TEDIT.PRE",
+        "esub"
+      ],
+      "esvc": [
+        "TEDIT.PRE",
+        "esvc"
+      ],
+      "mnam": [
+        "TEDIT.PRE",
+        "mnam"
+      ],
+      "pbox": [
+        "TEDIT.PRE",
+        "pbox"
+      ],
+      "snam": [
+        "TEDIT.PRE",
+        "snam"
+      ],
+      "ter0": [
+        "TEDIT.PRE",
+        "ter0"
+      ],
+      "ter1": [
+        "TEDIT.PRE",
+        "ter1"
+      ],
+      "ter2": [
+        "TEDIT.PRE",
+        "ter2"
+      ],
+      "ter3": [
+        "TEDIT.PRE",
+        "ter3"
+      ],
+      "ter4": [
+        "TEDIT.PRE",
+        "ter4"
+      ],
+      "tnam": [
+        "TEDIT.PRE",
+        "tnam"
+      ],
+      "efex": [
+        "MAIN.RES",
+        "efex"
+      ],
+      "eser": [
+        "MAIN.RES",
+        "eser"
+      ],
+      "esav": [
+        "MAIN.RES",
+        "esav"
+      ]
+    }
+  },
+  "race-dialog-text": {
+    "source": "GAME.PRE",
+    "includeHash": true,
+    "resources": {
+      "econ": [
+        "GAME.PRE",
+        "econ"
+      ],
+      "ecop": [
+        "GAME.PRE",
+        "ecop"
+      ],
+      "edm1": [
+        "GAME.PRE",
+        "edm1"
+      ],
+      "edm2": [
+        "GAME.PRE",
+        "edm2"
+      ],
+      "emdo": [
+        "GAME.PRE",
+        "emdo"
+      ],
+      "emen": [
+        "GAME.PRE",
+        "emen"
+      ],
+      "eopp": [
+        "GAME.PRE",
+        "eopp"
+      ],
+      "epen": [
+        "GAME.PRE",
+        "epen"
+      ],
+      "epre": [
+        "GAME.PRE",
+        "epre"
+      ],
+      "erbf": [
+        "GAME.PRE",
+        "erbf"
+      ],
+      "erpl": [
+        "GAME.PRE",
+        "erpl"
+      ],
+      "ese1": [
+        "GAME.PRE",
+        "ese1"
+      ],
+      "ese2": [
+        "GAME.PRE",
+        "ese2"
+      ],
+      "ewai": [
+        "GAME.PRE",
+        "ewai"
+      ],
+      "ewww": [
+        "GAME.PRE",
+        "ewww"
+      ]
+    }
+  },
+  "high-score-text": {
+    "source": "MAIN.RES",
+    "includeHash": true,
+    "resources": {
+      "ehs1": [
+        "MAIN.RES",
+        "ehs1"
+      ],
+      "ehs2": [
+        "MAIN.RES",
+        "ehs2"
+      ],
+      "ehs3": [
+        "MAIN.RES",
+        "ehs3"
+      ],
+      "ehs4": [
+        "MAIN.RES",
+        "ehs4"
+      ],
+      "ehs5": [
+        "MAIN.RES",
+        "ehs5"
+      ]
+    }
+  },
+  "car-menu-art": {
+    "descriptions": {
+      "ANSX": [
+        "CARANSX.RES",
+        "edes"
+      ],
+      "AUDI": [
+        "CARAUDI.RES",
+        "edes"
+      ],
+      "COUN": [
+        "CARCOUN.RES",
+        "edes"
+      ],
+      "FGTO": [
+        "CARFGTO.RES",
+        "edes"
+      ],
+      "JAGU": [
+        "CARJAGU.RES",
+        "edes"
+      ],
+      "LANC": [
+        "CARLANC.RES",
+        "edes"
+      ],
+      "LM02": [
+        "CARLM02.RES",
+        "edes"
+      ],
+      "P962": [
+        "CARP962.RES",
+        "edes"
+      ],
+      "PC04": [
+        "CARPC04.RES",
+        "edes"
+      ],
+      "PMIN": [
+        "CARPMIN.RES",
+        "edes"
+      ],
+      "VETT": [
+        "CARVETT.RES",
+        "edes"
+      ]
+    },
+    "list": false
+  },
+  "opponent-menu-art": {
+    "descriptions": {
+      "0": [
+        "MISC.PRE",
+        "erac"
+      ],
+      "1": [
+        "OPP1.PRE",
+        "edes"
+      ],
+      "2": [
+        "OPP2.PRE",
+        "edes"
+      ],
+      "3": [
+        "OPP3.PRE",
+        "edes"
+      ],
+      "4": [
+        "OPP4.PRE",
+        "edes"
+      ],
+      "5": [
+        "OPP5.PRE",
+        "edes"
+      ],
+      "6": [
+        "OPP6.PRE",
+        "edes"
+      ]
+    },
+    "list": true
+  }
+}

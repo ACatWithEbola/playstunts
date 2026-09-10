@@ -1,0 +1,163 @@
+[
+  {
+    "x": 120,
+    "y": 0,
+    "color": 11,
+    "shadow": 3,
+    "resource": "ecre"
+  },
+  {
+    "x": 60,
+    "y": 12,
+    "color": 15,
+    "shadow": 8,
+    "resource": "gds0"
+  },
+  {
+    "x": 104,
+    "y": 20,
+    "color": 15,
+    "shadow": 8,
+    "resource": "gds1"
+  },
+  {
+    "x": 20,
+    "y": 32,
+    "color": 12,
+    "shadow": 4,
+    "resource": "edes"
+  },
+  {
+    "x": 20,
+    "y": 44,
+    "color": 15,
+    "shadow": 8,
+    "resource": "gdon"
+  },
+  {
+    "x": 20,
+    "y": 52,
+    "color": 15,
+    "shadow": 8,
+    "resource": "gkev"
+  },
+  {
+    "x": 20,
+    "y": 60,
+    "color": 15,
+    "shadow": 8,
+    "resource": "gbra"
+  },
+  {
+    "x": 20,
+    "y": 68,
+    "color": 15,
+    "shadow": 8,
+    "resource": "grob"
+  },
+  {
+    "x": 20,
+    "y": 76,
+    "color": 15,
+    "shadow": 8,
+    "resource": "gsta"
+  },
+  {
+    "x": 20,
+    "y": 92,
+    "color": 13,
+    "shadow": 5,
+    "resource": "emus"
+  },
+  {
+    "x": 20,
+    "y": 104,
+    "color": 15,
+    "shadow": 8,
+    "resource": "gmsy"
+  },
+  {
+    "x": 20,
+    "y": 112,
+    "color": 15,
+    "shadow": 8,
+    "resource": "gkri"
+  },
+  {
+    "x": 20,
+    "y": 120,
+    "color": 15,
+    "shadow": 8,
+    "resource": "gbri"
+  },
+  {
+    "x": 172,
+    "y": 32,
+    "color": 9,
+    "shadow": 1,
+    "resource": "epro"
+  },
+  {
+    "x": 172,
+    "y": 44,
+    "color": 15,
+    "shadow": 8,
+    "resource": "gkev"
+  },
+  {
+    "x": 172,
+    "y": 56,
+    "color": 9,
+    "shadow": 1,
+    "resource": "eopr"
+  },
+  {
+    "x": 172,
+    "y": 64,
+    "color": 15,
+    "shadow": 8,
+    "resource": "gbra"
+  },
+  {
+    "x": 172,
+    "y": 72,
+    "color": 15,
+    "shadow": 8,
+    "resource": "gric"
+  },
+  {
+    "x": 172,
+    "y": 84,
+    "color": 10,
+    "shadow": 2,
+    "resource": "eart"
+  },
+  {
+    "x": 172,
+    "y": 96,
+    "color": 15,
+    "shadow": 8,
+    "resource": "gmsm"
+  },
+  {
+    "x": 172,
+    "y": 104,
+    "color": 15,
+    "shadow": 8,
+    "resource": "gdav"
+  },
+  {
+    "x": 172,
+    "y": 112,
+    "color": 15,
+    "shadow": 8,
+    "resource": "gnic"
+  },
+  {
+    "x": 172,
+    "y": 120,
+    "color": 15,
+    "shadow": 8,
+    "resource": "gkev"
+  }
+]

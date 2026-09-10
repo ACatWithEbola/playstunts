@@ -1,101 +1,106 @@
 # Play Stunts
 
-A native browser reconstruction of **Stunts / 4D Sports Driving**, developed by Sven with assistance from OpenAI Codex.
+A native browser reconstruction of **Stunts / 4D Sports Driving**, developed by Sven with assistance from OpenAI Codex. [Play the hosted version](https://playstunts.com).
 
-Play the hosted version at **https://playstunts.com**.
+You can build and run the game from this checkout using your own compatible DOS game files. The preparation tool generates the required images, catalogs, sound states and fresh native startup resources locally. **No original game files, Roland ROMs or captured original sessions are distributed here.**
 
-## Status: source snapshot, not a standalone game download
+## What you need
 
-This repository shares the reconstructed application source. **The original game files, Roland ROMs, extracted artwork and original execution captures are deliberately excluded.**
+- **Node.js 24 or newer**, with npm.
+- **Python 3.11 or newer** and the packages in `tools/requirements.txt` (Pillow and Unicorn).
+- Your own **complete extracted Stunts installation matching the December 1990 revision** used by this project. A ZIP, a single executable or a `.TRK` file is insufficient. Keep all installation files together. [Resource checksums](docs/original-file-checksums.json) and [direct-input checksums](docs/direct-asset-recipes.json) identify the supported files; other revisions are not automatically compatible.
+- For **Roland MT-32 sound**, your own compatible control and PCM ROMs, described below. Without them, select another sound device in Setup before starting the game.
+- A desktop browser with WebAssembly, Web Audio and WebGL support, and a keyboard. The preparation procedure was verified on macOS; Windows users can use WSL with the same shell commands.
 
-**A fresh checkout cannot currently run the complete game from an original DOS installation alone.** Some runtime catalogs and startup data still require the development extraction/capture pipeline. The basic extractor below does not generate all required runtime files. Making that pipeline self-contained is outstanding work. Please do not interpret a successful dependency installation as a playable installation.
-
-## What is implemented
-
-- Native menus, driving, track editing, opponents and replay controls.
-- Original MCGA, EGA, CGA, Tandy and Hercules display options.
-- Optional full-colour upgraded rendering.
-- Original sound-device command paths, including Roland MT-32 integration.
-- Browser-local saves, backups and original `.TRK` track imports.
-
-The main reconstructed game runs TypeScript rather than executing the DOS game. Original execution was used during development for behavioural comparisons. Accuracy is a continuing effort; not every situation is verified.
-
-## What you need to provide
-
-1. Your own complete, compatible original Stunts installation. The implementation targets the supplied December 1990 revision; other releases are not automatically compatible.
-2. Locally generated runtime data. See the outstanding preparation limitation above and [setup guide](docs/SETUP.md).
-3. For MT-32 sound only: compatible control and PCM ROMs. These are separate from Stunts and are not included. Other sound choices do not need Roland ROMs.
-4. Node.js and npm matching `package.json`; Python 3 for the included resource tools.
-
-[Original resource checksums](docs/original-file-checksums.json) identify the reference resources. [Runtime checksums](docs/runtime-file-checksums.json) list the reference site's local asset set. Neither manifest contains the assets, nor grants permission to redistribute them.
-
-## Prepare your local files
-
-Clone this repository, then enter its directory:
+## Install and run
 
 ```sh
 git clone https://github.com/ACatWithEbola/playstunts.git
 cd playstunts
 npm ci
 python3 -m venv .venv
-```
-
-Activate the Python environment:
-
-- macOS/Linux: `source .venv/bin/activate`
-- Windows PowerShell: `.venv\Scripts\Activate.ps1`
-
-Then install the tested image-encoding dependency and run the tools:
-
-```sh
+source .venv/bin/activate
 python -m pip install -r tools/requirements.txt
-python -m unittest discover -s tools -p "test_*.py"
-python tools/prepare_assets.py --original "/path/to/your/Stunts" --output local-assets/prepared
-```
-
-Replace the quoted path with your own extracted DOS game directory, not a ZIP file. The output directory must not already exist. To rerun, choose a new output directory; the tool deliberately refuses to overwrite existing files. It reads your originals and writes generated files separately. It does not download game data or ROMs.
-
-This currently prepares original-file copies, the car/track/shape catalog, cockpit PNGs, instrument panels, gauges, windshield animation data and complete car model banks. **This remains partial preparation.** Read `local-assets/prepared/preparation-report.json`; `complete: false` means the output is not a usable full runtime. Do not replace a working site's assets with this partial output.
-
-To compare your output with the reference file inventory:
-
-```sh
-python tools/check_assets.py --public-dir local-assets/prepared
-```
-
-Missing files and differences are reported with a nonzero exit code. The inventory includes historical/reference assets; it is not yet a minimal installation manifest. JSON formatting and filename case can also produce byte differences. A passing file check alone would not prove correct gameplay.
-
-### Not yet reproducible
-
-Startup-state generation, additional render/editor/audio catalogs, presentation assets and sound-runtime preparation are still incomplete. The missing steps cannot currently be replaced by copying the original DOS files. [Setup details](docs/SETUP.md) explain the known dependencies. This section will be replaced by verified end-to-end instructions once the generators are complete.
-
-After the **complete** runtime asset set exists in `public/`, use:
-
-```sh
-npm run typecheck
+python tools/prepare_assets.py --original "/path/to/your/Stunts" --output public
+python tools/check_assets.py
+node tools/smoke_runtime.ts
 npm run dev -- --host 127.0.0.1 --port 3000
 ```
 
-Open http://localhost:3000. These commands do not generate the omitted files. The complete clean-checkout procedure has not yet passed. Keep all local game data and ROMs out of Git.
+Replace the quoted path with the directory containing your DOS files. Open **http://localhost:3000**. Click **Open Setup**, choose a sound device you have installed, and select **Exit** to save. Then click **Play Stunts**. Saving changed settings restarts the main game automatically. Audio starts after a user click, as required by browsers.
 
-## How it was made
+The tool reads your originals without modifying them. It refuses to overwrite an existing output directory. To regenerate, move your existing `public` directory aside first, or choose a new output directory, check it, and then move it to `public`. Do not merge partial outputs into a working installation. `preparation-report.json` records completion and installed options; `asset-inventory.json` records the generated file hashes.
 
-See [the reconstruction process](docs/RECONSTRUCTION.md) for resource decoding, executable investigation, native implementation and comparisons with original execution. See [third-party acknowledgements](THIRD_PARTY_NOTICES.md) for the distinction between game-driver reconstruction and sound synthesis libraries.
+No game files or ROMs are downloaded by preparation. `npm ci` and pip download software dependencies. You do **not** need private development captures, an asset download from playstunts.com, a ChatGPT account, or a Sites account to run locally.
 
-## Source map
+### Roland MT-32
 
-- `app/`: browser interface and game orchestration, including development screens.
-- `lib/game/`: native game state, resource decoding, rendering, input, replay and audio.
-- `lib/physics/`: driving and collision calculations.
-- `tools/`: basic resource extraction and local asset verification.
-- `docs/`: setup requirements, process and asset inventories.
+The default sound choice is MT-32. For that option, put these two files in a separate directory and include `--roms` when preparing:
 
-Original-data regression fixtures and private development history are not included. The small public test suite verifies the included asset checker, not whole-game equivalence.
+```sh
+python tools/prepare_assets.py --original "/path/to/your/Stunts" --roms "/path/to/your/MT32-ROMs" --output public
+```
 
-## Reporting issues
+| Filename | SHA-256 |
+| --- | --- |
+| `ctrl_mt32_1_07.rom` | `a73a06c23ed38370e58a11fb1b86f7ea4c547061a60d7aa62bae446235fd2dff` |
+| `pcm_mt32.rom` | `d9164063f293410cf33f2f64cdcea6893b44723fe41938e07ec9aef58b406238` |
 
-Include the display mode, graphics-upgrade setting, sound device, browser, car, track/replay and steps to reproduce. Screenshots and replay timestamps help. Do not attach ROMs, original game archives or credentials.
+Supply these legally yourself. Renaming a different ROM does not make it compatible. The Munt synthesizer and its corresponding source are included; the ROMs are not. PC speaker, AdLib/Sound Blaster and Tandy sound do not require Roland ROMs.
 
-## Rights
+### Optional website artwork
 
-Stunts and its original artwork/data belong to their respective rights holders. This is an unofficial reconstruction. Third-party packages retain their own licenses. No blanket open-source license is assigned to this source snapshot; public availability alone is not a license grant. A licensing review is still needed before describing the entire project as open source.
+The game works without the hosted site's manual scans and cropped red-car artwork. The checkout uses a text wordmark and the original game's decoded title screen as fallbacks; the decorative car and idle Setup preview are omitted. These are website presentation differences, not missing game assets.
+
+To reproduce the additional manual artwork, supply your own permitted images in a directory with these names and add `--site-art "/path/to/art"` to preparation:
+
+- `manual-cover-spread.png`: image used by the masthead wordmark.
+- `manual-red-car.png`: decorative red-car crop.
+- `manual-front-cover.jpg`: manual cover beside the game.
+- `setup-menu.png`: idle Setup preview.
+
+See `app/StuntsBrand.tsx` and the `.stunts-` rules in `app/globals.css` for the crop/layout. The generated favicon is a simple S fallback. Optional scans and ROMs remain local and ignored by Git.
+
+## Checks and production build
+
+```sh
+python -m unittest discover -s tools -p "test_*.py"
+python tools/check_assets.py
+node tools/smoke_runtime.ts
+npm run typecheck
+npm run build
+npm run start
+```
+
+`npm run start` serves the production build through Wrangler; use the address it prints. Build output is in `dist/`. A hosted installation needs the generated assets as well as the compiled application. The repository's build configuration targets Cloudflare Workers through Vinext; no private hosting credentials are included. Deploying original assets publicly is a separate distribution decision—this repository does not grant rights to them.
+
+The file checker verifies the required runtime files and your installation's hashes. The smoke check initializes a fresh Countach race and renders 30 frames. Browser checks covered Setup, the opening/menu and a normal race using generated assets. These checks establish an installable game, not perfect equivalence in every race. `--reference` on the file checker optionally compares the older full reference inventory, which includes unused research fixtures and will report expected differences.
+
+## Playing and saves
+
+- Arrow keys: accelerate/brake and steer.
+- **A / Z**: shift up/down with manual gears; Space / Enter also work.
+- Escape: game menu. C or F1–F4: camera views.
+- Setup selects MCGA, EGA, CGA, Tandy or Hercules. Upgraded graphics uses full colour; switching back restores the selected original mode.
+- Import original **`.TRK`** files using **Tracks and save backups**. Supported track files are 1,802 bytes.
+- Saves are browser-local and tied to the hostname/port. Export a backup before changing browser or address. A Git checkout does not contain your hosted-game saves.
+
+## How it works
+
+The main game runs reconstructed TypeScript, not the DOS executable. Preparation decodes the original resources, unpacks the original display binaries to recover initialized tables, and runs bounded sound-initialization routines locally. Startup memory is built by the native initialization code, without importing a captured game session.
+
+[Reconstruction process](docs/RECONSTRUCTION.md) · [Setup and troubleshooting](docs/SETUP.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
+
+- `app/`: website and browser orchestration.
+- `lib/game/`, `lib/physics/`: reconstructed systems and rendering.
+- `tools/`: complete local preparation and installation checks.
+- `vendor/`: redistributable synthesizer runtimes, corresponding source and font licenses.
+- `docs/`: input identification, setup and process documentation.
+
+The older `NativeDrive` prototype and private original-data regression fixtures are not required by the current game. Historical source remains for reference; its captured prototype seeds are deliberately not distributed. `/work/reference` provides the original DOS comparison using a bundle generated from your own installation.
+
+## Issues and rights
+
+This is an unofficial reconstruction and may contain visual, audio or simulation discrepancies. Report the browser, car, track/replay, sound/display settings and reproduction steps. Do not attach ROMs, game archives or credentials.
+
+Stunts and its original artwork/data belong to their respective rights holders. Third-party packages retain their licenses. No blanket open-source license has been assigned to this source; public availability alone is not a license grant.

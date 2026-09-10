@@ -29,3 +29,5 @@ Reconstructing the game’s sound-driver commands is distinct from recreating a 
 ## Limits and reproducibility
 
 Visual and behavioural discrepancies are possible. Historical development captures are not a substitute for a repeatable public asset preparation pipeline. The source release must document both what has been verified and which parts still need supplied data or further work.
+
+The public preparation pipeline now derives the required runtime data from user-supplied original files and generates fresh startup memory through the native initialization routines. Historical original-execution captures are not an installation dependency. See the README for the complete commands and the distinction between optional website scans and in-game assets.
