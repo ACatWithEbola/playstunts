@@ -48,6 +48,8 @@ python tools/prepare_assets.py --original "/path/to/your/Stunts" --roms "/path/t
 
 Supply these legally yourself. Renaming a different ROM does not make it compatible. The Munt synthesizer and its corresponding source are included; the ROMs are not. PC speaker, AdLib/Sound Blaster and Tandy sound do not require Roland ROMs.
 
+The controls below the MT-32 provide power, reverb on/off, reverb amount, left/right channel swap, and master tuning. Reverb amount adjusts the synthesizer’s reverb output level. Tuning is shown in Hz. The controls scale together on smaller screens and remain on one row. Power cycling restores the device defaults; these adjustments are not saved across reloads.
+
 ### Optional website artwork
 
 The game works without the hosted site's manual scans and cropped red-car artwork. The checkout uses a text wordmark and the original game's decoded title screen as fallbacks; the decorative car and idle Setup preview are omitted. These are website presentation differences, not missing game assets.
