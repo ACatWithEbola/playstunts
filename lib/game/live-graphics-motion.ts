@@ -1,5 +1,6 @@
 import {interpolatePose,type RenderPose} from './render-pose.ts';
-export interface GraphicsMotionFrame {camera:RenderPose;cars:RenderPose[]}
+import type {Vector} from '../physics/math.ts';
+export interface GraphicsMotionFrame {camera:RenderPose;cars:RenderPose[];wheels?:Vector[][]}
 /** One source frame of display latency lets 20 Hz game motion be drawn at
  * browser refresh rate. Never extrapolates or writes back into the game. */
 export function createLiveGraphicsMotion(){
@@ -14,6 +15,9 @@ export function createLiveGraphicsMotion(){
   else current=copy(value);
   lastAt=now;lastFrame=frame;lastMode=mode;
   const fraction=Math.max(0,Math.min(1,(now-at)/50));
-  return {camera:interpolatePose(previous!.camera,current!.camera,fraction),cars:current!.cars.map((pose,i)=>interpolatePose(previous!.cars[i],pose,fraction))};
+  return {camera:interpolatePose(previous!.camera,current!.camera,fraction),cars:current!.cars.map((pose,i)=>interpolatePose(previous!.cars[i],pose,fraction)),wheels:current!.wheels?.map((vertices,owner)=>vertices.map((point,i)=>{
+   const before=previous!.wheels?.[owner]?.[i]??point;
+   return point.map((value,axis)=>before[axis]+(value-before[axis])*fraction) as Vector;
+  }))};
  }};
 }

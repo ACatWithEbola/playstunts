@@ -1,5 +1,6 @@
 import {applyOriginalMaterialPattern,type OriginalMaterialPatterns} from './original-material-pattern.ts';
 import {attachedRoadTriangles,type Point3} from './attached-road-triangles.ts';
+import {createCarModel} from './car-model.ts';
 import * as THREE from 'three';
 import {originalPolygonNeedsDepthSort} from './polygon-order.ts';
 import type {Shape} from './types.ts';
@@ -97,6 +98,13 @@ export function createTrackModel(shape: Shape,trackMaterials:TrackMaterials,pain
   applyOriginalMaterialPattern(material,geometry,patternMaterials,trackMaterials);
   group.add(new THREE.Mesh(geometry,material));
   if(lines.length){const geometry=new THREE.BufferGeometry();geometry.userData.originalPrimitiveRanges=lineRanges;geometry.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));geometry.setAttribute('color',new THREE.Float32BufferAttribute(lineColors,3));group.add(new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({vertexColors:true})));}
+  // The transporter uses the same native type-12 wheels as cars. Reuse their
+  // tire/cap/hub presentation and undo the car adapter's 1/400 unit scale.
+  const wheelPrimitives=shape.primitives.filter(primitive=>primitive.type===12);
+  if(wheelPrimitives.length){
+    const wheels=createCarModel({...shape,primitives:wheelPrimitives},0xffffff,{...trackMaterials,paint});
+    wheels.scale.setScalar(400);group.add(wheels);
+  }
   return group;
 }
 

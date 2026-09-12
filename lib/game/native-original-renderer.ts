@@ -7,6 +7,7 @@ import type {TrackObject} from '../physics/track.ts';
 import type {CollisionPlane} from '../physics/plane.ts';
 import {i16,type Vector} from '../physics/math.ts';
 import {cockpitEyeOffset} from './cockpit-eye-offset.ts';
+import {readOriginalCarWheelSnapshot} from './car-wheel-snapshot.ts';
 import {writeAnalyzedTrackMemory} from './write-analyzed-track-memory.ts';
 import {renderOriginalWorld} from './render-original-world.ts';
 import type {RenderTileSlots} from './select-render-tiles.ts';
@@ -31,7 +32,7 @@ export function createNativeOriginalRenderer(baseline:Uint8Array,raw:number[],an
  }
  const defaultProjection=[s(0x4b88),s(0x4b8a),s(0x4b8c),s(0x4b8e)];
  const target=memory.subarray(framebuffer,framebuffer+64000);target.fill(0);
- let view:{position:Vector;angles:Vector;rectangle:number[];projection:number[];submissions:number[][];calls:OriginalRasterCall[];fireballMask:Uint8Array}|undefined;
+ let view:{position:Vector;angles:Vector;rectangle:number[];projection:number[];submissions:number[][];calls:OriginalRasterCall[];fireballMask:Uint8Array;wheels?:Vector[][]}|undefined;
  const imageAt=(offset:number,segment:number)=>{const a=segment*16+offset,width=v.getUint16(a,true),height=v.getUint16(a+2,true);return {width,height,pixels:memory.subarray(a+16,a+16+width*height)};};
  return {get view(){return view;},render(live:Uint8Array,external?:{objects:TrackObject[];planes:CollisionPlane[];distance:number;azimuth:number;elevation:number},drawCall?:(call:OriginalRasterCall)=>void,presentation?:NativePresentationCamera,fractionalPolygons=false,layers?:(memory:Uint8Array,drawWorld:()=>void)=>void){
   memory[d+0x134]=live[d+0x134];
@@ -66,6 +67,7 @@ export function createNativeOriginalRenderer(baseline:Uint8Array,raw:number[],an
   view={position:[...camera],angles:[...angles],rectangle:[...rectangle],projection:[...projection],submissions:[],calls:[],fireballMask:new Uint8Array(64000)};
   const drawWorld=()=>{resetOriginalWorldRegions(memory,d);const result=renderOriginalWorld(memory,d,cs,{angles,camera,rectangle,carTile:[(world[0]>>16)&255,(29-(world[2]>>16))&255],slots,paint,particles,opponentRetainedRow:opponentRow,visibility:{player:0,opponent:0},cache,recordPointer:0xb000},imageAt,drawCall,!presentation,fractionalPolygons,fractionalPolygons?call=>view!.calls.push(call):undefined);
   view!.submissions=result.submissions;view!.fireballMask=result.fireballMask;
+  if(fractionalPolygons)view!.wheels=([0,1] as const).map(owner=>readOriginalCarWheelSnapshot(memory,owner));
   slots=result.scene.slots;opponentRow=result.scene.cars.opponent.row;};
   if(layers)layers(memory,drawWorld);else drawWorld();
   return target;

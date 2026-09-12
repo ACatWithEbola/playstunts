@@ -31,3 +31,9 @@ Reconstructing the game’s sound-driver commands is distinct from recreating a 
 Visual and behavioural discrepancies are possible. Historical development captures are not a substitute for a repeatable public asset preparation pipeline. The source release must document both what has been verified and which parts still need supplied data or further work.
 
 The public preparation pipeline now derives the required runtime data from user-supplied original files and generates fresh startup memory through the native initialization routines. Historical original-execution captures are not an installation dependency. See the README for the complete commands and the distinction between optional website scans and in-game assets.
+
+## September 2026 renderer-parity update
+
+The optional upgraded renderer now retains native track signs and destruction state, all six transporter wheels, stable coplanar car details and flush wheel hubs. The Acura NSX window-to-body seam is closed in presentation only. Racing wheels use post-render vertices from the original renderer, preserving its signed steering transform and per-wheel suspension displacement without writing back to simulation state. Original graphics, physics, replay data and file formats are unchanged.
+
+The same update corrects the public shortcut list and two saved-file TypeScript types. The private original-data regression suite passed all 1,518 tests, followed by a clean TypeScript check and production build. Those original-data fixtures are intentionally excluded from this public source package.

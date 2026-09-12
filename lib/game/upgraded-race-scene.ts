@@ -8,7 +8,9 @@ import * as THREE from 'three';
 import type {Assets} from './types';
 import {createTrackModelFactory} from './track-model';
 import {createCarModel} from './car-model';
+import {createUpgradedCarWheelMotion} from './upgraded-car-wheels';
 import {createStartTruckModel} from './start-truck-model';
+import {createUpgradedTrackSigns} from './upgraded-track-signs';
 import {trackRenderPlacement} from './track-render-placement';
 import {elevatedRoadUnderlays} from './elevated-road-underlays';
 import {hillRenderSelection} from './hill-render-selection';
@@ -73,6 +75,7 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
              const paints=part.paint===255?[0,1,2,3]:[part.paint];
              for(const paint of paints){
               const road=trackModel(assets.shapes[group][name],paint);
+              road.userData.originalTrackTile=[x,29-z];
               road.position.set(...origin);road.rotation.y=trackRenderPlacement(part,x,z,0,0).rotation;
               visibilityPlacements.push({model:road,key:upgradedSubmissionKey(descriptorWord(0x2018+part.id*14+(detail?6:4)),origin,part.rotation,paint),detail,tile:part.id,origin:[...origin],paint,visible:Array(assets.shapes[group][name].primitives.length).fill(false)});
               road.visible=false;world.add(road);
@@ -97,15 +100,19 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
   }
  }
  const d=0x2d1a0,m=runtime.session.state.memory;
+ const wheelMotion:Array<ReturnType<typeof createUpgradedCarWheelMotion>|undefined>=[];
  const cars=[0x8fc2,0x8fc9].map((at,i)=>{
   const id=String.fromCharCode(...m.subarray(d+at,d+at+4));
   return [1,2].map(detail=>{const shape=assets.shapes['ST'+id]?.['car'+detail];if(!shape)return undefined;
-   const model=createCarModel(shape,0xffffff,{...sourceMaterials,paint:m[d+(i?0x8fcd:0x8fc6)]});model.scale.setScalar(400);world.add(model);return model;
+   const model=createCarModel(shape,0xffffff,{...sourceMaterials,paint:m[d+(i?0x8fcd:0x8fc6)]});
+   if(detail===1)wheelMotion[i]=createUpgradedCarWheelMotion(shape,model);
+   model.scale.setScalar(400);world.add(model);return model;
   });
  });
  const motion=createLiveGraphicsMotion();let fpsAt=performance.now(),fpsFrames=0;
  const clouds=new Map<string,THREE.Group>();
  const truck=createStartTruckModel(resources,assets.shapes.GAME2.truk,sourceMaterials);world.add(truck.group);
+ const signs=createUpgradedTrackSigns(runtime.session.state.memory,sourceMaterials);world.add(signs.group);
  const backdrop=createNativeBackground(runtime.session.state.memory),sky=document.createElement('canvas');sky.width=320;sky.height=200;const skyContext=sky.getContext('2d')!,skyImage=skyContext.createImageData(320,200);
  const orderedRaster=createOriginalCanvasRaster(resources,trackMaterials.palette,(width,height)=>{const surface=document.createElement('canvas');surface.width=width;surface.height=height;return surface;});
  const overlay=document.createElement('canvas');overlay.width=320;overlay.height=200;
@@ -119,7 +126,7 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    // State 3 means a finished race, not a collision. Actual crash scenes
    // use the source's complete ordered primitives, including debris.
    const orderedScene=!!([runtime.session.state.player.driving.car.grip.crash,runtime.session.state.opponent.car.grip.crash].some(state=>state===1||state===2)||Array.from({length:24},(_,i)=>v.getInt16(d+0x8e44+i*2,true)).some(Boolean));
-   const now=performance.now(),shown=motion.sample({camera:{position:frame.position,rotation:frame.angles},cars:[0,1].map(i=>({position:[0,1,2].map(axis=>v.getInt32(d+0x8c38+i*0xb8+axis*4,true)/64) as Vector,rotation:[0,1,2].map(axis=>v.getInt16(d+0x8c50+i*0xb8+axis*2,true)) as Vector}))},v.getUint16(d+0x8c26,true),[live[d+0xa3c2],live[d+0x12f],live[d+0xa9f0],...frame.rectangle].join('/'),!!live[d+0x9aca],now);
+   const now=performance.now(),shown=motion.sample({camera:{position:frame.position,rotation:frame.angles},cars:[0,1].map(i=>({position:[0,1,2].map(axis=>v.getInt32(d+0x8c38+i*0xb8+axis*4,true)/64) as Vector,rotation:[0,1,2].map(axis=>v.getInt16(d+0x8c50+i*0xb8+axis*2,true)) as Vector})),wheels:frame.wheels},v.getUint16(d+0x8c26,true),[live[d+0xa3c2],live[d+0x12f],live[d+0xa9f0],...frame.rectangle].join('/'),!!live[d+0x9aca],now);
    const {forward,up}=upgradedCameraBasis(shown.camera.rotation);
    const position=[shown.camera.position[0],shown.camera.position[1],-shown.camera.position[2]] as Vector;
    const target=[position[0]+forward[0],position[1]+forward[1],position[2]-forward[2]] as Vector;
@@ -136,11 +143,14 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
     model.visible=detail===(live[d+0x134]>=2&&models[1]?1:0)&&originalCarVisible(live[d+0x12f],!!live[d+0xa9f0],state.grip.crash,!!i,!!live[d+0x8fc8]);
    }));
    truck.update(live);
+   wheelMotion.forEach((motion,owner)=>{if(shown.wheels?.[owner])motion?.update(shown.wheels[owner]);});
+   signs.update(live);
    const level=live[d+0x134],animationPaint=live[d+0x8b4+((v.getUint16(d+0x8c26,true)||v.getUint16(d+0xaa78,true))&15)];
+   const carTile=[live[d+0x8c3a],(29-live[d+0x8c42])&255];
    for(const placement of visibilityPlacements){
     if(placement.tile===undefined){placement.model.visible=true;continue;}
     const descriptor=trackRenderModels[placement.tile]!;
-    const detail=upgradedWorldDetail(level,!!descriptor.detailShape,(live[d+0x2024+placement.tile*14]<<24>>24)>=64);
+    const detail=upgradedWorldDetail(level,!!descriptor.detailShape,(live[d+0x2024+placement.tile*14]<<24>>24)>=64,placement.model.userData.originalTrackTile??[],carTile);
     placement.model.visible=placement.detail===detail&&(!(descriptor.paint&128)||placement.paint===animationPaint);
    }
    clouds.forEach(model=>{model.visible=false;});

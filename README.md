@@ -27,7 +27,7 @@ node tools/smoke_runtime.ts
 npm run dev -- --host 127.0.0.1 --port 3000
 ```
 
-Replace the quoted path with the directory containing your DOS files. Open **http://localhost:3000**. Click **Open Setup**, choose a sound device you have installed, and select **Exit** to save. Then click **Play Stunts**. Saving changed settings restarts the main game automatically. Audio starts after a user click, as required by browsers.
+Replace the quoted path with the directory containing your DOS files. Open **http://localhost:3000**. Click **Open Setup**, choose a sound device you have installed, and select **Exit** to save. Then click **PLAY STUNTS**. Saving changed settings restarts the main game automatically. Audio starts after a user click, as required by browsers.
 
 The tool reads your originals without modifying them. It refuses to overwrite an existing output directory. To regenerate, move your existing `public` directory aside first, or choose a new output directory, check it, and then move it to `public`. Do not merge partial outputs into a working installation. `preparation-report.json` records completion and installed options; `asset-inventory.json` records the generated file hashes.
 
@@ -82,8 +82,9 @@ The file checker verifies the required runtime files and your installation's has
 
 - Arrow keys: accelerate/brake and steer.
 - **A / Z**: shift up/down with manual gears; Space / Enter also work.
-- Escape: game menu. C or F1–F4: camera views.
-- Setup selects MCGA, EGA, CGA, Tandy or Hercules. Upgraded graphics uses full colour; switching back restores the selected original mode.
+- Escape: game menu. C or F1–F4: camera views. T: view the opponent’s car. D: show or hide the dashboard.
+- In replays, Ctrl + arrow keys adjusts the camera, + / − zooms, arrow keys select a replay control, and Enter or Space activates it. Shift + F1 opens the terrain editor.
+- Setup selects MCGA, EGA, CGA, Tandy or Hercules. Optional upgraded graphics uses full colour and now retains source signs, vehicle details and live steering/suspension wheel movement; switching back restores the selected original mode.
 - Import original **`.TRK`** files using **Tracks, replays and save backups**. Supported track files are 1,802 bytes.
 - Import original **`.RPL`** recordings with **Upload replay (.RPL)** beside the track upload. Upload before starting the game, then load the file from the in-game replay menu. Names must use 1–8 letters, numbers, underscores or hyphens. Existing files are kept. Recordings must use the supported original format and contain 1–12,000 frames.
 - Saves are browser-local and tied to the hostname/port. Export a backup before changing browser or address. A Git checkout does not contain your hosted-game saves.

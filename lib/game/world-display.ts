@@ -12,7 +12,7 @@ export interface OriginalWorldDisplayHost extends OriginalSceneBackgroundDisplay
 }
 /** Original C279..CDDA world submission, background and primitive drain using
  * the selected native display driver. The caller owns resources and scratch. */
-export function renderOriginalWorldDisplay(memory:Uint8Array,d:number,mode:'cga'|'tandy'|'ega',host:OriginalWorldDisplayHost,frame:OriginalWorldFrame,scratch:{leftOffset:number;rightOffset:number},renderBackground=true){
+export function renderOriginalWorldDisplay(memory:Uint8Array,d:number,mode:'cga'|'tandy'|'ega',host:OriginalWorldDisplayHost,frame:OriginalWorldFrame,scratch:{leftOffset:number;rightOffset:number},renderBackground=true,renderFireballs=true){
  const layout=WORLD_DISPLAY_LAYOUTS[mode],a=layout.address,v=new DataView(memory.buffer,memory.byteOffset,memory.byteLength);
  const view=prepareOriginalView(memory,d,frame.angles,frame.rectangle,layout);
  const draw=(record:number[])=>{
@@ -28,6 +28,6 @@ export function renderOriginalWorldDisplay(memory:Uint8Array,d:number,mode:'cga'
  const polygonCount=v.getUint16(d+a(0x8938),true);
  if(renderBackground)drawOriginalSceneBackgroundDisplay(memory,d,mode,host,frame.rectangle,view.backgroundDirection,view.backgroundMatrix,frame.angles[0],frame.angles[2],frame.camera[1],scratch);
  host.bounds(0,320,frame.rectangle[2],frame.rectangle[3]);host.primitives(scratch);
- drawOriginalCrashFireballs(memory,d,frame.rectangle,scene.visibility,mode,host);
+ if(renderFireballs)drawOriginalCrashFireballs(memory,d,frame.rectangle,scene.visibility,mode,host);
  return {scene,polygonCount,view};
 }
