@@ -16,6 +16,9 @@ import {elevatedRoadUnderlays} from './elevated-road-underlays';
 import {hillRenderSelection} from './hill-render-selection';
 import {originalCarVisible} from './car-visibility';
 import {upgradedCameraBasis} from './upgraded-camera-basis';
+import {createUpgradedRetroLighting} from './upgraded-retro-lighting';
+import {upgradedCarGroundingOffset,setUpgradedCarPresentationPose} from './upgraded-car-grounding';
+import {upgradedSceneryCastsShadow} from './upgraded-scenery-shadows';
 import {type Vector} from '../physics/math';
 import trackMaterials from '../../public/game/track-materials.json';
 import trackRenderModels from '../../public/game/track-render-models.json';
@@ -29,15 +32,20 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
  const renderer=new THREE.WebGLRenderer({antialias:false,alpha:true,logarithmicDepthBuffer:true});
  renderer.toneMapping=THREE.NoToneMapping;
  const scene=new THREE.Scene(),world=new THREE.Group();world.scale.z=-1;scene.add(world);
+ const retroLighting=createUpgradedRetroLighting();
  scene.background=null;
  const camera=new THREE.PerspectiveCamera(58,1,1,200000);
+ const sceneryWorldCenter=new THREE.Vector3(15360,0,-15360);
  const ground=new THREE.Mesh(new THREE.PlaneGeometry(30720,30720),new THREE.MeshBasicMaterial({color:0x000000,toneMapped:false,depthWrite:false}));
  // The base fill must never occlude terrain whose depth is biased behind roads.
- ground.renderOrder=-1;
+ // It supplies the ordinary flat grass between road and special terrain.
+ // Preserve its original hue: grass receives brightness variation but not
+ // the cyan atmospheric blend used by distant roads and scenery.
+ ground.renderOrder=-1;ground.userData.retroGrassVariation=true;ground.userData.retroDistanceColour=false;
  ground.rotation.x=-Math.PI/2;ground.position.set(15360,-1,15360);world.add(ground);
       const sourceMaterials={...trackMaterials,...readOriginalMaterialPatterns(runtime.session.state.memory)};
       const trackModel=createTrackModelFactory(sourceMaterials);
-      const visibilityPlacements:{model:THREE.Group;key:string;detail?:number;tile?:number;terrain?:number;underlay?:boolean;origin:number[];paint:number;visible:boolean[]}[]=[];
+      const visibilityPlacements:{model:THREE.Group;key:string;detail?:number;tile?:number;terrain?:number;underlay?:boolean;castsShadow?:boolean;keepInWorld?:boolean;origin:number[];paint:number;visible:boolean[]}[]=[];
 
       for (let z = 0; z < 30; z++)
         for (let x = 0; x < 30; x++) {
@@ -51,6 +59,7 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
             if(!terrainDescriptor)throw Error(`Unknown terrain model ${terrain}`);
             const [group,name]=terrainDescriptor.shape.split('.');
             const terrainModel=trackModel(assets.shapes[group][name],0,true);
+            if(terrain>=6)terrainModel.traverse(node=>{if(node instanceof THREE.Mesh){node.userData.retroGrassVariation=true;node.userData.retroDistanceColour=false;}});
             terrainModel.position.set(x*1024+512,terrain===6?450:0,z*1024+512);
             terrainModel.rotation.y=terrainDescriptor.rotation*Math.PI/512;
             visibilityPlacements.push({model:terrainModel,key:upgradedSubmissionKey(descriptorWord(0x2bda+selected.terrain*14+4),terrainModel.position.toArray(),terrainDescriptor.rotation,0),terrain:selected.terrain,origin:terrainModel.position.toArray(),paint:0,visible:Array(assets.shapes[group][name].primitives.length).fill(false)});
@@ -64,6 +73,7 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
           const origin=trackRenderPlacement(descriptor,x,z,terrain===6?450:0,0).position;
           if(terrain===6)for(const underlay of elevatedRoadUnderlays(origin,descriptor.multiTile)){
             const grass=trackModel(assets.shapes.GAME2.high,0,true);
+            grass.traverse(node=>{if(node instanceof THREE.Mesh){node.userData.retroGrassVariation=true;node.userData.retroDistanceColour=false;}});
             grass.position.set(...underlay.position);world.add(grass);
             visibilityPlacements.push({model:grass,key:upgradedSubmissionKey(0x7820,underlay.position,0,0),terrain:6,underlay:true,origin:[...underlay.position],paint:0,visible:Array(assets.shapes.GAME2.high.primitives.length).fill(false)});
           }
@@ -74,10 +84,11 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
              const [group,name]=shapeName.split('.');
              const paints=part.paint===255?[0,1,2,3]:[part.paint];
              for(const paint of paints){
-              const road=trackModel(assets.shapes[group][name],paint);
+              const shape=assets.shapes[group][name],road=trackModel(shape,paint);
+              const finishGantry=shapeName==='GAME1.fini'||shapeName==='GAME1.zfin';
               road.userData.originalTrackTile=[x,29-z];
               road.position.set(...origin);road.rotation.y=trackRenderPlacement(part,x,z,0,0).rotation;
-              visibilityPlacements.push({model:road,key:upgradedSubmissionKey(descriptorWord(0x2018+part.id*14+(detail?6:4)),origin,part.rotation,paint),detail,tile:part.id,origin:[...origin],paint,visible:Array(assets.shapes[group][name].primitives.length).fill(false)});
+              visibilityPlacements.push({model:road,key:upgradedSubmissionKey(descriptorWord(0x2018+part.id*14+(detail?6:4)),origin,part.rotation,paint),detail,tile:part.id,castsShadow:upgradedSceneryCastsShadow(shape,shapeName),keepInWorld:finishGantry,origin:[...origin],paint,visible:Array(shape.primitives.length).fill(false)});
               road.visible=false;world.add(road);
              }
             }
@@ -96,13 +107,15 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    const shapeName=detail?descriptor.detailShape:descriptor.shape;if(!shapeName)continue;
    const [group,name]=shapeName.split('.'),model=trackModel(assets.shapes[group][name],0);
    model.position.set(origin[0],0,origin[2]);model.rotation.y=rotation*Math.PI/512;world.add(model);
-   visibilityPlacements.push({model,key:'boundary/'+column+'/'+row+'/'+detail,tile,detail,origin,paint:0,visible:[]});
+   visibilityPlacements.push({model,key:'boundary/'+column+'/'+row+'/'+detail,tile,detail,castsShadow:upgradedSceneryCastsShadow(assets.shapes[group][name],shapeName),origin,paint:0,visible:[]});
   }
  }
  const d=0x2d1a0,m=runtime.session.state.memory;
  const wheelMotion:Array<ReturnType<typeof createUpgradedCarWheelMotion>|undefined>=[];
+ const carGrounding:number[]=[];
  const cars=[0x8fc2,0x8fc9].map((at,i)=>{
   const id=String.fromCharCode(...m.subarray(d+at,d+at+4));
+  carGrounding[i]=upgradedCarGroundingOffset(assets.shapes['ST'+id]?.car1);
   return [1,2].map(detail=>{const shape=assets.shapes['ST'+id]?.['car'+detail];if(!shape)return undefined;
    const model=createCarModel(shape,0xffffff,{...sourceMaterials,paint:m[d+(i?0x8fcd:0x8fc6)]});
    if(detail===1)wheelMotion[i]=createUpgradedCarWheelMotion(shape,model);
@@ -113,6 +126,14 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
  const clouds=new Map<string,THREE.Group>();
  const truck=createStartTruckModel(resources,assets.shapes.GAME2.truk,sourceMaterials);world.add(truck.group);
  const signs=createUpgradedTrackSigns(runtime.session.state.memory,sourceMaterials);world.add(signs.group);
+ const sceneryCasters=[...visibilityPlacements.filter(placement=>placement.castsShadow).map(placement=>placement.model),signs.group,truck.group];
+ // Caster faces keep their exact source colours and geometry, but do not sample
+ // the shared ground-shadow map themselves. This prevents the receiver-depth
+ // tolerance from painting jagged self-shadow fragments onto contact edges.
+ sceneryCasters.forEach(model=>retroLighting.apply(model,true,false));
+ // Car faces keep their outward normals and do not receive their own shadow.
+ cars.forEach(models=>models.forEach(model=>{if(model)retroLighting.apply(model,false);}));
+ retroLighting.apply(world);
  const backdrop=createNativeBackground(runtime.session.state.memory),sky=document.createElement('canvas');sky.width=320;sky.height=200;const skyContext=sky.getContext('2d')!,skyImage=skyContext.createImageData(320,200);
  const orderedRaster=createOriginalCanvasRaster(resources,trackMaterials.palette,(width,height)=>{const surface=document.createElement('canvas');surface.width=width;surface.height=height;return surface;});
  const overlay=document.createElement('canvas');overlay.width=320;overlay.height=200;
@@ -138,11 +159,13 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    camera.aspect=4/3;camera.fov=2*Math.atan(100/fy)*180/Math.PI;
 
    cars.forEach((models,i)=>models.forEach((model,detail)=>{if(!model)return;const state=i?runtime.session.state.opponent.car:runtime.session.state.player.driving.car,pose=shown.cars[i];
-    model.position.set(...pose.position);
-    model.rotation.set(-pose.rotation[1]*Math.PI/512,-pose.rotation[0]*Math.PI/512,-pose.rotation[2]*Math.PI/512,'YXZ');
+    setUpgradedCarPresentationPose(model,pose.position,pose.rotation,carGrounding[i]);
     model.visible=detail===(live[d+0x134]>=2&&models[1]?1:0)&&originalCarVisible(live[d+0x12f],!!live[d+0xa9f0],state.grip.crash,!!i,!!live[d+0x8fc8]);
    }));
    truck.update(live);
+   // The native truck rebuilds its door pose, so apply the caster-only shader
+   // to any newly created mesh before the visible frame is drawn.
+   retroLighting.apply(truck.group,true,false);
    wheelMotion.forEach((motion,owner)=>{if(shown.wheels?.[owner])motion?.update(shown.wheels[owner]);});
    signs.update(live);
    const level=live[d+0x134],animationPaint=live[d+0x8b4+((v.getUint16(d+0x8c26,true)||v.getUint16(d+0xaa78,true))&15)];
@@ -150,7 +173,7 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    for(const placement of visibilityPlacements){
     if(placement.tile===undefined){placement.model.visible=true;continue;}
     const descriptor=trackRenderModels[placement.tile]!;
-    const detail=upgradedWorldDetail(level,!!descriptor.detailShape,(live[d+0x2024+placement.tile*14]<<24>>24)>=64,placement.model.userData.originalTrackTile??[],carTile);
+    const detail=upgradedWorldDetail(level,!!descriptor.detailShape,(live[d+0x2024+placement.tile*14]<<24>>24)>=64,placement.model.userData.originalTrackTile??[],carTile,placement.keepInWorld);
     placement.model.visible=placement.detail===detail&&(!(descriptor.paint&128)||placement.paint===animationPaint);
    }
    clouds.forEach(model=>{model.visible=false;});
@@ -164,6 +187,14 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    // Depth testing retains every face instead of reproducing
    // angle-bucket flicker. Original stipple holes remain open in the shader.
    if(renderer.domElement.width!==canvas.width||renderer.domElement.height!==canvas.height)renderer.setSize(canvas.width,canvas.height,false);
+   const shadowCars=cars.map((models,i)=>{
+    const state=i?runtime.session.state.opponent.car:runtime.session.state.player.driving.car;
+    if((i&&!live[d+0x8fc8])||state.grip.crash===1||state.grip.crash===2)return undefined;
+    return models[live[d+0x134]>=2&&models[1]?1:0];
+   });
+   const playerModel=cars[0][live[d+0x134]>=2&&cars[0][1]?1:0];
+   const sceneryCenter=playerModel?.getWorldPosition(new THREE.Vector3())??camera.position.clone();
+   retroLighting.drawShadows(renderer,shadowCars,scene,sceneryCasters,sceneryCenter,sceneryWorldCenter);
    renderer.render(scene,camera);
    const pixels=frame.pixels;
    for(let i=0;i<64000;i++){const c=pixels[i]*3;image.data[i*4]=trackMaterials.palette[c];image.data[i*4+1]=trackMaterials.palette[c+1];image.data[i*4+2]=trackMaterials.palette[c+2];image.data[i*4+3]=frame.mask[i]*255;}
@@ -172,6 +203,6 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    fpsFrames++;if(now-fpsAt>=1000){canvas.dataset.upgradedFps=String(Math.round(fpsFrames*1000/(now-fpsAt)));fpsFrames=0;fpsAt=now;}
    return true;
   },
-  close(){orderedRaster.dispose();const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();scene.traverse(node=>{if(node instanceof THREE.Mesh||node instanceof THREE.LineSegments){geometries.add(node.geometry);for(const material of Array.isArray(node.material)?node.material:[node.material])materials.add(material);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());renderer.dispose();renderer.forceContextLoss();}
+  close(){retroLighting.dispose();orderedRaster.dispose();const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();scene.traverse(node=>{if(node instanceof THREE.Mesh||node instanceof THREE.LineSegments){geometries.add(node.geometry);for(const material of Array.isArray(node.material)?node.material:[node.material])materials.add(material);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());renderer.dispose();renderer.forceContextLoss();}
  };
 }

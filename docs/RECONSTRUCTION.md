@@ -41,3 +41,11 @@ The same update corrects the public shortcut list and two saved-file TypeScript 
 ## September 2026 public source link
 
 The main site navigation now includes a GITHUB ↗ item linking directly to the public ACatWithEbola/playstunts repository in a separate tab. It uses the existing navigation styling and does not change the game, original assets or renderer.
+
+## September 2026 lighting and shadow update
+
+The optional upgraded renderer now applies restrained three-step directional lighting while preserving the original palette and source geometry. A world-fixed Sun drives one physical car shadow and a shared scenery-shadow system for raised roads, bridges, ramps, loops, tunnels, buildings, barriers, signs, fences, windmills and the starting truck. Shadows use the nearest visible receiving surface, remain available throughout the camera-visible world, preserve patterned openings and resolve to a slightly softened almost-black. The windmill rotor therefore casts its actual animated blade shapes rather than a filled circle.
+
+Racing cars receive a presentation-only, model-specific grounding offset derived from their supplied tire geometry. It follows banking, slopes, elevated roads and jumps without changing simulation state, collision or replay data. Start and finish gantries and other edge-on vertical panels receive a minimum compatibility outline so geometry visible in the original rasterizer does not disappear in the GPU renderer.
+
+Roads, cars and scenery gain restrained atmospheric distance colouring beyond five track tiles. Grass is explicitly excluded from that hue shift: it keeps its original green and receives only broad, world-fixed brightness variation from 94 to 105 percent. The private original-data regression suite passed all 1,543 tests, followed by TypeScript checking, focused linting and a production build. A local live check measured 118–120 displayed frames per second on the development machine; this is not a cross-device guarantee.

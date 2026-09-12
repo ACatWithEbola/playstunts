@@ -1,7 +1,10 @@
 /** Presentation-only world selection: no source tile-distance cutoff. */
-export function upgradedWorldDetail(level:number,hasReducedModel:boolean,scenery:boolean,tile:readonly number[],carTile:readonly number[]){
+export function upgradedWorldDetail(level:number,hasReducedModel:boolean,scenery:boolean,tile:readonly number[],carTile:readonly number[],keepInWorld=false){
  // Supplied C47E..C743 retains scenery sharing either coordinate with the car.
- if(level!==0&&scenery&&tile[0]!==carTile[0]&&tile[1]!==carTile[1])return -1;
+ // The start/finish gantry must remain after the car crosses its tile: it can
+ // still be inside a cockpit or replay camera even when neither tile coordinate
+ // matches. Three.js frustum culling still removes it when it is off-screen.
+ if(!keepInWorld&&level!==0&&scenery&&tile[0]!==carTile[0]&&tile[1]!==carTile[1])return -1;
  return level>=2&&hasReducedModel?1:0;
 }
 /** Original cloud bearings and shapes on a distant, camera-centred sky.

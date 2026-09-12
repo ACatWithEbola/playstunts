@@ -2,12 +2,18 @@ import {applyOriginalMaterialPattern,type OriginalMaterialPatterns} from './orig
 import {attachedRoadTriangles,type Point3} from './attached-road-triangles.ts';
 import {createCarModel} from './car-model.ts';
 import * as THREE from 'three';
+import {LineSegments2} from 'three/examples/jsm/lines/LineSegments2.js';
+import {LineSegmentsGeometry} from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
+import {LineMaterial} from 'three/examples/jsm/lines/LineMaterial.js';
 import {originalPolygonNeedsDepthSort} from './polygon-order.ts';
+import {upgradedOriginalEdgeSegments} from './upgraded-original-edge-visibility.ts';
 import type {Shape} from './types.ts';
 export type TrackMaterials={indices:number[];palette:number[]}&OriginalMaterialPatterns;
 export function createTrackModel(shape: Shape,trackMaterials:TrackMaterials,paint=0,terrainUnderlay=false) {
   const patternMaterials:number[]=[],curbPriorities:number[]=[];
-  const vertices:number[]=[],colors:number[]=[],normals:number[]=[],layers:number[]=[],parentPlanes:number[]=[],lines:number[]=[],lineColors:number[]=[];
+  const vertices:number[]=[],colors:number[]=[],normals:number[]=[],layers:number[]=[],parentPlanes:number[]=[],lines:number[]=[],lineColors:number[]=[],edgeLines:number[]=[],edgeLineColors:number[]=[];
+  const originalEdgeSegments=upgradedOriginalEdgeSegments(shape),edgeSegmentsByPrimitive=new Map<number,typeof originalEdgeSegments>();
+  for(const segment of originalEdgeSegments){const segments=edgeSegmentsByPrimitive.get(segment.primitive);if(segments)segments.push(segment);else edgeSegmentsByPrimitive.set(segment.primitive,[segment]);}
   let parentPoints:Point3[]=[];
   let parentPlane:number[]=[0,0,0,0],attachedLayer=0;
   const lineRanges:{primitive:number;start:number;count:number}[]=[];
@@ -24,6 +30,7 @@ export function createTrackModel(shape: Shape,trackMaterials:TrackMaterials,pain
     };
     if(primitive.type===2){const start=lines.length/3;for(const index of primitive.indices)append(index,lines,lineColors);lineRanges.push({primitive:primitiveIndex,start,count:lines.length/3-start});continue;}
     if(primitive.type<3||primitive.type>10)continue;
+    for(const edge of edgeSegmentsByPrimitive.get(primitiveIndex)??[]){append(edge.start,edgeLines,edgeLineColors);append(edge.end,edgeLines,edgeLineColors);}
     const points=primitive.indices.map(index=>new THREE.Vector3(...shape.vertices[index]));
     const normal=new THREE.Vector3();
     for(let i=1;i<points.length-1&&!normal.lengthSq();i++)normal.crossVectors(points[i].clone().sub(points[0]),points[i+1].clone().sub(points[0]));
@@ -98,6 +105,13 @@ export function createTrackModel(shape: Shape,trackMaterials:TrackMaterials,pain
   applyOriginalMaterialPattern(material,geometry,patternMaterials,trackMaterials);
   group.add(new THREE.Mesh(geometry,material));
   if(lines.length){const geometry=new THREE.BufferGeometry();geometry.userData.originalPrimitiveRanges=lineRanges;geometry.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));geometry.setAttribute('color',new THREE.Float32BufferAttribute(lineColors,3));group.add(new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({vertexColors:true})));}
+  if(edgeLines.length){
+   const geometry=new LineSegmentsGeometry();geometry.setPositions(edgeLines);geometry.setColors(edgeLineColors);
+   // The source canvas is 320 pixels wide and the upgraded canvas is 4x.
+   // Four output pixels therefore preserve one native pixel without adding
+   // any world-space thickness or becoming wider when the camera approaches.
+   const edges=new LineSegments2(geometry,new LineMaterial({vertexColors:true,linewidth:4,toneMapped:false}));edges.userData.originalEdgeVisibility=true;group.add(edges);
+  }
   // The transporter uses the same native type-12 wheels as cars. Reuse their
   // tire/cap/hub presentation and undo the car adapter's 1/400 unit scale.
   const wheelPrimitives=shape.primitives.filter(primitive=>primitive.type===12);
