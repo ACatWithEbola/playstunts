@@ -146,4 +146,5 @@ export function addUpgradedCarStudyLights(scene:THREE.Scene,sunDirection:THREE.V
  const sun=new THREE.DirectionalLight(0xfff2d2,4);sun.position.copy(sunDirection);
  const rim=new THREE.DirectionalLight(0x80baff,2);rim.position.set(-4,3,-4);
  scene.add(hemisphere,sun,rim);
+ return {hemisphere,sun,rim};
 }
