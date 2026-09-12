@@ -7,7 +7,8 @@ import {Button} from '@/components/ui/button';
 import type {Assets,Primitive,Shape} from '@/lib/game/types';
 import {createCarModel} from '@/lib/game/car-model';
 import {addUpgradedCarStudyLights,applyUpgradedCarMaterials} from '@/lib/game/upgraded-car-materials';
-import {RETRO_SUN} from '@/lib/game/upgraded-retro-lighting';
+import {createUpgradedRetroLighting,RETRO_SUN} from '@/lib/game/upgraded-retro-lighting';
+import {groundShowroomCarOnRoadTires} from '@/lib/game/showroom-car-presentation';
 import trackMaterials from '@/public/game/track-materials.json';
 
 function primitiveArea(shape:Shape,primitive:Primitive){
@@ -46,6 +47,7 @@ function disposeObject(object:THREE.Object3D){
 export default function Garage({assets,onBack}:{assets:Assets;onBack:()=>void}){
  const [selected,setSelected]=useState(0),[paint,setPaint]=useState(0),[error,setError]=useState('');
  const host=useRef<HTMLDivElement>(null),sceneRef=useRef<THREE.Scene|null>(null),modelRef=useRef<THREE.Group|null>(null);
+ const shadowDirty=useRef(true);
  const car=assets.cars[selected],shape=assets.shapes['ST'+car.id]?.car0;
  const colors=useMemo(()=>shape?sourcePaintColors(shape):[0xe7bd32,0xd54937,0x267fa8,0xdadfdd,0x314639],[shape]);
 
@@ -54,17 +56,18 @@ export default function Garage({assets,onBack}:{assets:Assets;onBack:()=>void}){
   let renderer:THREE.WebGLRenderer;
   try{renderer=new THREE.WebGLRenderer({antialias:true});}
   catch{setError('3D rendering is unavailable in this browser. The original game is still available.');return;}
-  renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=false;renderer.toneMapping=THREE.ACESFilmicToneMapping;
   const scene=new THREE.Scene();sceneRef.current=scene;scene.background=new THREE.Color(0x101b25);scene.fog=new THREE.Fog(0x101b25,16,36);
   const camera=new THREE.PerspectiveCamera(36,1,.05,100);camera.position.set(6,3.1,7);
   const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,.6,0);controls.enableDamping=true;controls.minDistance=4;controls.maxDistance=16;controls.maxPolarAngle=Math.PI*.48;
-  const {sun}=addUpgradedCarStudyLights(scene,RETRO_SUN);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-6;sun.shadow.camera.right=6;sun.shadow.camera.top=6;sun.shadow.camera.bottom=-6;sun.shadow.bias=-.0003;
-  const floor=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshStandardMaterial({color:0x172731,roughness:.87}));floor.rotation.x=-Math.PI/2;floor.position.y=-.06;floor.receiveShadow=true;scene.add(floor);
-  const grid=new THREE.GridHelper(40,40,0x47606a,0x243942);grid.position.y=-.05;scene.add(grid);
+  addUpgradedCarStudyLights(scene,RETRO_SUN);
+  const retroLighting=createUpgradedRetroLighting();
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshBasicMaterial({color:0x172731,toneMapped:false}));floor.rotation.x=-Math.PI/2;floor.userData.retroDistanceColour=false;scene.add(floor);retroLighting.apply(floor,true,false);
+  const grid=new THREE.GridHelper(40,40,0x47606a,0x243942);grid.position.y=.002;grid.userData.originalEdgeVisibility=true;scene.add(grid);
   element.appendChild(renderer.domElement);
   const resize=()=>{const width=element.clientWidth,height=element.clientHeight;renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();};
-  const observer=new ResizeObserver(resize);observer.observe(element);resize();renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera);});
-  return()=>{observer.disconnect();renderer.setAnimationLoop(null);controls.dispose();sceneRef.current=null;modelRef.current=null;disposeObject(scene);renderer.dispose();renderer.domElement.remove();};
+  const observer=new ResizeObserver(resize);observer.observe(element);resize();renderer.setAnimationLoop(()=>{controls.update();if(shadowDirty.current&&modelRef.current){retroLighting.drawShadows(renderer,[modelRef.current],scene);shadowDirty.current=false;}renderer.render(scene,camera);});
+  return()=>{observer.disconnect();renderer.setAnimationLoop(null);controls.dispose();sceneRef.current=null;modelRef.current=null;retroLighting.dispose();disposeObject(scene);renderer.dispose();renderer.domElement.remove();};
  },[]);
 
  useEffect(()=>{
@@ -72,10 +75,12 @@ export default function Garage({assets,onBack}:{assets:Assets;onBack:()=>void}){
   if(modelRef.current){scene.remove(modelRef.current);disposeObject(modelRef.current);}
   const model=createCarModel(shape,0xffffff,{paint,indices:trackMaterials.indices,palette:trackMaterials.palette});
   applyUpgradedCarMaterials(model,shape);
-  const bounds=new THREE.Box3().setFromObject(model);model.position.y=-bounds.min.y;scene.add(model);modelRef.current=model;
+  groundShowroomCarOnRoadTires(model);
+  model.traverse(node=>{if(node instanceof THREE.Mesh){node.castShadow=false;node.receiveShadow=false;}});
+  scene.add(model);modelRef.current=model;shadowDirty.current=true;
  },[paint,shape]);
 
  useEffect(()=>setPaint(0),[selected]);
 
- return <section className="garage"><div className="garage-top"><Button variant="outline" onClick={onBack}>← Back</Button><span>3D car showroom · original geometry, corrected upgraded materials</span></div><div className="garage-layout"><div className="garage-view" ref={host}>{error&&<p role="alert">{error}</p>}<span className="orbit-hint">Drag to rotate · scroll to zoom</span></div><aside><p className="eyebrow">{String(selected+1).padStart(2,'0')} / {assets.cars.length}</p><h2>{car.name}</h2><p className="car-description">{car.description.split('\n').filter(Boolean).slice(1).join('\n')}</p><div className="paints" aria-label="Preview paint colour">{colors.map((colour,index)=><button key={`${colour}-${index}`} aria-label={`Paint colour ${index+1}`} aria-pressed={paint===index} onClick={()=>setPaint(index)} style={{background:'#'+colour.toString(16).padStart(6,'0')}} />)}</div><div className="car-nav"><Button variant="outline" onClick={()=>setSelected((selected+assets.cars.length-1)%assets.cars.length)}>← Previous</Button><Button variant="outline" onClick={()=>setSelected((selected+1)%assets.cars.length)}>Next →</Button></div><p className="fine">The showroom now uses the same corrected geometry, source colours, lamps and upgraded lighting as the enhanced game renderer.</p></aside></div></section>;
+ return <section className="garage"><div className="garage-top"><Button variant="outline" onClick={onBack}>← Back</Button><span>3D car showroom · original geometry, corrected upgraded materials</span></div><div className="garage-layout"><div className="garage-view" ref={host}>{error&&<p role="alert">{error}</p>}<span className="orbit-hint">Drag to rotate · scroll to zoom</span></div><aside><p className="eyebrow">{String(selected+1).padStart(2,'0')} / {assets.cars.length}</p><h2>{car.name}</h2><p className="car-description">{car.description.split('\n').filter(Boolean).slice(1).join('\n')}</p><div className="paints" aria-label="Preview paint colour">{colors.map((colour,index)=><button key={`${colour}-${index}`} aria-label={`Paint colour ${index+1}`} aria-pressed={paint===index} onClick={()=>setPaint(index)} style={{background:'#'+colour.toString(16).padStart(6,'0')}} />)}</div><div className="car-nav"><Button variant="outline" onClick={()=>setSelected((selected+assets.cars.length-1)%assets.cars.length)}>← Previous</Button><Button variant="outline" onClick={()=>setSelected((selected+1)%assets.cars.length)}>Next →</Button></div><p className="fine">The showroom now uses the same corrected geometry, source colours, lamps, upgraded lighting and filtered shadows as the enhanced game renderer.</p></aside></div></section>;
 }
