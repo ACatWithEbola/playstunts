@@ -9,6 +9,7 @@ import {useRolandDevice} from './use-roland-device';
 import {RolandDevicePanel} from './RolandDevicePanel';
 import StuntsBrand from './StuntsBrand';
 import SaveBackupPanel from './SaveBackupPanel';
+import Garage from './Garage';
 import type {Assets} from '@/lib/game/types';
 
 type SavedSetup=Awaited<ReturnType<typeof loadBrowserSetupSelection>>;
@@ -20,10 +21,15 @@ export default function Home(){
  const [setup,setSetup]=useState<(ReturnType<typeof nativeLaunchProfile>&{directory:string;track?:number[];soundName:string})|null>(null);
  const [assets,setAssets]=useState<Assets|null>(null),[error,setError]=useState(''),[session,setSession]=useState(0);
  const [settingsNotice,setSettingsNotice]=useState(''),[autoStart,setAutoStart]=useState(false);
+ const [showroom,setShowroom]=useState(false);
  const currentSetupKey=useRef(''),settingsRead=useRef<AbortController|null>(null),gameRunning=useRef(false);
  const setRolandGameRunning=roland.setGameRunning;
  const gameRunningChanged=useCallback((running:boolean)=>{gameRunning.current=running;setRunning(running);setRolandGameRunning(running&&setup?.soundDevice==='mt32');},[setRolandGameRunning,setup?.soundDevice]);
  useEffect(()=>()=>settingsRead.current?.abort(),[]);
+ useEffect(()=>{
+  const sync=()=>setShowroom(new URL(window.location.href).searchParams.get('view')==='cars');
+  sync();window.addEventListener('popstate',sync);return()=>window.removeEventListener('popstate',sync);
+ },[]);
  useEffect(()=>{
   const url=new URL(window.location.href);if(url.searchParams.has('sound')){url.searchParams.delete('sound');window.history.replaceState(window.history.state,'',url);}
   setAssets(null);setError('');setSettingsNotice('');settingsRead.current?.abort();
@@ -43,6 +49,14 @@ export default function Home(){
    setSettingsNotice('Saved settings are unchanged.');
   }catch(reason){if(!controller.signal.aborted)setSettingsNotice(reason instanceof Error?reason.message:String(reason));}
  },[]);
+ const openShowroom=useCallback(()=>{
+  const url=new URL(window.location.href);url.searchParams.set('view','cars');url.hash='play';window.history.pushState(window.history.state,'',url);setShowroom(true);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>document.getElementById('play')?.scrollIntoView({behavior:'smooth'})));
+ },[]);
+ const openHomeSection=useCallback((id:string,openDetails=false)=>{
+  const url=new URL(window.location.href);url.searchParams.delete('view');url.hash=id;window.history.pushState(window.history.state,'',url);setShowroom(false);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{const section=document.getElementById(id);if(openDetails&&section instanceof HTMLDetailsElement)section.open=true;section?.scrollIntoView({behavior:'smooth'});}));
+ },[]);
  const selectedSound=setup?.soundDevice;
  return <main className="game-shell stunts-launcher stunts-universe" id="top">
   <header className="stunts-masthead">
@@ -50,7 +64,7 @@ export default function Home(){
    <div className="stunts-masthead-art" aria-hidden="true"><Image unoptimized width={790} height={309} onError={event=>{event.currentTarget.style.display="none";}} src="/site/manual-red-car.png" alt=""/></div>
    <div className="stunts-masthead-copy"><span>WELCOME TO</span><strong>4D SPORTS<br/>DRIVING</strong><p>Choose your car. Build your track.<br/>Take it for a drive.</p></div>
   </header>
-  <nav className="stunts-navigation" aria-label="Main navigation"><a className="nav-play" href="#play">PLAY</a><a href="#setup">SETUP</a><a href="#about">THE GAME</a><a href="/cars">3D CARS</a><a href="#roland">MT-32</a><a href="https://pigsgrame.de/downloads/stunts.pdf" target="_blank" rel="noreferrer">MANUAL ↗</a><a href="#saves" onClick={()=>{const section=document.getElementById('saves');if(section instanceof HTMLDetailsElement)section.open=true;}}>TRACKS &amp; REPLAYS</a><a href="https://github.com/ACatWithEbola/playstunts" target="_blank" rel="noreferrer">GITHUB ↗</a></nav>
+  <nav className="stunts-navigation" aria-label="Main navigation"><a className={showroom?undefined:'nav-play'} href="#play" onClick={event=>{event.preventDefault();openHomeSection('play');}}>PLAY</a><a href="#setup" onClick={event=>{event.preventDefault();openHomeSection('setup');}}>SETUP</a><a href="#about" onClick={event=>{event.preventDefault();openHomeSection('about');}}>THE GAME</a><a className={showroom?'nav-play':undefined} href="/?view=cars" onClick={event=>{event.preventDefault();openShowroom();}}>3D CARS</a><a href="#roland" onClick={event=>{event.preventDefault();openHomeSection('roland');}}>MT-32</a><a href="https://pigsgrame.de/downloads/stunts.pdf" target="_blank" rel="noreferrer">MANUAL ↗</a><a href="#saves" onClick={event=>{event.preventDefault();openHomeSection('saves',true);}}>TRACKS &amp; REPLAYS</a><a href="https://github.com/ACatWithEbola/playstunts" target="_blank" rel="noreferrer">GITHUB ↗</a></nav>
   <div className="launcher-grid">
    <aside className="stunts-manual-rail" aria-label="Original Stunts manual">
     <a className="manual-cover" href="https://pigsgrame.de/downloads/stunts.pdf" target="_blank" rel="noreferrer" aria-label="Read the original Stunts manual (PDF)"><Image unoptimized width={800} height={967} onError={event=>{event.currentTarget.onerror=null;event.currentTarget.src="/site/game-title.png";}} src="/site/manual-front-cover.jpg" alt="Stunts manual cover or original title screen"/></a>
@@ -58,8 +72,8 @@ export default function Home(){
     <a className="manual-link" href="https://pigsgrame.de/downloads/stunts.pdf" target="_blank" rel="noreferrer">Read the manual <span>↗</span></a>
    </aside>
    <div className="stunts-setup-column"><section className="launcher-station stunts-setup-station" id="setup" aria-labelledby="setup-heading"><h2 id="setup-heading">GAME SETUP</h2><NativeSetupPanel onClosed={setupClosed}/><div className="launcher-settings-state"><p role="status">{settingsNotice||'Saving changed settings restarts the game automatically.'}</p></div></section><section className="launcher-station stunts-shortcuts" aria-labelledby="shortcuts-heading"><h2 id="shortcuts-heading">KEYBOARD SHORTCUTS</h2><dl><dt><kbd>↑</kbd> / <kbd>↓</kbd></dt><dd>Accelerate / brake</dd><dt><kbd>←</kbd> / <kbd>→</kbd></dt><dd>Steer left / right</dd><dt><kbd>A</kbd> / <kbd>Z</kbd></dt><dd>Shift up / down</dd><dt><kbd>Space</kbd> / <kbd>Enter</kbd></dt><dd>Alternative shift keys</dd><dt><kbd>Esc</kbd></dt><dd>Open the game menu</dd><dt><kbd>C</kbd></dt><dd>Cycle camera views</dd><dt><kbd>F1</kbd> – <kbd>F4</kbd></dt><dd>Select camera</dd><dt><kbd>T</kbd></dt><dd>View the opponent’s car</dd><dt><kbd>D</kbd></dt><dd>Show / hide dashboard</dd><dt><kbd>Ctrl</kbd> + <kbd>Arrows</kbd></dt><dd>Adjust replay camera</dd><dt><kbd>+</kbd> / <kbd>−</kbd></dt><dd>Zoom the replay camera</dd><dt><kbd>Arrow keys</kbd></dt><dd>Select a replay control</dd><dt><kbd>Enter</kbd> / <kbd>Space</kbd></dt><dd>Use selected replay control</dd><dt><kbd>Shift</kbd> + <kbd>F1</kbd></dt><dd>Open terrain editor</dd></dl></section></div>
-   <section className="launcher-station stunts-play-station" id="play" aria-labelledby="game-heading"><h2 id="game-heading">PLAY STUNTS IN YOUR BROWSER</h2>
-    {assets&&(selectedSound!=='mt32'||roland.power)?<OpeningSequence embedded autoStart={autoStart} key={session} assets={assets} soundDevice={selectedSound} rolandPower={selectedSound==='mt32'?roland.power:undefined} onRunningChange={gameRunningChanged} displayMode={setup?.displayMode} initiallyMuted={setup?.initiallyMuted} hercules={setup?.hercules} directory={setup?.directory} initialTrack={setup?.track} onBack={()=>setSession(value=>value+1)} backLabel="Restart"/>:<div className="launcher-loading"><p role={error?'alert':'status'}>{error||'Loading Stunts…'}</p>{error&&<button onClick={()=>setSession(value=>value+1)}>Retry</button>}</div>}
+   <section className="launcher-station stunts-play-station" id="play" aria-labelledby="game-heading"><h2 id="game-heading">{showroom?'3D CAR SHOWROOM':'PLAY STUNTS IN YOUR BROWSER'}</h2>
+    {showroom?<div className="stunts-showroom-inline">{assets?<Garage assets={assets}/>:<div className="launcher-loading"><p role={error?'alert':'status'}>{error||'Loading cars…'}</p></div>}</div>:assets&&(selectedSound!=='mt32'||roland.power)?<OpeningSequence embedded autoStart={autoStart} key={session} assets={assets} soundDevice={selectedSound} rolandPower={selectedSound==='mt32'?roland.power:undefined} onRunningChange={gameRunningChanged} displayMode={setup?.displayMode} initiallyMuted={setup?.initiallyMuted} hercules={setup?.hercules} directory={setup?.directory} initialTrack={setup?.track} onBack={()=>setSession(value=>value+1)} backLabel="Restart"/>:<div className="launcher-loading"><p role={error?'alert':'status'}>{error||'Loading Stunts…'}</p>{error&&<button onClick={()=>setSession(value=>value+1)}>Retry</button>}</div>}
     <section className="launcher-roland" id="roland" aria-label="Roland MT-32 sound module"><RolandDevicePanel roland={roland}/></section>
    </section>
   </div>

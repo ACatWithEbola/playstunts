@@ -75,7 +75,7 @@ function installOriginalCarChroma(material:THREE.MeshStandardMaterial){
 /** A source polygon is one authored panel, even when its rounded vertices
  * are not perfectly planar. Give its triangulated fragments one lighting
  * normal through the shader, leaving every geometry attribute untouched. */
-function installOriginalPanelNormal(material:THREE.MeshStandardMaterial,shape:Shape,primitiveIndex:number){
+function installOriginalPanelNormal(material:THREE.MeshStandardMaterial,shape:Shape,primitiveIndex:number,groundContact=false){
  const primitive=shape.primitives[primitiveIndex];
  if(!primitive||primitive.type<3||primitive.type>10)return;
  const points=primitive.indices.map(index=>new THREE.Vector3(...shape.vertices[index])),normal=new THREE.Vector3();
@@ -86,10 +86,54 @@ function installOriginalPanelNormal(material:THREE.MeshStandardMaterial,shape:Sh
  material.onBeforeCompile=(shader,renderer)=>{
   compile(shader,renderer);
   shader.uniforms.originalCarPanelNormal={value:normal};
+  shader.uniforms.originalGroundContactDepth={value:Number(groundContact)};
   shader.vertexShader='uniform vec3 originalCarPanelNormal;\n'+shader.vertexShader;
+  shader.fragmentShader='uniform float originalGroundContactDepth;\n'+shader.fragmentShader;
   shader.vertexShader=shader.vertexShader.replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\nobjectNormal=originalCarPanelNormal; // one original panel normal');
+  shader.fragmentShader=shader.fragmentShader.replace('#include <logdepthbuf_fragment>',`#include <logdepthbuf_fragment>
+#ifdef USE_LOGARITHMIC_DEPTH_BUFFER
+   float originalGroundContactSlope=max(abs(dFdx(gl_FragDepth)),abs(dFdy(gl_FragDepth)));
+   gl_FragDepth+=originalGroundContactDepth*(originalGroundContactSlope*0.5+0.000001);
+#endif`);
  };
- material.customProgramCacheKey=()=>key+'/original-panel-normal-v2';
+ material.customProgramCacheKey=()=>key+'/original-panel-normal-v3';
+}
+
+const groundContactPanels=new WeakMap<Shape,Set<number>>();
+
+/** Identify upward-facing body panels authored at the road-tire contact plane.
+ * The full-detail Countach has two such lower-chassis fills. They belong to the
+ * car and remain available when airborne, but a ground receiver must win an
+ * equal-depth test while the tyres are planted. */
+export function isOriginalGroundContactPanel(shape:Shape,primitiveIndex:number){
+ let panels=groundContactPanels.get(shape);
+ if(!panels){
+  panels=new Set<number>();
+  const wheels=shape.primitives.filter(primitive=>primitive.type===12).map(primitive=>{
+   const a=new THREE.Vector3(...shape.vertices[primitive.indices[0]]),rim=new THREE.Vector3(...shape.vertices[primitive.indices[1]]),b=new THREE.Vector3(...shape.vertices[primitive.indices[3]]);
+   const axis=b.clone().sub(a),radius=rim.distanceTo(a),radialY=radius*Math.sqrt(Math.max(0,1-(axis.y/axis.length())**2));
+   return {x:(a.x+b.x)/800,bottom:((a.y+b.y)/2-radialY)/400};
+  });
+  if(wheels.length){
+   const maxLateral=Math.max(...wheels.map(wheel=>Math.abs(wheel.x)));
+   const contact=Math.min(...wheels.filter(wheel=>Math.abs(wheel.x)>=maxLateral*.75).map(wheel=>wheel.bottom));
+   shape.primitives.forEach((primitive,index)=>{
+    if(primitive.type<3||primitive.type>10||primitive.indices.length<3)return;
+    const points=primitive.indices.map(vertex=>new THREE.Vector3(...shape.vertices[vertex]).multiplyScalar(1/400));
+    const normal=new THREE.Vector3().crossVectors(points[1].clone().sub(points[0]),points[2].clone().sub(points[0])).normalize();
+    const heights=points.map(point=>point.y);
+    if(normal.y>.9&&Math.max(...heights)-Math.min(...heights)<1e-9&&Math.max(...heights)<=contact+1e-9)panels!.add(index);
+   });
+  }
+  groundContactPanels.set(shape,panels);
+ }
+ return panels.has(primitiveIndex);
+}
+
+function prioritizeOriginalGroundContactDepth(material:THREE.MeshStandardMaterial){
+ // Ordinary depth buffers use fixed-function offset; installOriginalPanelNormal
+ // supplies the equivalent uniform-driven bias in the logarithmic race path.
+ material.polygonOffset=true;material.polygonOffsetFactor=2;material.polygonOffsetUnits=2;
 }
 
 /** Source lamp lenses, not paint or windows. The spatial check disambiguates
@@ -116,6 +160,7 @@ export function applyUpgradedCarMaterials(model:THREE.Group,shape:Shape){
  model.traverse(node=>{
   if(!(node instanceof THREE.Mesh)||node.userData.originalCarLine)return;
   const primitive=shape.primitives[node.userData.originalPrimitive],source=primitive?.materials[0];
+  const groundContact=isOriginalGroundContactPanel(shape,node.userData.originalPrimitive);
   if(isOriginalCarLamp(shape,node.userData.originalPrimitive)){
    // Keep the original unlit lens, including source stipple/depth hooks.
    // It must not turn black under directional lighting or ACES tone mapping.
@@ -132,7 +177,8 @@ export function applyUpgradedCarMaterials(model:THREE.Group,shape:Shape){
    material.onBeforeCompile=old.onBeforeCompile.bind(old);material.onBeforeRender=old.onBeforeRender.bind(old);
    const sourceKey=old.customProgramCacheKey();material.customProgramCacheKey=()=>sourceKey+'/study-car-material-v1';
    installOriginalCarChroma(material);
-   if(node.userData.originalBodyFace)installOriginalPanelNormal(material,shape,node.userData.originalPrimitive);
+   if(node.userData.originalBodyFace)installOriginalPanelNormal(material,shape,node.userData.originalPrimitive,groundContact);
+   if(groundContact){node.userData.originalGroundContactPanel=true;prioritizeOriginalGroundContactDepth(material);}
    return material;
   };
   node.material=Array.isArray(node.material)?node.material.map(replace):replace(node.material);

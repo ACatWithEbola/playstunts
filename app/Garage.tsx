@@ -44,7 +44,12 @@ function disposeObject(object:THREE.Object3D){
  });
 }
 
-export default function Garage({assets,onBack}:{assets:Assets;onBack:()=>void}){
+function carSpecifications(description:string){
+ const lines=description.split('\n'),start=lines.findIndex(line=>/\bEngine,/.test(line));
+ return lines.slice(start<0?1:start).filter(Boolean).join('\n');
+}
+
+export default function Garage({assets}:{assets:Assets}){
  const [selected,setSelected]=useState(0),[paint,setPaint]=useState(0),[error,setError]=useState('');
  const host=useRef<HTMLDivElement>(null),sceneRef=useRef<THREE.Scene|null>(null),modelRef=useRef<THREE.Group|null>(null);
  const shadowDirty=useRef(true);
@@ -82,5 +87,5 @@ export default function Garage({assets,onBack}:{assets:Assets;onBack:()=>void}){
 
  useEffect(()=>setPaint(0),[selected]);
 
- return <section className="garage"><div className="garage-top"><Button variant="outline" onClick={onBack}>← Back</Button><span>3D car showroom · original geometry, corrected upgraded materials</span></div><div className="garage-layout"><div className="garage-view" ref={host}>{error&&<p role="alert">{error}</p>}<span className="orbit-hint">Drag to rotate · scroll to zoom</span></div><aside><p className="eyebrow">{String(selected+1).padStart(2,'0')} / {assets.cars.length}</p><h2>{car.name}</h2><p className="car-description">{car.description.split('\n').filter(Boolean).slice(1).join('\n')}</p><div className="paints" aria-label="Preview paint colour">{colors.map((colour,index)=><button key={`${colour}-${index}`} aria-label={`Paint colour ${index+1}`} aria-pressed={paint===index} onClick={()=>setPaint(index)} style={{background:'#'+colour.toString(16).padStart(6,'0')}} />)}</div><div className="car-nav"><Button variant="outline" onClick={()=>setSelected((selected+assets.cars.length-1)%assets.cars.length)}>← Previous</Button><Button variant="outline" onClick={()=>setSelected((selected+1)%assets.cars.length)}>Next →</Button></div><p className="fine">The showroom now uses the same corrected geometry, source colours, lamps, upgraded lighting and filtered shadows as the enhanced game renderer.</p></aside></div></section>;
+ return <section className="garage"><div className="garage-top"><span>3D car showroom · original geometry, corrected upgraded materials</span></div><div className="garage-layout"><div className="garage-view" ref={host}>{error&&<p role="alert">{error}</p>}<span className="orbit-hint">Drag to rotate · scroll to zoom</span></div><aside><div className="car-heading"><p className="eyebrow">{String(selected+1).padStart(2,'0')} / {assets.cars.length}</p><h2>{car.name}</h2></div><p className="car-description">{carSpecifications(car.description)}</p><div className="car-controls"><div className="paints" aria-label="Preview paint colour">{colors.map((colour,index)=><button key={`${colour}-${index}`} aria-label={`Paint colour ${index+1}`} aria-pressed={paint===index} onClick={()=>setPaint(index)} style={{background:'#'+colour.toString(16).padStart(6,'0')}} />)}</div><div className="car-nav"><Button variant="outline" onClick={()=>setSelected((selected+assets.cars.length-1)%assets.cars.length)}>← Previous</Button><Button variant="outline" onClick={()=>setSelected((selected+1)%assets.cars.length)}>Next →</Button></div></div><p className="fine">The showroom now uses the same corrected geometry, source colours, lamps, upgraded lighting and filtered shadows as the enhanced game renderer.</p></aside></div></section>;
 }
