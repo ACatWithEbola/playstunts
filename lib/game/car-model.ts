@@ -1,5 +1,9 @@
 import {applyOriginalMaterialPattern,type OriginalMaterialPatterns} from './original-material-pattern.ts';
 import * as THREE from 'three';
+import {LineSegments2} from 'three/examples/jsm/lines/LineSegments2.js';
+import {LineSegmentsGeometry} from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
+import {LineMaterial} from 'three/examples/jsm/lines/LineMaterial.js';
+import {CAR_STUDY_MATERIALS} from './car-study-materials.ts';
 import type {Shape} from './types';
 
 type OriginalPaint={paint:number;indices:readonly number[];palette:readonly number[]}&OriginalMaterialPatterns;
@@ -9,13 +13,15 @@ function prioritizeCoplanarDetail(material:THREE.Material,layer:number){
  const compile=material.onBeforeCompile.bind(material),key=material.customProgramCacheKey.bind(material);
  material.onBeforeCompile=(shader,renderer)=>{
   compile(shader,renderer);
+  shader.uniforms.originalCarAttachedLayer={value:layer};
+  shader.fragmentShader='uniform float originalCarAttachedLayer;\n'+shader.fragmentShader;
   shader.fragmentShader=shader.fragmentShader.replace('#include <logdepthbuf_fragment>',`#include <logdepthbuf_fragment>
 #ifdef USE_LOGARITHMIC_DEPTH_BUFFER
    float originalCarDepthSlope=max(abs(dFdx(gl_FragDepth)),abs(dFdy(gl_FragDepth)));
-   gl_FragDepth-=originalCarDepthSlope*0.5+${layer}.0*0.000001;
+   gl_FragDepth-=originalCarDepthSlope*0.5+originalCarAttachedLayer*0.000001;
 #endif`);
  };
- const previousKey=key();material.customProgramCacheKey=()=>previousKey+'/original-car-attached-depth-'+layer;
+ const previousKey=key();material.customProgramCacheKey=()=>previousKey+'/original-car-attached-depth-v2';
 }
 
 function closeOriginalNsxWindowSeam(group:THREE.Group,shape:Shape,points:THREE.Vector3[]){
@@ -71,15 +77,18 @@ export function createCarModel(shape:Shape,color:number,originalPaint?:OriginalP
    }
    const material=originalPaint
     ?new THREE.MeshBasicMaterial({color:surfaceColor,side:(p.flags&1)?THREE.DoubleSide:THREE.FrontSide,toneMapped:false})
-    :new THREE.MeshStandardMaterial({color:surfaceColor,metalness:.25,roughness:.43,side:THREE.DoubleSide,flatShading:true});
+    :new THREE.MeshStandardMaterial({color:surfaceColor,...CAR_STUDY_MATERIALS.body,side:THREE.DoubleSide,flatShading:true});
    if(originalPaint&&material instanceof THREE.MeshBasicMaterial)applyOriginalMaterialPattern(material,geometry,Array(positions.length/3).fill(p.materials[originalPaint.paint]),originalPaint);
    const layer=p.flags&2?++attachedLayer:(attachedLayer=0);
    if(layer)prioritizeCoplanarDetail(material,layer);
    const node=new THREE.Mesh(geometry,material);
    node.castShadow=true;node.receiveShadow=true;node.userData.originalBodyFace=true;node.userData.originalPrimitive=shape.primitives.indexOf(p);node.userData.originalAttachedLayer=layer;group.add(node);
   }else if(originalPaint&&p.type===2){
-   const geometry=new THREE.BufferGeometry().setFromPoints(p.indices.map(i=>points[i]));
-   group.add(new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({color:originalColor(p.materials[originalPaint.paint]),toneMapped:false})));
+   const geometry=new LineSegmentsGeometry();geometry.setPositions(p.indices.flatMap(i=>points[i].toArray()));
+   // One source line pixel at 320x200 is four pixels in the upgraded canvas.
+   // Screen-space width retains that footprint without moving its endpoints.
+   const line=new LineSegments2(geometry,new LineMaterial({color:originalColor(p.materials[originalPaint.paint]),linewidth:4,toneMapped:false,side:THREE.DoubleSide}));
+   line.userData.originalCarLine=true;line.userData.originalPrimitive=shape.primitives.indexOf(p);group.add(line);
   }else if(originalPaint&&p.type===11){
    const center=points[p.indices[0]],radius=center.distanceTo(points[p.indices[1]])/2;
    const sphere=new THREE.Mesh(new THREE.SphereGeometry(radius,16,12),new THREE.MeshBasicMaterial({color:originalColor(p.materials[originalPaint.paint]),toneMapped:false}));
@@ -93,14 +102,14 @@ export function createCarModel(shape:Shape,color:number,originalPaint?:OriginalP
       new THREE.MeshBasicMaterial({color:originalColor(p.materials[originalPaint.paint]+1),toneMapped:false}),
       new THREE.MeshBasicMaterial({color:originalColor(p.materials[originalPaint.paint]+1),toneMapped:false}),
      ]
-    :new THREE.MeshStandardMaterial({color:0x101318,roughness:.95});
+    :new THREE.MeshStandardMaterial({color:0x101318,...CAR_STUDY_MATERIALS.tire});
    const wheel=new THREE.Mesh(wheelGeometry,wheelMaterial);
    wheel.position.copy(a).add(b).multiplyScalar(.5);
    wheel.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),b.clone().sub(a).normalize());
    wheel.castShadow=true;wheel.userData.originalWheelPart='tire';group.add(wheel);
    const hubMaterial=originalPaint
     ?new THREE.MeshBasicMaterial({color:originalColor(p.materials[originalPaint.paint]+2),toneMapped:false})
-    :new THREE.MeshStandardMaterial({color:0x9fadb7,metalness:.7,roughness:.3});
+    :new THREE.MeshStandardMaterial({color:0x9fadb7,...CAR_STUDY_MATERIALS.hub});
    prioritizeCoplanarDetail(hubMaterial,1);
    const hub=new THREE.Mesh(new THREE.CylinderGeometry(radius*(originalPaint?0x2500/16384:.56),radius*(originalPaint?0x2500/16384:.56),depth,12),hubMaterial);
    hub.position.copy(wheel.position);hub.quaternion.copy(wheel.quaternion);hub.userData.originalWheelPart='hub';group.add(hub);

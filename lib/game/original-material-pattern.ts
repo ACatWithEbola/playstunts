@@ -11,8 +11,11 @@ export function applyOriginalMaterialPattern(material:THREE.MeshBasicMaterial,ge
  const pattern:number[]=[],base:number[]=[];
  for(const id of materials){pattern.push(source.patterns[id]??0,source.masks[id]??0);const index=(source.baseColors[id]??0)*3,c=new THREE.Color((source.palette[index]<<16)|(source.palette[index+1]<<8)|source.palette[index+2]);base.push(c.r,c.g,c.b);}
  geometry.setAttribute('originalPattern',new THREE.Float32BufferAttribute(pattern,2));geometry.setAttribute('originalBaseColor',new THREE.Float32BufferAttribute(base,3));
- const compile=material.onBeforeCompile.bind(material),key=material.customProgramCacheKey.bind(material),size=new THREE.Vector2();
- material.onBeforeRender=renderer=>{renderer.getDrawingBufferSize(size);};
+ const compile=material.onBeforeCompile.bind(material),key=material.customProgramCacheKey.bind(material),beforeRender=material.onBeforeRender.bind(material),size=new THREE.Vector2();
+ material.onBeforeRender=(renderer,scene,camera,geometry,object,group)=>{
+  beforeRender(renderer,scene,camera,geometry,object,group);
+  renderer.getDrawingBufferSize(size);
+ };
  material.onBeforeCompile=(shader,renderer)=>{compile(shader,renderer);shader.uniforms.originalResolution={value:size};
   shader.vertexShader='attribute vec2 originalPattern; attribute vec3 originalBaseColor; varying vec2 vOriginalPattern; varying vec3 vOriginalBaseColor;\n'+shader.vertexShader;
   shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvOriginalPattern=originalPattern;vOriginalBaseColor=originalBaseColor;');

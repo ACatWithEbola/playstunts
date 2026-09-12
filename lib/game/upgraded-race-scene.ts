@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import type {Assets} from './types';
 import {createTrackModelFactory} from './track-model';
 import {createCarModel} from './car-model';
+import {applyUpgradedCarMaterials,addUpgradedCarStudyLights} from './upgraded-car-materials';
 import {createUpgradedCarWheelMotion} from './upgraded-car-wheels';
 import {createStartTruckModel} from './start-truck-model';
 import {createUpgradedTrackSigns} from './upgraded-track-signs';
@@ -16,9 +17,11 @@ import {elevatedRoadUnderlays} from './elevated-road-underlays';
 import {hillRenderSelection} from './hill-render-selection';
 import {originalCarVisible} from './car-visibility';
 import {upgradedCameraBasis} from './upgraded-camera-basis';
-import {createUpgradedRetroLighting} from './upgraded-retro-lighting';
+import {createUpgradedRetroLighting,RETRO_SUN,type RetroSceneryCaster} from './upgraded-retro-lighting';
 import {upgradedCarGroundingOffset,setUpgradedCarPresentationPose} from './upgraded-car-grounding';
-import {upgradedSceneryCastsShadow} from './upgraded-scenery-shadows';
+import {upgradedCompositeShadowShapes,upgradedSceneryCastsShadow,upgradedSceneryUsesPatternedShadow} from './upgraded-scenery-shadows';
+import {upgradedBackgroundView} from './upgraded-background-view';
+import {upgradedTrackSeamShape} from './upgraded-track-seams';
 import {type Vector} from '../physics/math';
 import trackMaterials from '../../public/game/track-materials.json';
 import trackRenderModels from '../../public/game/track-render-models.json';
@@ -29,9 +32,10 @@ type Runtime=Pick<Awaited<ReturnType<typeof createNativeManualRaceRuntime>>,'raw
  * No animation loop, input adapter, simulation, audio or replay owner. */
 export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runtime:Runtime){
  const track=runtime.raw,descriptorView=new DataView(resources.buffer,resources.byteOffset,resources.byteLength),descriptorWord=(at:number)=>descriptorView.getUint16(0x2d1a0+at,true);
- const renderer=new THREE.WebGLRenderer({antialias:false,alpha:true,logarithmicDepthBuffer:true});
- renderer.toneMapping=THREE.NoToneMapping;
+ const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,logarithmicDepthBuffer:true});
+ renderer.toneMapping=THREE.ACESFilmicToneMapping;
  const scene=new THREE.Scene(),world=new THREE.Group();world.scale.z=-1;scene.add(world);
+ addUpgradedCarStudyLights(scene,RETRO_SUN);
  const retroLighting=createUpgradedRetroLighting();
  scene.background=null;
  const camera=new THREE.PerspectiveCamera(58,1,1,200000);
@@ -39,13 +43,13 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
  const ground=new THREE.Mesh(new THREE.PlaneGeometry(30720,30720),new THREE.MeshBasicMaterial({color:0x000000,toneMapped:false,depthWrite:false}));
  // The base fill must never occlude terrain whose depth is biased behind roads.
  // It supplies the ordinary flat grass between road and special terrain.
- // Preserve its original hue: grass receives brightness variation but not
+ // Preserve its exact original hue without procedural colour variation or
  // the cyan atmospheric blend used by distant roads and scenery.
- ground.renderOrder=-1;ground.userData.retroGrassVariation=true;ground.userData.retroDistanceColour=false;
+ ground.renderOrder=-1;ground.userData.retroDistanceColour=false;
  ground.rotation.x=-Math.PI/2;ground.position.set(15360,-1,15360);world.add(ground);
       const sourceMaterials={...trackMaterials,...readOriginalMaterialPatterns(runtime.session.state.memory)};
       const trackModel=createTrackModelFactory(sourceMaterials);
-      const visibilityPlacements:{model:THREE.Group;key:string;detail?:number;tile?:number;terrain?:number;underlay?:boolean;castsShadow?:boolean;keepInWorld?:boolean;origin:number[];paint:number;visible:boolean[]}[]=[];
+      const visibilityPlacements:{model:THREE.Group;key:string;detail?:number;tile?:number;terrain?:number;underlay?:boolean;castsShadow?:boolean;shadow?:RetroSceneryCaster;keepInWorld?:boolean;origin:number[];paint:number;visible:boolean[]}[]=[];
 
       for (let z = 0; z < 30; z++)
         for (let x = 0; x < 30; x++) {
@@ -58,11 +62,12 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
             const terrainDescriptor=terrainObjects.find(t=>t.id===selected.terrain);
             if(!terrainDescriptor)throw Error(`Unknown terrain model ${terrain}`);
             const [group,name]=terrainDescriptor.shape.split('.');
-            const terrainModel=trackModel(assets.shapes[group][name],0,true);
-            if(terrain>=6)terrainModel.traverse(node=>{if(node instanceof THREE.Mesh){node.userData.retroGrassVariation=true;node.userData.retroDistanceColour=false;}});
+            const terrainShape=upgradedTrackSeamShape(assets.shapes[group][name],terrainDescriptor.shape);
+            const terrainModel=trackModel(terrainShape,0,true);
+            if(terrain>=6)terrainModel.traverse(node=>{if(node instanceof THREE.Mesh)node.userData.retroDistanceColour=false;});
             terrainModel.position.set(x*1024+512,terrain===6?450:0,z*1024+512);
             terrainModel.rotation.y=terrainDescriptor.rotation*Math.PI/512;
-            visibilityPlacements.push({model:terrainModel,key:upgradedSubmissionKey(descriptorWord(0x2bda+selected.terrain*14+4),terrainModel.position.toArray(),terrainDescriptor.rotation,0),terrain:selected.terrain,origin:terrainModel.position.toArray(),paint:0,visible:Array(assets.shapes[group][name].primitives.length).fill(false)});
+            visibilityPlacements.push({model:terrainModel,key:upgradedSubmissionKey(descriptorWord(0x2bda+selected.terrain*14+4),terrainModel.position.toArray(),terrainDescriptor.rotation,0),terrain:selected.terrain,origin:terrainModel.position.toArray(),paint:0,visible:Array(terrainShape.primitives.length).fill(false)});
             world.add(terrainModel);
           }
           if (!sourceId || sourceId >= 253) continue;
@@ -72,10 +77,11 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
           if(!descriptor)continue;
           const origin=trackRenderPlacement(descriptor,x,z,terrain===6?450:0,0).position;
           if(terrain===6)for(const underlay of elevatedRoadUnderlays(origin,descriptor.multiTile)){
-            const grass=trackModel(assets.shapes.GAME2.high,0,true);
-            grass.traverse(node=>{if(node instanceof THREE.Mesh){node.userData.retroGrassVariation=true;node.userData.retroDistanceColour=false;}});
+            const highShape=upgradedTrackSeamShape(assets.shapes.GAME2.high,'GAME2.high');
+            const grass=trackModel(highShape,0,true);
+            grass.traverse(node=>{if(node instanceof THREE.Mesh)node.userData.retroDistanceColour=false;});
             grass.position.set(...underlay.position);world.add(grass);
-            visibilityPlacements.push({model:grass,key:upgradedSubmissionKey(0x7820,underlay.position,0,0),terrain:6,underlay:true,origin:[...underlay.position],paint:0,visible:Array(assets.shapes.GAME2.high.primitives.length).fill(false)});
+            visibilityPlacements.push({model:grass,key:upgradedSubmissionKey(0x7820,underlay.position,0,0),terrain:6,underlay:true,origin:[...underlay.position],paint:0,visible:Array(highShape.primitives.length).fill(false)});
           }
           for(const part of [descriptor,...(descriptor.overlay?[trackRenderModels[descriptor.overlay]]:[])]){
             if(!part)throw Error('Original track overlay is missing');
@@ -84,11 +90,15 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
              const [group,name]=shapeName.split('.');
              const paints=part.paint===255?[0,1,2,3]:[part.paint];
              for(const paint of paints){
-              const shape=assets.shapes[group][name],road=trackModel(shape,paint);
+              const sourceShape=assets.shapes[group][name],shape=upgradedTrackSeamShape(sourceShape,shapeName),road=trackModel(shape,paint);
               const finishGantry=shapeName==='GAME1.fini'||shapeName==='GAME1.zfin';
               road.userData.originalTrackTile=[x,29-z];
               road.position.set(...origin);road.rotation.y=trackRenderPlacement(part,x,z,0,0).rotation;
-              visibilityPlacements.push({model:road,key:upgradedSubmissionKey(descriptorWord(0x2018+part.id*14+(detail?6:4)),origin,part.rotation,paint),detail,tile:part.id,castsShadow:upgradedSceneryCastsShadow(shape,shapeName),keepInWorld:finishGantry,origin:[...origin],paint,visible:Array(shape.primitives.length).fill(false)});
+              const composite=upgradedCompositeShadowShapes(shape,shapeName),patternedShadow=upgradedSceneryUsesPatternedShadow(shapeName);
+              road.userData.retroPatternedShadow=patternedShadow;
+              road.traverse(node=>{if(node instanceof THREE.Mesh)node.userData.retroPatternedShadow=patternedShadow;});
+              const shadow=composite?{source:road,caster:trackModel(composite.caster,paint),receiver:trackModel(composite.receiver,paint),patterned:patternedShadow}:undefined;
+              visibilityPlacements.push({model:road,key:upgradedSubmissionKey(descriptorWord(0x2018+part.id*14+(detail?6:4)),origin,part.rotation,paint),detail,tile:part.id,castsShadow:upgradedSceneryCastsShadow(shape,shapeName),shadow,keepInWorld:finishGantry,origin:[...origin],paint,visible:Array(shape.primitives.length).fill(false)});
               road.visible=false;world.add(road);
              }
             }
@@ -105,7 +115,7 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
   const rotation=descriptorWord(0x8c4+edge*2),origin=[column*1024+512,0,(29-row)*1024+512];
   for(const detail of [0,1]){
    const shapeName=detail?descriptor.detailShape:descriptor.shape;if(!shapeName)continue;
-   const [group,name]=shapeName.split('.'),model=trackModel(assets.shapes[group][name],0);
+   const [group,name]=shapeName.split('.'),model=trackModel(assets.shapes[group][name],0),patternedShadow=upgradedSceneryUsesPatternedShadow(shapeName);model.userData.retroPatternedShadow=patternedShadow;model.traverse(node=>{if(node instanceof THREE.Mesh)node.userData.retroPatternedShadow=patternedShadow;});
    model.position.set(origin[0],0,origin[2]);model.rotation.y=rotation*Math.PI/512;world.add(model);
    visibilityPlacements.push({model,key:'boundary/'+column+'/'+row+'/'+detail,tile,detail,castsShadow:upgradedSceneryCastsShadow(assets.shapes[group][name],shapeName),origin,paint:0,visible:[]});
   }
@@ -118,6 +128,7 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
   carGrounding[i]=upgradedCarGroundingOffset(assets.shapes['ST'+id]?.car1);
   return [1,2].map(detail=>{const shape=assets.shapes['ST'+id]?.['car'+detail];if(!shape)return undefined;
    const model=createCarModel(shape,0xffffff,{...sourceMaterials,paint:m[d+(i?0x8fcd:0x8fc6)]});
+   applyUpgradedCarMaterials(model,shape);
    if(detail===1)wheelMotion[i]=createUpgradedCarWheelMotion(shape,model);
    model.scale.setScalar(400);world.add(model);return model;
   });
@@ -126,15 +137,20 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
  const clouds=new Map<string,THREE.Group>();
  const truck=createStartTruckModel(resources,assets.shapes.GAME2.truk,sourceMaterials);world.add(truck.group);
  const signs=createUpgradedTrackSigns(runtime.session.state.memory,sourceMaterials);world.add(signs.group);
- const sceneryCasters=[...visibilityPlacements.filter(placement=>placement.castsShadow).map(placement=>placement.model),signs.group,truck.group];
+ const sceneryCasters:RetroSceneryCaster[]=[...visibilityPlacements.filter(placement=>placement.castsShadow).map(placement=>placement.shadow??placement.model),signs.group,truck.group];
  // Caster faces keep their exact source colours and geometry, but do not sample
  // the shared ground-shadow map themselves. This prevents the receiver-depth
  // tolerance from painting jagged self-shadow fragments onto contact edges.
- sceneryCasters.forEach(model=>retroLighting.apply(model,true,false));
+ sceneryCasters.forEach(entry=>retroLighting.apply(entry instanceof THREE.Group?entry:entry.caster,true,false));
  // Car faces keep their outward normals and do not receive their own shadow.
  cars.forEach(models=>models.forEach(model=>{if(model)retroLighting.apply(model,false);}));
  retroLighting.apply(world);
- const backdrop=createNativeBackground(runtime.session.state.memory),sky=document.createElement('canvas');sky.width=320;sky.height=200;const skyContext=sky.getContext('2d')!,skyImage=skyContext.createImageData(320,200);
+ const backdrop=createNativeBackground(runtime.session.state.memory),sky=document.createElement('canvas'),turningSky=document.createElement('canvas');
+ // A 384-square backing surface covers the diagonal of the 320x200 native
+ // viewport. It lets the panorama follow a complete corkscrew roll without
+ // exposing empty corners or enlarging the original pixel artwork.
+ sky.width=320;sky.height=200;turningSky.width=turningSky.height=384;
+ const skyContext=sky.getContext('2d')!,turningSkyContext=turningSky.getContext('2d')!,skyImage=skyContext.createImageData(320,200);
  const orderedRaster=createOriginalCanvasRaster(resources,trackMaterials.palette,(width,height)=>{const surface=document.createElement('canvas');surface.width=width;surface.height=height;return surface;});
  const overlay=document.createElement('canvas');overlay.width=320;overlay.height=200;
  const overlayContext=overlay.getContext('2d')!,image=overlayContext.createImageData(320,200);
@@ -194,12 +210,27 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    });
    const playerModel=cars[0][live[d+0x134]>=2&&cars[0][1]?1:0];
    const sceneryCenter=playerModel?.getWorldPosition(new THREE.Vector3())??camera.position.clone();
-   retroLighting.drawShadows(renderer,shadowCars,scene,sceneryCasters,sceneryCenter,sceneryWorldCenter);
+   const viewDirection=new THREE.Vector3(target[0]-position[0],0,target[2]-position[2]);
+   const distantShadowCenter=sceneryCenter.clone().addScaledVector(viewDirection.lengthSq()?viewDirection.normalize():new THREE.Vector3(0,0,-1),10*1024);
+   // The camera-facing cascade spans two tiles behind and twenty-two ahead.
+   // Clamp its centre to the world only as a fallback for an invalid pose;
+   // ordinary play keeps it aligned with what the camera can actually see.
+   if(!Number.isFinite(distantShadowCenter.x+distantShadowCenter.z))distantShadowCenter.copy(sceneryWorldCenter);
+   retroLighting.drawShadows(renderer,shadowCars,scene,sceneryCasters,sceneryCenter,distantShadowCenter);
    renderer.render(scene,camera);
    const pixels=frame.pixels;
    for(let i=0;i<64000;i++){const c=pixels[i]*3;image.data[i*4]=trackMaterials.palette[c];image.data[i*4+1]=trackMaterials.palette[c+1];image.data[i*4+2]=trackMaterials.palette[c+2];image.data[i*4+3]=frame.mask[i]*255;}
    overlayContext.putImageData(image,0,0);
-   const context=canvas.getContext('2d')!;const background=backdrop.render(shown.camera.rotation,shown.camera.position[1],4/3,camera.fov,frame.projection,live[d+0x134]);for(let i=0;i<64000;i++){const c=background.pixels[i]*3;skyImage.data[i*4]=trackMaterials.palette[c];skyImage.data[i*4+1]=trackMaterials.palette[c+1];skyImage.data[i*4+2]=trackMaterials.palette[c+2];skyImage.data[i*4+3]=255;}skyContext.putImageData(skyImage,0,0);context.drawImage(sky,0,0,canvas.width,canvas.height);if(orderedScene){context.save();context.setTransform(canvas.width/320,0,0,canvas.height/200,0,0);const [left,right,top,bottom]=frame.rectangle;context.beginPath();context.rect(left,top,right-left,bottom-top);context.clip();for(const call of frame.calls)orderedRaster.draw(context,call,frame.rectangle);context.restore();}else context.drawImage(renderer.domElement,0,0,canvas.width,canvas.height);context.imageSmoothingEnabled=false;context.drawImage(overlay,0,0,canvas.width,canvas.height);
+   const context=canvas.getContext('2d')!,backgroundView=upgradedBackgroundView(shown.camera.rotation);
+   const background=backdrop.render(backgroundView.angles,shown.camera.position[1],4/3,camera.fov,frame.projection,live[d+0x134]);
+   for(let i=0;i<64000;i++){const c=background.pixels[i]*3;skyImage.data[i*4]=trackMaterials.palette[c];skyImage.data[i*4+1]=trackMaterials.palette[c+1];skyImage.data[i*4+2]=trackMaterials.palette[c+2];skyImage.data[i*4+3]=255;}
+   skyContext.putImageData(skyImage,0,0);
+   const paletteCss=(index:number)=>{const c=index*3;return `rgb(${trackMaterials.palette[c]},${trackMaterials.palette[c+1]},${trackMaterials.palette[c+2]})`;};
+   turningSkyContext.fillStyle=paletteCss(background.pixels[160]);turningSkyContext.fillRect(0,0,384,92);
+   turningSkyContext.fillStyle=paletteCss(background.pixels[199*320+160]);turningSkyContext.fillRect(0,292,384,92);
+   turningSkyContext.drawImage(sky,0,0,1,200,0,92,32,200);turningSkyContext.drawImage(sky,319,0,1,200,352,92,32,200);turningSkyContext.drawImage(sky,32,92);
+   context.imageSmoothingEnabled=false;context.save();context.translate(canvas.width/2,canvas.height/2);context.scale(canvas.width/320,canvas.height/200);context.rotate(backgroundView.rotation);context.drawImage(turningSky,-192,-192);context.restore();
+   if(orderedScene){context.save();context.setTransform(canvas.width/320,0,0,canvas.height/200,0,0);const [left,right,top,bottom]=frame.rectangle;context.beginPath();context.rect(left,top,right-left,bottom-top);context.clip();for(const call of frame.calls)orderedRaster.draw(context,call,frame.rectangle);context.restore();}else context.drawImage(renderer.domElement,0,0,canvas.width,canvas.height);context.drawImage(overlay,0,0,canvas.width,canvas.height);
    fpsFrames++;if(now-fpsAt>=1000){canvas.dataset.upgradedFps=String(Math.round(fpsFrames*1000/(now-fpsAt)));fpsFrames=0;fpsAt=now;}
    return true;
   },
