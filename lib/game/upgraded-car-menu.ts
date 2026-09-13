@@ -18,7 +18,7 @@ export function createUpgradedCarMenu(palette:number[],indices:number[]){
  return {draw(memory:Uint8Array,width:number,height:number){
   const d=0x2d1a0,v=new DataView(memory.buffer,memory.byteOffset,memory.byteLength),word=(at:number)=>v.getInt16(d+at,true),paint=memory[d+0xb013];
   let retired:THREE.Group|undefined,buildStarted:number|undefined;
-  if(bank!==memory||lastPaint!==paint){buildStarted=performance.now();retired=model;retired?.removeFromParent();const shape=readUpgradedShape(memory,0x7f16);model=createCarModel(shape,0xffffff,{palette,indices,paint,...readOriginalMaterialPatterns(memory)});applyUpgradedCarMaterials(model,shape);model.scale.setScalar(400);world.add(model);bank=memory;lastPaint=paint;}
+  if(bank!==memory||lastPaint!==paint){buildStarted=performance.now();retired=model;retired?.removeFromParent();const shape=readUpgradedShape(memory,0x7f16);model=createCarModel(shape,0xffffff,{palette,indices,paint,paletteMaterial:memory[d+0x9b28],...readOriginalMaterialPatterns(memory)});applyUpgradedCarMaterials(model,shape);model.scale.setScalar(400);world.add(model);bank=memory;lastPaint=paint;}
   model!.position.set(0,-840,2880);model!.rotation.y=word(0xb00e)*Math.PI/512;
   const inverse=transpose(rotateZXY(0,-46,0,true)),forward=vecTransform([0,0,16384],inverse),up=vecTransform([0,16384,0],inverse);
   camera.position.set(0,0,0);camera.up.set(up[0],up[1],-up[2]);camera.lookAt(forward[0],forward[1],-forward[2]);

@@ -30,7 +30,7 @@ export async function runBrowserNativeDemo(options:{assets?:Assets;graphicsSwitc
  const alternate=options.displayMode?await prepareBrowserNativeDisplayRace(data,options.displayMode,runtime.session.state.memory,options.hercules):undefined;aborted();
  const palette=alternate?.palette??data.palette;
  const graphics=options.graphicsSwitch;let upgraded:ReturnType<typeof createUpgradedRaceScene>|undefined;
- if(graphics)runtime.enableGraphicsCapture();
+ if(graphics){runtime.enableGraphicsCapture();graphics.resetPerformance?.();}
  let upgradedFrame=-1;
  const audio=data.soundDevice?.kind==='mt32'?createBrowserMt32RaceAudio(context,options.mt32Output!,runtime.initialWrites,()=>runtime.tick()):data.soundDevice?.kind==='tandy'?(pcAudio=createBrowserTandyRaceAudio(context,runtime.initialWrites,()=>runtime.tick())):data.soundDevice?.kind==='pc-speaker'?(pcAudio=createBrowserPcSpeakerRaceAudio(context,runtime.initialWrites,()=>runtime.tick())):await createBrowserRaceAudio(context,runtime.initialWrites,()=>runtime.tick());
  if(signal.aborted){audio.close();aborted();}
@@ -49,7 +49,7 @@ export async function runBrowserNativeDemo(options:{assets?:Assets;graphicsSwitc
   redraw();
   canvas.dataset.demoFrame=String(runtime.frame);canvas.dataset.demoCamera=String(runtime.session.state.memory[0x2d1a0+0x12f]);options.onFrame?.(runtime.frame,runtime.length);
  };
- const redraw=()=>{if(!graphics)return;graphics.refresh=redraw;if(!graphics.enabled){drawing.setTransform(1,0,0,1,0,0);drawing.imageSmoothingEnabled=false;if(presentHercules&&alternate)presentHercules(alternate.owner);else drawing.drawImage(surface,0,0,canvas.width,canvas.height);return;}if(!options.assets)return;try{if(alternate&&upgradedFrame!==runtime.frame){runtime.render(true);upgradedFrame=runtime.frame;}upgraded??=createUpgradedRaceScene(options.assets,runtime.session.state.memory,runtime);upgraded.draw(canvas);}catch{upgraded?.close();upgraded=undefined;drawing.setTransform(1,0,0,1,0,0);drawing.drawImage(surface,0,0,canvas.width,canvas.height);graphics.notice?.('Upgraded demonstration unavailable; original graphics remain active.');}};
+ const redraw=()=>{if(!graphics)return;graphics.refresh=redraw;if(!graphics.enabled){drawing.setTransform(1,0,0,1,0,0);drawing.imageSmoothingEnabled=false;if(presentHercules&&alternate)presentHercules(alternate.owner);else drawing.drawImage(surface,0,0,canvas.width,canvas.height);return;}if(!options.assets)return;try{if(alternate&&upgradedFrame!==runtime.frame){runtime.render(true);upgradedFrame=runtime.frame;}upgraded??=createUpgradedRaceScene(options.assets,runtime.session.state.memory,runtime);if(upgraded.draw(canvas))graphics.performanceFrame?.(performance.now());}catch{upgraded?.close();upgraded=undefined;drawing.setTransform(1,0,0,1,0,0);drawing.drawImage(surface,0,0,canvas.width,canvas.height);graphics.notice?.('Upgraded demonstration unavailable; original graphics remain active.');}};
  try{
   focusBrowserGameCanvas(canvas);canvas.style.cursor='none';canvas.dataset.nativeDemo='running';
   await context.resume();aborted();present();
@@ -63,7 +63,7 @@ export async function runBrowserNativeDemo(options:{assets?:Assets;graphicsSwitc
   const restored=await runtime.finish({writeAudio,async gameCounter(){await frame();aborted();audio.pump();const memory=runtime.session.state.memory;return new DataView(memory.buffer,memory.byteOffset,memory.byteLength).getUint32(0x2d1a0+0x407a,true);},releaseInput:input.release,showWaiting(){},copyBackBuffer(){},resetMouse(){}});
   canvas.dataset.nativeDemo='complete';return restored;
  }finally{
-  upgraded?.close();if(graphics?.refresh===redraw)graphics.refresh=undefined;
+  upgraded?.close();graphics?.resetPerformance?.();if(graphics?.refresh===redraw)graphics.refresh=undefined;
   signal.removeEventListener('abort',abort);cancelAnimationFrame(animation);input.close();audio.close();
   if(signal.aborted)canvas.dataset.nativeDemo='closed';
  }

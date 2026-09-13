@@ -4,9 +4,10 @@ import {LineSegments2} from 'three/examples/jsm/lines/LineSegments2.js';
 import {LineSegmentsGeometry} from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import {LineMaterial} from 'three/examples/jsm/lines/LineMaterial.js';
 import {CAR_STUDY_MATERIALS} from './car-study-materials.ts';
+import {originalPrimitiveMaterial} from './primitive-record-header.ts';
 import type {Shape} from './types';
 
-type OriginalPaint={paint:number;indices:readonly number[];palette:readonly number[]}&OriginalMaterialPatterns;
+type OriginalPaint={paint:number;indices:readonly number[];palette:readonly number[];paletteMaterial?:number}&OriginalMaterialPatterns;
 
 function prioritizeCoplanarDetail(material:THREE.Material,layer:number){
  material.polygonOffset=true;material.polygonOffsetFactor=-layer;material.polygonOffsetUnits=-layer;
@@ -53,8 +54,9 @@ function closeOriginalNsxWindowSeam(group:THREE.Group,shape:Shape,points:THREE.V
  * Use GPU facing at upgraded resolution; flag bit 0 retains genuinely two-sided panels. */
 export function createCarModel(shape:Shape,color:number,originalPaint?:OriginalPaint){
  const group=new THREE.Group();
+ const resolvedMaterial=(material:number)=>originalPaint?.paletteMaterial===undefined?material:originalPrimitiveMaterial(material,originalPaint.paletteMaterial);
  const originalColor=(material:number)=>{
-  const index=originalPaint!.indices[material],rgb=originalPaint!.palette;
+  const index=originalPaint!.indices[resolvedMaterial(material)],rgb=originalPaint!.palette;
   return (rgb[index*3]<<16)|(rgb[index*3+1]<<8)|rgb[index*3+2];
  };
  const points=shape.vertices.map(v=>new THREE.Vector3(v[0]/400,v[1]/400,v[2]/400));
@@ -72,13 +74,13 @@ export function createCarModel(shape:Shape,color:number,originalPaint?:OriginalP
    else if([16,17,40,41,42,43,76,77,78,79].includes(sourceMaterial))surfaceColor=0x223d51;
    else if([4,12,45,46,47,127].includes(sourceMaterial))surfaceColor=0xe34432;
    if(originalPaint){
-    const index=originalPaint.indices[p.materials[originalPaint.paint]],rgb=originalPaint.palette;
+    const index=originalPaint.indices[resolvedMaterial(p.materials[originalPaint.paint])],rgb=originalPaint.palette;
     surfaceColor=(rgb[index*3]<<16)|(rgb[index*3+1]<<8)|rgb[index*3+2];
    }
    const material=originalPaint
     ?new THREE.MeshBasicMaterial({color:surfaceColor,side:(p.flags&1)?THREE.DoubleSide:THREE.FrontSide,toneMapped:false})
     :new THREE.MeshStandardMaterial({color:surfaceColor,...CAR_STUDY_MATERIALS.body,side:THREE.DoubleSide,flatShading:true});
-   if(originalPaint&&material instanceof THREE.MeshBasicMaterial)applyOriginalMaterialPattern(material,geometry,Array(positions.length/3).fill(p.materials[originalPaint.paint]),originalPaint);
+   if(originalPaint&&material instanceof THREE.MeshBasicMaterial)applyOriginalMaterialPattern(material,geometry,Array(positions.length/3).fill(resolvedMaterial(p.materials[originalPaint.paint])),originalPaint);
    const layer=p.flags&2?++attachedLayer:(attachedLayer=0);
    if(layer)prioritizeCoplanarDetail(material,layer);
    const node=new THREE.Mesh(geometry,material);

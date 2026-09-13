@@ -51,10 +51,14 @@ function installLampParentDepth(material:THREE.MeshBasicMaterial,plane:THREE.Pla
 /** Keep the authored display-space chroma. Study lighting still supplies
  * diffuse shading and view-dependent specular intensity, but neither colored
  * fill nor channel-by-channel ACES can bleach or rotate the palette hue. */
-function installOriginalCarChroma(material:THREE.MeshStandardMaterial){
+function installOriginalCarChroma(material:THREE.MeshStandardMaterial,polishedPaint=false){
  const compile=material.onBeforeCompile.bind(material),key=material.customProgramCacheKey();
  material.onBeforeCompile=(shader,renderer)=>{
   compile(shader,renderer);
+  // x: coloured reflection strength, y: coloured lift ceiling, z: the small
+  // neutral clear-coat glint which makes the paint read as newly polished.
+  shader.uniforms.originalCarPolish={value:new THREE.Vector3(polishedPaint?.95:.18,polishedPaint?.68:.18,polishedPaint?.40:0)};
+  shader.fragmentShader='uniform vec3 originalCarPolish;\n'+shader.fragmentShader;
   shader.fragmentShader=shader.fragmentShader.replace('#include <tonemapping_fragment>','');
   shader.fragmentShader=shader.fragmentShader.replace('#include <colorspace_fragment>',`
    vec3 carPaletteDisplay=linearToOutputTexel(vec4(diffuseColor.rgb,1.0)).rgb;
@@ -62,12 +66,25 @@ function installOriginalCarChroma(material:THREE.MeshStandardMaterial){
    vec3 carLuminance=vec3(0.2126,0.7152,0.0722);
    float carDiffuseIntensity=dot(totalDiffuse,carLuminance)/max(dot(diffuseColor.rgb,carLuminance),0.00001);
    float carShadeGain=clamp(pow(max(carDiffuseIntensity,0.0)*0.75,0.45),0.52,1.10);
-   float carSpecularLift=clamp(dot(totalSpecular,carLuminance)*0.18,0.0,0.18);
+   float carSpecularSignal=max(0.0,dot(totalSpecular,carLuminance));
+   float carSpecularLift=clamp(carSpecularSignal*originalCarPolish.x,0.0,originalCarPolish.y);
    float carShadedValue=min(1.0,carPaletteValue*carShadeGain+carSpecularLift);
    // Scale all output channels together; avoid independent channel clipping.
-   gl_FragColor.rgb=carPaletteValue>0.00001
+   vec3 carPaint=carPaletteValue>0.00001
     ?carPaletteDisplay*(carShadedValue/carPaletteValue)
-    :vec3(min(0.16,carSpecularLift));`);
+    :vec3(min(0.16,carSpecularLift));
+   // A narrow neutral reflection sits over the coloured paint like clear coat.
+   // Two camera-space studio strips keep it visible as the car turns, while
+   // the source panels and their intentionally flat normals remain unchanged.
+   vec3 carStudioReflection=reflect(-geometryViewDir,geometryNormal);
+   float carStudioStripA=pow(max(0.0,dot(carStudioReflection,normalize(vec3(0.00,1.00,0.05)))),18.0);
+   float carStudioStripB=pow(max(0.0,dot(carStudioReflection,normalize(vec3(-0.70,0.65,0.30)))),28.0);
+   float carFresnel=pow(1.0-clamp(dot(geometryNormal,geometryViewDir),0.0,1.0),3.0);
+   float carClearcoatSignal=max(max(smoothstep(0.02,0.20,carSpecularSignal),smoothstep(0.12,0.58,carFresnel)),max(carStudioStripA,carStudioStripB));
+   float carClearcoat=carClearcoatSignal*originalCarPolish.z;
+   float carPaintValue=max(max(carPaint.r,carPaint.g),carPaint.b);
+   float carClearcoatCap=min(1.0-carPaintValue,carPaintValue*0.65);
+   gl_FragColor.rgb=carPaint+vec3(min(carClearcoat,carClearcoatCap));`);
  };
  material.customProgramCacheKey=()=>key+'/original-car-chroma-v1';
 }
@@ -176,7 +193,7 @@ export function applyUpgradedCarMaterials(model:THREE.Group,shape:Shape){
    const material=new THREE.MeshStandardMaterial({color:old.color,...profile,side:old.side,flatShading:false,toneMapped:false,vertexColors:old.vertexColors,transparent:old.transparent,opacity:old.opacity,depthTest:old.depthTest,depthWrite:old.depthWrite,polygonOffset:old.polygonOffset,polygonOffsetFactor:old.polygonOffsetFactor,polygonOffsetUnits:old.polygonOffsetUnits});
    material.onBeforeCompile=old.onBeforeCompile.bind(old);material.onBeforeRender=old.onBeforeRender.bind(old);
    const sourceKey=old.customProgramCacheKey();material.customProgramCacheKey=()=>sourceKey+'/study-car-material-v1';
-   installOriginalCarChroma(material);
+   installOriginalCarChroma(material,profile===CAR_STUDY_MATERIALS.body);
    if(node.userData.originalBodyFace)installOriginalPanelNormal(material,shape,node.userData.originalPrimitive,groundContact);
    if(groundContact){node.userData.originalGroundContactPanel=true;prioritizeOriginalGroundContactDepth(material);}
    return material;

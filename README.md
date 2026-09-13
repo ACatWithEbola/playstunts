@@ -83,8 +83,11 @@ The file checker verifies the required runtime files and your installation's has
 - Arrow keys: accelerate/brake and steer.
 - **A / Z**: shift up/down with manual gears; Space / Enter also work.
 - Escape: game menu. C or F1–F4: camera views. T: view the opponent’s car. D: show or hide the dashboard.
+- With enhanced graphics enabled, **F** shows or hides the driving/replay performance display: current FPS, session average and 1% low. It is hidden outside active driving and replay playback.
 - In replays, Ctrl + arrow keys adjusts the camera, + / − zooms, arrow keys select a replay control, and Enter or Space activates it. Shift + F1 opens the terrain editor.
 - Setup selects MCGA, EGA, CGA, Tandy or Hercules. Optional upgraded graphics uses full colour and now retains source signs, clouds, vehicle details and live steering/suspension wheel movement; switching back restores the selected original mode.
+- Enhanced cars retain their five source colours and original geometry while adding polished clear-coat lighting, corrected palette-placeholder materials, inset lamp detail and filtered grounding shadows.
+- **3D CARS** opens the interactive showroom in the front page’s game area. It uses the same decoded models and upgraded materials as the game for all eleven cars; drag to rotate, scroll to zoom and select each car’s available colours.
 - Import original **`.TRK`** files using **Tracks, replays and save backups**. Supported track files are 1,802 bytes.
 - Import original **`.RPL`** recordings with **Upload replay (.RPL)** beside the track upload. Upload before starting the game, then load the file from the in-game replay menu. Names must use 1–8 letters, numbers, underscores or hyphens. Existing files are kept. Recordings must use the supported original format and contain 1–12,000 frames.
 - Saves are browser-local and tied to the hostname/port. Export a backup before changing browser or address. A Git checkout does not contain your hosted-game saves.

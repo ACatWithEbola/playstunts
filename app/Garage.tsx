@@ -59,7 +59,9 @@ export default function Garage({assets}:{assets:Assets}){
  useEffect(()=>{
   const element=host.current;if(!element)return;
   let renderer:THREE.WebGLRenderer;
-  try{renderer=new THREE.WebGLRenderer({antialias:true});}
+  // Attached source details such as the Ferrari GTO's inset rear lenses use
+  // the same logarithmic-depth correction as the upgraded game renderers.
+  try{renderer=new THREE.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true});}
   catch{setError('3D rendering is unavailable in this browser. The original game is still available.');return;}
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=false;renderer.toneMapping=THREE.ACESFilmicToneMapping;
   const scene=new THREE.Scene();sceneRef.current=scene;scene.background=new THREE.Color(0x101b25);scene.fog=new THREE.Fog(0x101b25,16,36);
@@ -78,7 +80,9 @@ export default function Garage({assets}:{assets:Assets}){
  useEffect(()=>{
   const scene=sceneRef.current;if(!scene||!shape)return;
   if(modelRef.current){scene.remove(modelRef.current);disposeObject(modelRef.current);}
-  const model=createCarModel(shape,0xffffff,{paint,indices:trackMaterials.indices,palette:trackMaterials.palette});
+  // The original car-menu raster substitutes material 45 with its active
+  // display palette (black here) before resolving colour and stipple tables.
+  const model=createCarModel(shape,0xffffff,{paint,indices:trackMaterials.indices,palette:trackMaterials.palette,paletteMaterial:0});
   applyUpgradedCarMaterials(model,shape);
   groundShowroomCarOnRoadTires(model);
   model.traverse(node=>{if(node instanceof THREE.Mesh){node.castShadow=false;node.receiveShadow=false;}});
