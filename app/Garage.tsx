@@ -50,7 +50,7 @@ function carSpecifications(description:string){
 }
 
 export default function Garage({assets}:{assets:Assets}){
- const [selected,setSelected]=useState(0),[paint,setPaint]=useState(0),[error,setError]=useState('');
+ const [selected,setSelected]=useState(0),[paint,setPaint]=useState(0);
  const host=useRef<HTMLDivElement>(null),sceneRef=useRef<THREE.Scene|null>(null),modelRef=useRef<THREE.Group|null>(null);
  const shadowDirty=useRef(true);
  const car=assets.cars[selected],shape=assets.shapes['ST'+car.id]?.car0;
@@ -61,8 +61,11 @@ export default function Garage({assets}:{assets:Assets}){
   let renderer:THREE.WebGLRenderer;
   // Attached source details such as the Ferrari GTO's inset rear lenses use
   // the same logarithmic-depth correction as the upgraded game renderers.
-  try{renderer=new THREE.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true});}
-  catch{setError('3D rendering is unavailable in this browser. The original game is still available.');return;}
+  try{renderer=new THREE.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true,powerPreference:'high-performance'});}
+  catch{
+   element.textContent='3D rendering is unavailable in this browser. The original game is still available.';
+   return;
+  }
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=false;renderer.toneMapping=THREE.ACESFilmicToneMapping;
   const scene=new THREE.Scene();sceneRef.current=scene;scene.background=new THREE.Color(0x101b25);scene.fog=new THREE.Fog(0x101b25,16,36);
   const camera=new THREE.PerspectiveCamera(36,1,.05,100);camera.position.set(6,3.1,7);
@@ -89,7 +92,6 @@ export default function Garage({assets}:{assets:Assets}){
   scene.add(model);modelRef.current=model;shadowDirty.current=true;
  },[paint,shape]);
 
- useEffect(()=>setPaint(0),[selected]);
-
- return <section className="garage"><div className="garage-top"><span>3D car showroom · original geometry, corrected upgraded materials</span></div><div className="garage-layout"><div className="garage-view" ref={host}>{error&&<p role="alert">{error}</p>}<span className="orbit-hint">Drag to rotate · scroll to zoom</span></div><aside><div className="car-heading"><p className="eyebrow">{String(selected+1).padStart(2,'0')} / {assets.cars.length}</p><h2>{car.name}</h2></div><p className="car-description">{carSpecifications(car.description)}</p><div className="car-controls"><div className="paints" aria-label="Preview paint colour">{colors.map((colour,index)=><button key={`${colour}-${index}`} aria-label={`Paint colour ${index+1}`} aria-pressed={paint===index} onClick={()=>setPaint(index)} style={{background:'#'+colour.toString(16).padStart(6,'0')}} />)}</div><div className="car-nav"><Button variant="outline" onClick={()=>setSelected((selected+assets.cars.length-1)%assets.cars.length)}>← Previous</Button><Button variant="outline" onClick={()=>setSelected((selected+1)%assets.cars.length)}>Next →</Button></div></div><p className="fine">The showroom now uses the same corrected geometry, source colours, lamps, upgraded lighting and filtered shadows as the enhanced game renderer.</p></aside></div></section>;
+ const changeCar=(offset:number)=>{setSelected((selected+offset+assets.cars.length)%assets.cars.length);setPaint(0);};
+ return <section className="garage"><div className="garage-top"><span>3D car showroom · original geometry, corrected upgraded materials</span></div><div className="garage-layout"><div className="garage-view" ref={host}><span className="orbit-hint">Drag to rotate · scroll to zoom</span></div><aside><div className="car-heading"><p className="eyebrow">{String(selected+1).padStart(2,'0')} / {assets.cars.length}</p><h2>{car.name}</h2></div><p className="car-description">{carSpecifications(car.description)}</p><div className="car-controls"><div className="paints" aria-label="Preview paint colour">{colors.map((colour,index)=><button key={`${colour}-${index}`} aria-label={`Paint colour ${index+1}`} aria-pressed={paint===index} onClick={()=>setPaint(index)} style={{background:'#'+colour.toString(16).padStart(6,'0')}} />)}</div><div className="car-nav"><Button variant="outline" onClick={()=>changeCar(-1)}>← Previous</Button><Button variant="outline" onClick={()=>changeCar(1)}>Next →</Button></div></div><p className="fine">The showroom now uses the same corrected geometry, source colours, lamps, upgraded lighting and filtered shadows as the enhanced game renderer.</p></aside></div></section>;
 }

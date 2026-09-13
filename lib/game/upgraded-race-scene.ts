@@ -32,7 +32,7 @@ type Runtime=Pick<Awaited<ReturnType<typeof createNativeManualRaceRuntime>>,'raw
  * No animation loop, input adapter, simulation, audio or replay owner. */
 export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runtime:Runtime){
  const track=runtime.raw,descriptorView=new DataView(resources.buffer,resources.byteOffset,resources.byteLength),descriptorWord=(at:number)=>descriptorView.getUint16(0x2d1a0+at,true);
- const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,logarithmicDepthBuffer:true});
+ const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,logarithmicDepthBuffer:true,powerPreference:'high-performance'});
  renderer.toneMapping=THREE.ACESFilmicToneMapping;
  const scene=new THREE.Scene(),world=new THREE.Group();world.scale.z=-1;scene.add(world);
  addUpgradedCarStudyLights(scene,RETRO_SUN);
@@ -154,15 +154,24 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
  const orderedRaster=createOriginalCanvasRaster(resources,trackMaterials.palette,(width,height)=>{const surface=document.createElement('canvas');surface.width=width;surface.height=height;return surface;});
  const overlay=document.createElement('canvas');overlay.width=320;overlay.height=200;
  const overlayContext=overlay.getContext('2d')!,image=overlayContext.createImageData(320,200);
+ const littleEndian=new Uint8Array(new Uint32Array([1]).buffer)[0]===1;
+ const packColour=(red:number,green:number,blue:number,alpha:number)=>littleEndian?(red|(green<<8)|(blue<<16)|(alpha<<24))>>>0:(alpha|(blue<<8)|(green<<16)|(red<<24))>>>0;
+ const opaquePalette=new Uint32Array(256),transparentPalette=new Uint32Array(256),paletteCss:string[]=[];
+ for(let index=0;index<256;index++){const at=index*3,red=trackMaterials.palette[at],green=trackMaterials.palette[at+1],blue=trackMaterials.palette[at+2];opaquePalette[index]=packColour(red,green,blue,255);transparentPalette[index]=packColour(red,green,blue,0);paletteCss[index]=`rgb(${red},${green},${blue})`;}
+ const overlayPixels=new Uint32Array(image.data.buffer,image.data.byteOffset,64000),skyPixels=new Uint32Array(skyImage.data.buffer,skyImage.data.byteOffset,64000);
+ let appliedGraphicsRevision=-1,orderedScene=false,worldVisibilityKey='',sceneryRevision=0;
  return {
   draw(canvas:HTMLCanvasElement){
    if(renderer.getContext().isContextLost())throw Error('Graphics context lost');
    const frame=runtime.graphicsFrame();if(!frame)return false;
    const live=frame.memory,v=new DataView(live.buffer,live.byteOffset,live.byteLength);
-   const groundIndex=(v.getUint16(d+0x909e,true)&255)*3;ground.material.color.setRGB(trackMaterials.palette[groundIndex]/255,trackMaterials.palette[groundIndex+1]/255,trackMaterials.palette[groundIndex+2]/255,THREE.SRGBColorSpace);
-   // State 3 means a finished race, not a collision. Actual crash scenes
-   // use the source's complete ordered primitives, including debris.
-   const orderedScene=!!([runtime.session.state.player.driving.car.grip.crash,runtime.session.state.opponent.car.grip.crash].some(state=>state===1||state===2)||Array.from({length:24},(_,i)=>v.getInt16(d+0x8e44+i*2,true)).some(Boolean));
+   const graphicsChanged=frame.revision!==appliedGraphicsRevision;
+   if(graphicsChanged){
+    const groundIndex=(v.getUint16(d+0x909e,true)&255)*3;ground.material.color.setRGB(trackMaterials.palette[groundIndex]/255,trackMaterials.palette[groundIndex+1]/255,trackMaterials.palette[groundIndex+2]/255,THREE.SRGBColorSpace);
+    // State 3 means a finished race, not a collision. Actual crash scenes
+    // use the source's complete ordered primitives, including debris.
+    orderedScene=!!([runtime.session.state.player.driving.car.grip.crash,runtime.session.state.opponent.car.grip.crash].some(state=>state===1||state===2)||Array.from({length:24},(_,i)=>v.getInt16(d+0x8e44+i*2,true)).some(Boolean));
+   }
    const now=performance.now(),shown=motion.sample({camera:{position:frame.position,rotation:frame.angles},cars:[0,1].map(i=>({position:[0,1,2].map(axis=>v.getInt32(d+0x8c38+i*0xb8+axis*4,true)/64) as Vector,rotation:[0,1,2].map(axis=>v.getInt16(d+0x8c50+i*0xb8+axis*2,true)) as Vector})),wheels:frame.wheels},v.getUint16(d+0x8c26,true),[live[d+0xa3c2],live[d+0x12f],live[d+0xa9f0],...frame.rectangle].join('/'),!!live[d+0x9aca],now);
    const {forward,up}=upgradedCameraBasis(shown.camera.rotation);
    const position=[shown.camera.position[0],shown.camera.position[1],-shown.camera.position[2]] as Vector;
@@ -176,21 +185,28 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
 
    cars.forEach((models,i)=>models.forEach((model,detail)=>{if(!model)return;const state=i?runtime.session.state.opponent.car:runtime.session.state.player.driving.car,pose=shown.cars[i];
     setUpgradedCarPresentationPose(model,pose.position,pose.rotation,carGrounding[i]);
-    model.visible=detail===(live[d+0x134]>=2&&models[1]?1:0)&&originalCarVisible(live[d+0x12f],!!live[d+0xa9f0],state.grip.crash,!!i,!!live[d+0x8fc8]);
+    if(graphicsChanged)model.visible=detail===(live[d+0x134]>=2&&models[1]?1:0)&&originalCarVisible(live[d+0x12f],!!live[d+0xa9f0],state.grip.crash,!!i,!!live[d+0x8fc8]);
    }));
-   truck.update(live);
-   // The native truck rebuilds its door pose, so apply the caster-only shader
-   // to any newly created mesh before the visible frame is drawn.
-   retroLighting.apply(truck.group,true,false);
    wheelMotion.forEach((motion,owner)=>{if(shown.wheels?.[owner])motion?.update(shown.wheels[owner]);});
-   signs.update(live);
    const level=live[d+0x134],animationPaint=live[d+0x8b4+((v.getUint16(d+0x8c26,true)||v.getUint16(d+0xaa78,true))&15)];
-   const carTile=[live[d+0x8c3a],(29-live[d+0x8c42])&255];
-   for(const placement of visibilityPlacements){
-    if(placement.tile===undefined){placement.model.visible=true;continue;}
-    const descriptor=trackRenderModels[placement.tile]!;
-    const detail=upgradedWorldDetail(level,!!descriptor.detailShape,(live[d+0x2024+placement.tile*14]<<24>>24)>=64,placement.model.userData.originalTrackTile??[],carTile,placement.keepInWorld);
-    placement.model.visible=placement.detail===detail&&(!(descriptor.paint&128)||placement.paint===animationPaint);
+   if(graphicsChanged){
+    let sceneryChanged=false;
+    // The native truck rebuilds only when its source door angle changes. Apply
+    // the caster shader solely to a newly created mesh, not on every browser RAF.
+    const truckState=truck.update(live);if(truckState.rebuilt)retroLighting.apply(truck.group,true,false);sceneryChanged ||= truckState.changed;
+    sceneryChanged ||= signs.update(live);
+    const carTile=[live[d+0x8c3a],(29-live[d+0x8c42])&255];
+    const nextVisibilityKey=level+'/'+animationPaint+'/'+carTile.join('/');
+    if(nextVisibilityKey!==worldVisibilityKey){
+     worldVisibilityKey=nextVisibilityKey;sceneryChanged=true;
+     for(const placement of visibilityPlacements){
+      if(placement.tile===undefined){placement.model.visible=true;continue;}
+      const descriptor=trackRenderModels[placement.tile]!;
+      const detail=upgradedWorldDetail(level,!!descriptor.detailShape,(live[d+0x2024+placement.tile*14]<<24>>24)>=64,placement.model.userData.originalTrackTile??[],carTile,placement.keepInWorld);
+      placement.model.visible=placement.detail===detail&&(!(descriptor.paint&128)||placement.paint===animationPaint);
+     }
+    }
+    if(sceneryChanged)sceneryRevision++;
    }
    clouds.forEach(model=>{model.visible=false;});
    if(level===0)for(let index=0;index<8;index++){
@@ -216,18 +232,15 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    // Clamp its centre to the world only as a fallback for an invalid pose;
    // ordinary play keeps it aligned with what the camera can actually see.
    if(!Number.isFinite(distantShadowCenter.x+distantShadowCenter.z))distantShadowCenter.copy(sceneryWorldCenter);
-   retroLighting.drawShadows(renderer,shadowCars,scene,sceneryCasters,sceneryCenter,distantShadowCenter);
+   retroLighting.drawShadows(renderer,shadowCars,scene,sceneryCasters,sceneryCenter,distantShadowCenter,sceneryRevision);
    renderer.render(scene,camera);
-   const pixels=frame.pixels;
-   for(let i=0;i<64000;i++){const c=pixels[i]*3;image.data[i*4]=trackMaterials.palette[c];image.data[i*4+1]=trackMaterials.palette[c+1];image.data[i*4+2]=trackMaterials.palette[c+2];image.data[i*4+3]=frame.mask[i]*255;}
-   overlayContext.putImageData(image,0,0);
+   if(graphicsChanged){const pixels=frame.pixels;for(let i=0;i<64000;i++)overlayPixels[i]=frame.mask[i]?opaquePalette[pixels[i]]:transparentPalette[pixels[i]];overlayContext.putImageData(image,0,0);appliedGraphicsRevision=frame.revision;}
    const context=canvas.getContext('2d')!,backgroundView=upgradedBackgroundView(shown.camera.rotation);
    const background=backdrop.render(backgroundView.angles,shown.camera.position[1],4/3,camera.fov,frame.projection,live[d+0x134]);
-   for(let i=0;i<64000;i++){const c=background.pixels[i]*3;skyImage.data[i*4]=trackMaterials.palette[c];skyImage.data[i*4+1]=trackMaterials.palette[c+1];skyImage.data[i*4+2]=trackMaterials.palette[c+2];skyImage.data[i*4+3]=255;}
+   for(let i=0;i<64000;i++)skyPixels[i]=opaquePalette[background.pixels[i]];
    skyContext.putImageData(skyImage,0,0);
-   const paletteCss=(index:number)=>{const c=index*3;return `rgb(${trackMaterials.palette[c]},${trackMaterials.palette[c+1]},${trackMaterials.palette[c+2]})`;};
-   turningSkyContext.fillStyle=paletteCss(background.pixels[160]);turningSkyContext.fillRect(0,0,384,92);
-   turningSkyContext.fillStyle=paletteCss(background.pixels[199*320+160]);turningSkyContext.fillRect(0,292,384,92);
+   turningSkyContext.fillStyle=paletteCss[background.pixels[160]];turningSkyContext.fillRect(0,0,384,92);
+   turningSkyContext.fillStyle=paletteCss[background.pixels[199*320+160]];turningSkyContext.fillRect(0,292,384,92);
    turningSkyContext.drawImage(sky,0,0,1,200,0,92,32,200);turningSkyContext.drawImage(sky,319,0,1,200,352,92,32,200);turningSkyContext.drawImage(sky,32,92);
    context.imageSmoothingEnabled=false;context.save();context.translate(canvas.width/2,canvas.height/2);context.scale(canvas.width/320,canvas.height/200);context.rotate(backgroundView.rotation);context.drawImage(turningSky,-192,-192);context.restore();
    if(orderedScene){context.save();context.setTransform(canvas.width/320,0,0,canvas.height/200,0,0);const [left,right,top,bottom]=frame.rectangle;context.beginPath();context.rect(left,top,right-left,bottom-top);context.clip();for(const call of frame.calls)orderedRaster.draw(context,call,frame.rectangle);context.restore();}else context.drawImage(renderer.domElement,0,0,canvas.width,canvas.height);context.drawImage(overlay,0,0,canvas.width,canvas.height);

@@ -23,7 +23,7 @@ export function playerWaypoint(before:PlayerWaypointState,primary:number[],alter
   if((alternate[route]&65535)!==65535)return result(false,true);
   let best=0,bestDepth=0,index=0;
   for(;;){
-   const next=lookup(route,index);target=[...next.position];const z=depth(target,true);
+   const next=lookup(route,index),z=depth(next.position,true);
    if(index===0||(z<bestDepth&&z>0)){best=index;bestDepth=z;}
    index=(index+1)&255;
    if(next.end)break;
@@ -36,7 +36,12 @@ export function playerWaypoint(before:PlayerWaypointState,primary:number[],alter
    const difference=(before.rotation[0]-heading)&1023;
    if(difference>896||difference<128){status=0;confirmations=1;accept=true;}
   }
-  if(accept){routeIndex=status===0&&before.status===2?route:before.route&65535;point=best;}
+  // A replay checkpoint can retain the no-waypoint sentinel while the car is
+  // still travelling against the route. The DOS code leaves the previous
+  // target in place until the heading is accepted; do not dereference route
+  // entry FFFF as a JavaScript array index during that interval.
+  if(!accept)return result();
+  routeIndex=status===0&&before.status===2?route:before.route&65535;point=best;
  }
  const next=lookup(routeIndex,point);point=(point+1)&255;target=[...next.position];
  if(next.end){routeIndex=(alternate[before.route]&65535)!==65535?65535:primary[before.route]&65535;point=0;}

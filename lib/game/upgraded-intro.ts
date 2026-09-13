@@ -10,7 +10,7 @@ import {vecTransform,type Vector} from '../physics/math';
 /** Same intro geometry and camera, with GPU depth instead of painter ordering. */
 export function createUpgradedIntro(memory:Uint8Array,materials:{palette:number[];indices:number[]}){
  const sourceMaterials={...materials,...readOriginalMaterialPatterns(memory)};
- const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,logarithmicDepthBuffer:true});renderer.toneMapping=THREE.ACESFilmicToneMapping;
+ const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,logarithmicDepthBuffer:true,powerPreference:'high-performance'});renderer.toneMapping=THREE.ACESFilmicToneMapping;
  const scene=new THREE.Scene(),world=new THREE.Group();world.scale.z=-1;scene.add(world);
  addUpgradedCarStudyLights(scene,RETRO_SUN);
  const camera=new THREE.PerspectiveCamera();

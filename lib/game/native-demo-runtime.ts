@@ -1,4 +1,4 @@
-import {createRaceOverlayMask} from './race-overlay-mask.ts';
+import {createRaceOverlayMaskRenderer} from './race-overlay-mask.ts';
 import {advanceOriginalHardwareClock} from './hardware-clock-memory.ts';
 import {readRetainedMenuSession,type RetainedMenuSession} from './retained-menu-session.ts';
 import {drawNativeFullRedrawRaceLayers} from './full-redraw-race-layers.ts';
@@ -31,18 +31,20 @@ export async function createNativeDemoRuntime(data:NativeDemoData,menu:NativeDem
  const session=createNativeRaceSession({...data,startup:memory,packedOpponent:new Uint8Array(),simulation,tuning,raw},{opponentSelected:0,replayInputs:inputs,deferSimulationEntry:true,produceAudio:true});
  await session.enterSimulation({resetMouse(){throw Error('Unexpected demo mouse reset');},async key(){throw Error('Unexpected demo replay seek');}},{entryStackPointer:bp-0x1c,incomingSI:0});
  const audio=createNativeAllocatedSound(()=>session.state.memory,d,driver,data.soundDevice),renderer=createNativeOriginalRenderer(session.state.memory,raw,analyzeRoute(raw,data.records,data.vectors,data.samples,data.objects,undefined,{sample:false}),{allocatedResources:true,originalViewport:true,originalCameras:{objects:data.objects,planes:data.planes}});
- let finished=false,captureGraphics=false;let graphicsSource:Uint8Array|undefined,graphicsLive:Uint8Array|undefined,pixels=new Uint8Array(64000);
+ let finished=false,captureGraphics=false;let graphicsSource:Uint8Array|undefined,graphicsLive:Uint8Array|undefined,graphicsMask:Uint8Array|undefined,graphicsRevision=0,graphicsKey='',pixels=new Uint8Array(64000);
+ const renderGraphicsMask=createRaceOverlayMaskRenderer();
+ const nextGraphicsKey=(live:Uint8Array)=>{const view=renderer.view!,v=new DataView(live.buffer,live.byteOffset,live.byteLength);return [v.getUint16(d+0x8c26,true),live[d+0xa3c2],live[d+0x12f],live[d+0xa9f0],live[d+0x134],live[d+0x9ab6],live[d+0xaae6],live[d+0x90f8],live[d+0x8eab],live[d+0xa42a],live[d+0x8f13],live[d+0x8f14],live[d+0x8fbd],v.getUint16(d+0xa034,true),v.getUint16(d+0x73b2,true),v.getUint16(d+0xa7da,true),...view.position,...view.angles,...view.rectangle,...view.projection].join('/')};
  return {
   session,audio,initialWrites,length,raw,
   enableGraphicsCapture(){captureGraphics=true;},
   get pixels(){return pixels;},
-  graphicsFrame(){if(!graphicsSource||!graphicsLive||!renderer.view)return;return {...renderer.view,mask:createRaceOverlayMask(graphicsSource,graphicsLive,renderer.view.rectangle,renderer.view.fireballMask),memory:graphicsLive,pixels};},
+  graphicsFrame(){if(!graphicsSource||!graphicsLive||!renderer.view)return;graphicsMask??=renderGraphicsMask(graphicsSource,graphicsLive,renderer.view.rectangle,renderer.view.fireballMask);return {...renderer.view,mask:graphicsMask,memory:graphicsLive,pixels,revision:graphicsRevision};},
   get frame(){const m=session.state.memory;return new DataView(m.buffer,m.byteOffset,m.byteLength).getUint16(d+0x8c26,true);},
   tick(){
    if(finished){advanceOriginalHardwareClock(session.state.memory,d);return [] as number[][];}
    return advanceAllocatedRace(session,audio,{mouse(){throw Error('Demo requested mouse input');},joystickSteering(){throw Error('Demo requested joystick steering');},controls(){throw Error('Demo requested driving input');},keyDown(){throw Error('Demo requested key scans');}},{entryStackPointer:bp-0x1c,incomingSI:0});
   },
-  render(presentationOnly=false){const live=presentationOnly?session.state.memory.slice():session.state.memory;prepareOriginalRaceViewport(live,d,bp);if(presentationOnly)live[d+0x9ab6]=1;pixels=renderer.render(live,undefined,undefined,undefined,captureGraphics,(memory,world)=>{if(captureGraphics){graphicsSource??=new Uint8Array(memory.length);graphicsLive??=new Uint8Array(session.state.memory.length);graphicsSource.set(memory);graphicsLive.set(live);}drawNativeFullRedrawRaceLayers(memory,live,d,bp,world);});return pixels;},
+  render(presentationOnly=false){const live=presentationOnly?session.state.memory.slice():session.state.memory;prepareOriginalRaceViewport(live,d,bp);if(presentationOnly)live[d+0x9ab6]=1;pixels=renderer.render(live,undefined,undefined,undefined,captureGraphics,(memory,world)=>{if(captureGraphics){graphicsSource??=new Uint8Array(memory.length);graphicsLive??=new Uint8Array(session.state.memory.length);graphicsSource.set(memory);graphicsLive.set(live);const key=nextGraphicsKey(live);if(key!==graphicsKey){graphicsKey=key;graphicsMask=undefined;graphicsRevision++;}}drawNativeFullRedrawRaceLayers(memory,live,d,bp,world);});return pixels;},
   finishFrame(key:number,controls:number){return session.finishRenderedFrame({key:()=>key,controls:()=>controls});},
   async finish(host:Pick<CompleteRaceExitHost,'gameCounter'|'releaseInput'|'showWaiting'|'copyBackBuffer'|'resetMouse'>&{writeAudio(writes:number[][]):void}){
    if(finished)throw Error('Original demo has already been released');finished=true;

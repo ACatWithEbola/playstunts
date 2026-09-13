@@ -6,7 +6,9 @@ import type {analyzeRoute} from '../physics/route-analysis.ts';
  */
 export function writeAnalyzedTrackMemory(before:Uint8Array,dataSegment:number,raw:number[],analysis:ReturnType<typeof analyzeRoute>,mode:'mcga'|'cga'|'tandy'|'ega'='mcga',samplingFrame?:number){
  if(dataSegment<0||dataSegment+65536>before.length)throw Error('Original data segment is outside memory');
- if(!analysis.route||analysis.route.error||!analysis.metadata||(!analysis.samples&&samplingFrame===undefined))throw Error('A successful original track analysis is required');
+ if(analysis.terrainError?.error)throw Error(`Original terrain error ${analysis.terrainError.error}`);
+ if(!analysis.route||analysis.route.error)throw Error(`Original track route error ${analysis.route?.error??'unavailable'}`);
+ if(!analysis.metadata||(!analysis.samples&&samplingFrame===undefined))throw Error('Original track analysis is incomplete');
  const memory=before.slice(),v=new DataView(memory.buffer),d=dataSegment;
  const high={mcga:0,cga:0x5e0,tandy:0x620,ega:0x45c}[mode],middle=mode==='ega'?0x460:high;
  const write=(field:number,values:readonly number[],size:1|2)=>{

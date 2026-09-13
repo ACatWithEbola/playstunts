@@ -22,9 +22,11 @@ export function createUpgradedTrackSigns(memory:Uint8Array,materials:TrackMateri
   signs.push({index:selected.index,column,row,model});group.add(model);
  }
  return {group,update(live:Uint8Array){
+  let changed=false;
   for(const sign of signs){
    const selected=selectOriginalTrackSign(live,d,sign.column,sign.row);
-   sign.model.visible=selected.index===sign.index&&selected.mode==='intact';
+   const visible=selected.index===sign.index&&selected.mode==='intact';changed ||= visible!==sign.model.visible;sign.model.visible=visible;
   }
+  return changed;
  }};
 }

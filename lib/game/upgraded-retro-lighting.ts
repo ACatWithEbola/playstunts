@@ -6,6 +6,7 @@ export type RetroSceneryCaster=THREE.Group|{
  receiver:THREE.Group;
  patterned?:boolean;
 };
+type NormalizedRetroSceneryCaster={source:THREE.Group;caster:THREE.Group;receiver?:THREE.Group;patterned?:boolean};
 
 /** Display-world direction (the race scene mirrors source Z), independent of
  * the car heading and camera. The 70-degree elevation keeps the projection
@@ -120,6 +121,8 @@ type Shadow = {
  proxies: {source: THREE.Mesh; mesh: THREE.Mesh}[];
  proxyBySource: WeakMap<THREE.Mesh,THREE.Mesh>;
  source?: THREE.Group;
+ renderedRevision?: number;
+ renderedCenter?: THREE.Vector3;
 };
 
 /** This layer is installed only by the upgraded race renderer. It composes
@@ -148,35 +151,31 @@ export function createUpgradedRetroLighting() {
  };
  patternedDepthMaterial.customProgramCacheKey=()=>depthMaterial.customProgramCacheKey()+'/original-caster-pattern-v2';
  const casterMaterial=(mesh:THREE.Mesh,patterned=mesh.userData.retroPatternedShadow===true)=>patterned&&mesh.geometry.hasAttribute('originalPattern')?patternedDepthMaterial:depthMaterial;
- const makeShadow=(size:number):Shadow=>({
+ const makeShadow=(size:number):Shadow=>{
+  const scene=new THREE.Scene();
+  // Proxy matrices are copied directly from their world-space sources. Avoid
+  // walking every proxy again before each of the shadow renderer's passes.
+  scene.matrixWorldAutoUpdate=false;
+  return {
   target: new THREE.WebGLRenderTarget(size, size, {minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, generateMipmaps: false}),
   receiverTarget: new THREE.WebGLRenderTarget(size, size, {minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, generateMipmaps: false}),
   // RG holds solid/aperture coverage; BA holds their weighted receiver depth.
   // Depth is centred about .5 to retain sub-unit half-float precision near
   // the shadow camera's centre. Filtering never interpolates packed RGB depth.
-  coverageTarget:new THREE.WebGLRenderTarget(size,size,{type:THREE.HalfFloatType,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:false,generateMipmaps:false}),
+  // The receiver pass writes filtered-shadow coverage here directly. Its
+  // depth buffer keeps the first receiving surface, exactly as the former
+  // intermediate packed-depth target did.
+  coverageTarget:new THREE.WebGLRenderTarget(size,size,{type:THREE.HalfFloatType,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:true,generateMipmaps:false}),
   filterTarget:new THREE.WebGLRenderTarget(size,size,{type:THREE.HalfFloatType,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:false,generateMipmaps:false}),
- scene: new THREE.Scene(), camera: new THREE.OrthographicCamera(),
+ scene, camera: new THREE.OrthographicCamera(),
   matrix: {value: new THREE.Matrix4()}, texel:{value:new THREE.Vector2(1/size,1/size)}, active: {value: 0}, proxies: [], proxyBySource:new WeakMap(),
- });
+  };
+ };
  const shadows: Shadow[] = [makeShadow(CAR_SHADOW_SIZE),makeShadow(CAR_SHADOW_SIZE),makeShadow(SCENERY_SHADOW_SIZE),makeShadow(DISTANT_SCENERY_SHADOW_SIZE)];
+ const sceneryShadows=[shadows[SCENERY_SHADOW],shadows[DISTANT_SCENERY_SHADOW]];
  const filteredCoverage={value:true};
  const filterScene=new THREE.Scene(),filterCamera=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
  const fullscreenVertex=`varying vec2 vUv; void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}`;
- const coverageMaterial=new THREE.ShaderMaterial({
-  uniforms:{casterMap:{value:null},receiverMap:{value:null},depthBias:{value:SHADOW_DEPTH_BIAS}},vertexShader:fullscreenVertex,
-  fragmentShader:`uniform sampler2D casterMap;uniform sampler2D receiverMap;uniform float depthBias;varying vec2 vUv;
-   #include <packing>
-   void main(){
-    vec4 caster=texture2D(casterMap,vUv),receiver=texture2D(receiverMap,vUv);
-    if(caster.a<.5||receiver.a<.5){gl_FragColor=vec4(0.0);return;}
-    float receiverDepth=unpackRGBToDepth(receiver.rgb);
-    if(receiverDepth<=unpackRGBToDepth(caster.rgb)+depthBias){gl_FragColor=vec4(0.0);return;}
-    float depth=receiverDepth-.5;
-    float solid=step(.9,caster.a),aperture=1.0-solid;
-    gl_FragColor=vec4(solid,aperture,solid*depth,aperture*depth);
-   }`,depthTest:false,depthWrite:false,blending:THREE.NoBlending,toneMapped:false,
- });
  const filterMaterial=new THREE.ShaderMaterial({
   uniforms:{coverageMap:{value:null},direction:{value:new THREE.Vector2()}},vertexShader:fullscreenVertex,
   fragmentShader:`uniform sampler2D coverageMap;uniform vec2 direction;varying vec2 vUv;
@@ -191,18 +190,15 @@ export function createUpgradedRetroLighting() {
     gl_FragColor=vec4(blurred.r,centre.g,blurred.b,centre.a);
    }`,depthTest:false,depthWrite:false,blending:THREE.NoBlending,toneMapped:false,
  });
- const filterQuad=new THREE.Mesh(new THREE.PlaneGeometry(2,2),coverageMaterial);filterQuad.frustumCulled=false;filterScene.add(filterQuad);
+ const filterQuad=new THREE.Mesh(new THREE.PlaneGeometry(2,2),filterMaterial);filterQuad.frustumCulled=false;filterScene.add(filterQuad);
  function filterCoverage(renderer:THREE.WebGLRenderer,shadow:Shadow){
   if(!filteredCoverage.value)return;
-  coverageMaterial.uniforms.casterMap.value=shadow.target.texture;coverageMaterial.uniforms.receiverMap.value=shadow.receiverTarget.texture;
-  coverageMaterial.uniforms.depthBias.value=shadow===shadows[DISTANT_SCENERY_SHADOW]?DISTANT_SHADOW_DEPTH_BIAS:SHADOW_DEPTH_BIAS;
-  filterQuad.material=coverageMaterial;renderer.setRenderTarget(shadow.coverageTarget);renderer.render(filterScene,filterCamera);
   filterQuad.material=filterMaterial;filterMaterial.uniforms.coverageMap.value=shadow.coverageTarget.texture;
   filterMaterial.uniforms.direction.value.set(.65/shadow.target.width,0);renderer.setRenderTarget(shadow.filterTarget);renderer.render(filterScene,filterCamera);
   filterMaterial.uniforms.coverageMap.value=shadow.filterTarget.texture;
   filterMaterial.uniforms.direction.value.set(0,.65/shadow.target.height);renderer.setRenderTarget(shadow.coverageTarget);renderer.render(filterScene,filterCamera);
  }
- const receiverMaterials=shadows.map((shadow,index)=>new THREE.ShaderMaterial({
+ const makeReceiverMaterial=(shadow:Shadow,index:number,directCoverage=false)=>new THREE.ShaderMaterial({
   uniforms:{retroCasterMap:{value:shadow.target.texture},retroShadowMatrix:shadow.matrix},
   vertexShader:`varying vec3 vRetroWorld;
    void main() {
@@ -219,12 +215,18 @@ export function createUpgradedRetroLighting() {
     if (caster.a < .5) discard;
     float casterDepth = unpackRGBToDepth(caster.rgb);
     if (p.z <= casterDepth + ${(index===DISTANT_SCENERY_SHADOW?DISTANT_SHADOW_DEPTH_BIAS:SHADOW_DEPTH_BIAS).toFixed(12)}) discard;
-    gl_FragColor = vec4(packDepthToRGB(p.z), 1.0);
+    ${directCoverage?`float receiverDepth=unpackRGBToDepth(packDepthToRGB(p.z));
+    float depth=receiverDepth-.5;
+    float solid=step(.9,caster.a),aperture=1.0-solid;
+    gl_FragColor=vec4(solid,aperture,solid*depth,aperture*depth);`:'gl_FragColor = vec4(packDepthToRGB(p.z), 1.0);'}
    }`,
   side:THREE.DoubleSide,blending:THREE.NoBlending,depthTest:true,depthWrite:true,toneMapped:false,
- }));
+ });
+ const receiverMaterials=shadows.map((shadow,index)=>makeReceiverMaterial(shadow,index));
+ const coverageReceiverMaterials=shadows.map((shadow,index)=>makeReceiverMaterial(shadow,index,true));
  const installed = new WeakSet<THREE.Material>();
  const normalizedFaces = new WeakSet<THREE.BufferGeometry>();
+ let cachedScenerySource:RetroSceneryCaster[]|undefined,cachedSceneryEntries:NormalizedRetroSceneryCaster[]=[],cachedSceneryHidden:THREE.Group[]=[],cachedSceneryShown:THREE.Group[]=[],cachedSceneryVisible=0,cachedSceneryRevision:number|undefined;
 
  function apply(group: THREE.Object3D, receiveCarShadows = true, receiveSceneryShadows = receiveCarShadows) {
   group.traverse(node => {
@@ -334,41 +336,46 @@ export function createUpgradedRetroLighting() {
  }
 
  function drawReceiver(renderer:THREE.WebGLRenderer,shadow:Shadow,index:number,receiverScene:THREE.Scene,hidden:(THREE.Group|undefined)[],shown:THREE.Group[]=[]){
-  const visibility=hidden.map(group=>group?.visible),override=receiverScene.overrideMaterial;
-  const edgeHelpers:THREE.Object3D[]=[];
+  const visibleGroups:THREE.Group[]=[],override=receiverScene.overrideMaterial;
   try {
-   hidden.forEach(group=>{if(group)group.visible=false;});
+   hidden.forEach(group=>{if(group?.visible){visibleGroups.push(group);group.visible=false;}});
    shown.forEach(group=>receiverScene.add(group));
-   // Compatibility strips are screen-space presentation, not world surfaces.
-   // A plain depth shader cannot interpret their instanced line geometry.
-   receiverScene.traverseVisible(node=>{if(presentationOnlyShadowGeometry(node))edgeHelpers.push(node);});
-   edgeHelpers.forEach(node=>{node.visible=false;});
-   receiverScene.overrideMaterial=receiverMaterials[index];
-   renderer.setRenderTarget(shadow.receiverTarget);
+   receiverScene.overrideMaterial=filteredCoverage.value?coverageReceiverMaterials[index]:receiverMaterials[index];
+   renderer.setRenderTarget(filteredCoverage.value?shadow.coverageTarget:shadow.receiverTarget);
    renderer.render(receiverScene,shadow.camera);
   } finally {
    receiverScene.overrideMaterial=override;
    shown.forEach(group=>receiverScene.remove(group));
-   edgeHelpers.forEach(node=>{node.visible=true;});
-   hidden.forEach((group,i)=>{if(group)group.visible=visibility[i]!;});
+   visibleGroups.forEach(group=>{group.visible=true;});
   }
  }
 
- function drawShadows(renderer: THREE.WebGLRenderer, cars: (THREE.Group | undefined)[], receiverScene: THREE.Scene, sceneryCasters:RetroSceneryCaster[]=[], sceneryCenter?:THREE.Vector3, sceneryWorldCenter?:THREE.Vector3) {
+ function drawShadows(renderer: THREE.WebGLRenderer, cars: (THREE.Group | undefined)[], receiverScene: THREE.Scene, sceneryCasters:RetroSceneryCaster[]=[], sceneryCenter?:THREE.Vector3, sceneryWorldCenter?:THREE.Vector3, sceneryRevision?:number) {
   // WebGL2 half-float colour attachments are optional. Retain interpolated
   // depth comparisons on devices without the required render-target support.
   filteredCoverage.value=!renderer.extensions||renderer.extensions.has('EXT_color_buffer_float');
   const oldTarget = renderer.getRenderTarget(), clearColor = renderer.getClearColor(new THREE.Color()), clearAlpha = renderer.getClearAlpha();
-  const oldAutoClear = renderer.autoClear;
+  const oldAutoClear = renderer.autoClear,oldMatrixWorldAutoUpdate=receiverScene.matrixWorldAutoUpdate;
+  const presentationHelpers:THREE.Object3D[]=[];
   try {
    renderer.autoClear = true;
    renderer.setClearColor(0x000000,0);
    receiverScene.updateMatrixWorld(true);
-   shadows.slice(0,CAR_SHADOWS).forEach((shadow,i) => {
+   // Compatibility strips are screen-space presentation, not world surfaces.
+   // Find and hide them once for the complete shadow batch instead of walking
+   // the full scene again for every receiver pass.
+   receiverScene.traverseVisible(node=>{if(presentationOnlyShadowGeometry(node))presentationHelpers.push(node);});
+   presentationHelpers.forEach(node=>{node.visible=false;});
+   // The matrices above are current for this displayed frame. All receiver
+   // passes can reuse them; WebGLRenderer would otherwise recompute the whole
+   // 30x30-tile scene before every shadow camera.
+   receiverScene.matrixWorldAutoUpdate=false;
+   for(let i=0;i<CAR_SHADOWS;i++){
+    const shadow=shadows[i];
     // The same original visibility gate controls the car and all of its
     // shadow contributions. In cockpit view only a visible opponent casts.
     const source = cars[i]?.visible ? cars[i] : undefined; shadow.active.value = source ? 1 : 0;
-    if (!source) return;
+    if (!source) continue;
     if (shadow.source !== source) {
      shadow.scene.clear(); shadow.proxies = []; shadow.source = source;
      source.traverse(node => {
@@ -380,7 +387,7 @@ export function createUpgradedRetroLighting() {
      });
     }
     source.updateWorldMatrix(true,true);
-    for (const proxy of shadow.proxies) proxy.mesh.matrix.copy(proxy.source.matrixWorld);
+    for (const proxy of shadow.proxies){proxy.mesh.matrix.copy(proxy.source.matrixWorld);proxy.mesh.matrixWorld.copy(proxy.source.matrixWorld);}
     const bounds = new THREE.Box3().setFromObject(source), center = bounds.getCenter(new THREE.Vector3());
     const extent = Math.max(128, Math.ceil(bounds.getSize(new THREE.Vector3()).length()/64)*64);
     shadow.matrix.value.copy(placeRetroShadowCamera(shadow.camera,center,extent));
@@ -391,11 +398,25 @@ export function createUpgradedRetroLighting() {
     // receives the shadow while lower terrain beneath it remains untouched.
     drawReceiver(renderer,shadow,i,receiverScene,cars);
     filterCoverage(renderer,shadow);
-   });
-   const sceneryEntries=sceneryCasters.map(entry=>entry instanceof THREE.Group?{source:entry,caster:entry,patterned:entry.userData.retroPatternedShadow===true}:entry);
-   const syncScenery=(shadow:Shadow)=>{
-    shadow.proxies.forEach(proxy=>{proxy.mesh.visible=false;});
-    let visible=0;
+   }
+   const scenerySourceChanged=cachedScenerySource!==sceneryCasters;
+   if(scenerySourceChanged){
+    cachedScenerySource=sceneryCasters;
+    cachedSceneryEntries=sceneryCasters.map(entry=>entry instanceof THREE.Group?{source:entry,caster:entry,patterned:entry.userData.retroPatternedShadow===true}:entry);
+    cachedSceneryHidden=cachedSceneryEntries.map(entry=>entry.source);
+    cachedSceneryRevision=undefined;
+    sceneryShadows.forEach(shadow=>{shadow.renderedRevision=undefined;shadow.renderedCenter=undefined;});
+   }
+   const sceneryEntries=cachedSceneryEntries;
+   // Static track, sign and truck transforms change only with a new captured
+   // native graphics frame. Browser refreshes between those frames still move
+   // the shadow cameras with the interpolated car, but can reuse caster proxy
+   // matrices and composite receiver placement exactly.
+   if(sceneryRevision===undefined||cachedSceneryRevision!==sceneryRevision){
+    sceneryShadows.forEach(shadow=>shadow.proxies.forEach(proxy=>{proxy.mesh.visible=false;}));
+    cachedSceneryVisible=0;cachedSceneryShown=[];
+    // Both cascades use the same caster geometry. Traverse and copy it once,
+    // updating the two proxy scenes together.
     for(const entry of sceneryEntries){
      const group=entry.caster;
      if(group!==entry.source){
@@ -403,44 +424,56 @@ export function createUpgradedRetroLighting() {
       group.updateMatrixWorld(true);
      }
      group.traverseVisible(node=>{
-     if(!(node instanceof THREE.Mesh)||presentationOnlyShadowGeometry(node))return;
-     let mesh=shadow.proxyBySource.get(node);
-     if(!mesh){mesh=new THREE.Mesh(node.geometry,casterMaterial(node,entry.patterned===true));mesh.matrixAutoUpdate=false;shadow.scene.add(mesh);shadow.proxyBySource.set(node,mesh);shadow.proxies.push({source:node,mesh});}
-     mesh.visible=true;mesh.matrix.copy(node.matrixWorld);visible++;
+      if(!(node instanceof THREE.Mesh)||presentationOnlyShadowGeometry(node))return;
+      for(const shadow of sceneryShadows){
+       let mesh=shadow.proxyBySource.get(node);
+       if(!mesh){mesh=new THREE.Mesh(node.geometry,casterMaterial(node,entry.patterned===true));mesh.matrixAutoUpdate=false;shadow.scene.add(mesh);shadow.proxyBySource.set(node,mesh);shadow.proxies.push({source:node,mesh});}
+       mesh.visible=true;mesh.matrix.copy(node.matrixWorld);mesh.matrixWorld.copy(node.matrixWorld);
+      }
+      cachedSceneryVisible++;
      });
+     const receiver=entry.receiver;if(!receiver)continue;
+     receiver.matrixAutoUpdate=false;receiver.matrix.copy(entry.source.matrixWorld);receiver.visible=entry.source.visible;
+     receiver.updateMatrixWorld(true);if(entry.source.visible)cachedSceneryShown.push(receiver);
     }
-    shadow.active.value=sceneryCenter&&visible?1:0;
-    return visible;
-   };
+    cachedSceneryRevision=sceneryRevision;
+   }
+   sceneryShadows.forEach(shadow=>{shadow.active.value=sceneryCenter&&cachedSceneryVisible?1:0;});
+   const hidden=cachedSceneryHidden;
+   const shown=cachedSceneryShown;
    const drawScenery=(shadow:Shadow,index:number,center:THREE.Vector3,extent:number,size:number,depth=16384)=>{
+    // Scenery and its sunlight are fixed in world space. A cached orthographic
+    // map remains exact while the requested centre stays comfortably inside
+    // it; only its coverage boundary moves. Re-centre after one eighth of the
+    // map width, or immediately when visible source geometry changes. This
+    // removes the largest repeated GPU workload without lowering resolution,
+    // changing filtering, or dropping any shadow-casting geometry.
+    const threshold=extent/8;
+    if(shadow.renderedRevision===sceneryRevision&&shadow.renderedCenter&&shadow.renderedCenter.distanceToSquared(center)<=threshold*threshold)return;
     shadow.matrix.value.copy(placeRetroShadowCamera(shadow.camera,center,extent,size,depth));
     renderer.setRenderTarget(shadow.target);
     renderer.render(shadow.scene,shadow.camera);
     // Hiding only the registered raised/volumetric objects lets their common
     // silhouette land on roads and terrain without treating the caster's own
     // back faces as the receiving surface.
-    const hidden=sceneryEntries.map(entry=>entry.source);
-    const shown=sceneryEntries.flatMap(entry=>{
-     if(!('receiver' in entry))return [];
-     entry.receiver.matrixAutoUpdate=false;entry.receiver.matrix.copy(entry.source.matrixWorld);entry.receiver.visible=entry.source.visible;
-     entry.receiver.updateMatrixWorld(true);return entry.source.visible?[entry.receiver]:[];
-    });
     drawReceiver(renderer,shadow,index,receiverScene,hidden,shown);
     filterCoverage(renderer,shadow);
+    shadow.renderedRevision=sceneryRevision;
+    (shadow.renderedCenter??=new THREE.Vector3()).copy(center);
    };
    const scenery=shadows[SCENERY_SHADOW];
-   syncScenery(scenery);
    if(scenery.active.value)drawScenery(scenery,SCENERY_SHADOW,sceneryCenter!,SCENERY_SHADOW_EXTENT,SCENERY_SHADOW_SIZE);
    const distant=shadows[DISTANT_SCENERY_SHADOW];
-   syncScenery(distant);
    if(distant.active.value){
     drawScenery(distant,DISTANT_SCENERY_SHADOW,sceneryWorldCenter??sceneryCenter!,DISTANT_SCENERY_SHADOW_EXTENT,DISTANT_SCENERY_SHADOW_SIZE,DISTANT_SCENERY_SHADOW_DEPTH);
    }
   } finally {
+   receiverScene.matrixWorldAutoUpdate=oldMatrixWorldAutoUpdate;
+   presentationHelpers.forEach(node=>{node.visible=true;});
    renderer.setRenderTarget(oldTarget);
    renderer.setClearColor(clearColor,clearAlpha);
    renderer.autoClear = oldAutoClear;
   }
  }
- return {apply, drawShadows, dispose() {shadows.forEach(shadow => {shadow.target.dispose();shadow.receiverTarget.dispose();shadow.coverageTarget.dispose();shadow.filterTarget.dispose();});receiverMaterials.forEach(material=>material.dispose());depthMaterial.dispose();patternedDepthMaterial.dispose();coverageMaterial.dispose();filterMaterial.dispose();filterQuad.geometry.dispose();}};
+ return {apply, drawShadows, dispose() {shadows.forEach(shadow => {shadow.target.dispose();shadow.receiverTarget.dispose();shadow.coverageTarget.dispose();shadow.filterTarget.dispose();});receiverMaterials.forEach(material=>material.dispose());coverageReceiverMaterials.forEach(material=>material.dispose());depthMaterial.dispose();patternedDepthMaterial.dispose();filterMaterial.dispose();filterQuad.geometry.dispose();}};
 }
