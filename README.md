@@ -77,7 +77,7 @@ npm run start
 
 `npm run start` serves the production build through Wrangler; use the address it prints. Build output is in `dist/`. A hosted installation needs the generated assets as well as the compiled application. The repository's build configuration targets Cloudflare Workers through Vinext; no private hosting credentials are included. Deploying original assets publicly is a separate distribution decision—this repository does not grant rights to them.
 
-The file checker verifies the required runtime files and your installation's hashes. The smoke check initializes a fresh Countach race and renders 30 frames. Browser checks covered Setup, the opening/menu and a normal race using generated assets. These checks establish an installable game, not perfect equivalence in every race. `--reference` on the file checker optionally compares the older full reference inventory, which includes unused research fixtures and will report expected differences.
+The file checker verifies the required runtime files and your installation's hashes. The smoke check initializes a fresh Countach race and renders 30 frames. Browser checks cover Setup, the opening/menu and a normal race using generated assets. These checks establish an installable game, not perfect equivalence in every race. `--reference` on the file checker optionally compares the extended reference inventory, which includes unused research fixtures and therefore reports expected differences.
 
 ## Playing and saves
 
@@ -87,11 +87,13 @@ The file checker verifies the required runtime files and your installation's has
 - With enhanced graphics enabled, **F** shows or hides the driving/replay performance display: current FPS, session average and 1% low. **V** cycles the current Stunts camera → close → standard → far → the current Stunts camera; C, F1–F4 or a replay camera-button selection returns immediately to the selected original camera. Both enhanced overlays are inactive outside driving and replay playback.
 - The close, standard and far chase views keep the camera above the car, preserve a stable distant horizon over jumps and uneven ground, hide the dashboard while driving, and retain the original replay camera as the authoritative view when leaving enhanced chase mode. Enhanced replay rendering also preserves the source crash, fireball and debris states.
 - In replays, Ctrl + arrow keys adjusts the camera, + / − zooms, arrow keys select a replay control, and Enter or Space activates it. Shift + F1 opens the terrain editor.
-- Setup selects MCGA, EGA, CGA, Tandy or Hercules. Optional upgraded graphics uses full colour and now retains source signs, clouds, vehicle details and live steering/suspension wheel movement; switching back restores the selected original mode. Its Alpine, Tropical, Desert, City and Country panoramas are presentation-only replacements selected from the same terrain metadata as the original backgrounds and are also used by enhanced track previews.
-- Enhanced cars retain their five source colours and original geometry while adding polished clear-coat lighting, corrected palette-placeholder materials, inset lamp detail and filtered grounding shadows.
-- **3D CARS** opens the interactive showroom in the front page’s game area. It uses the same decoded models and upgraded materials as the game for all eleven cars; drag to rotate, scroll to zoom and select each car’s available colours.
+- Setup selects MCGA, EGA, CGA, Tandy or Hercules for original graphics. Enhanced graphics is a separate website renderer with full colour, source signs and clouds, detailed vehicles, and live steering and suspension movement. Only the website graphics control switches between enhanced graphics and the selected original display mode; in-game menus preserve that selection.
+- Alpine, Tropical, Desert, City and Country panoramas are presentation-only replacements selected from the same terrain metadata as the original backgrounds. Enhanced track previews use the same panoramas.
+- Enhanced cars preserve their five source colours and original geometry while adding clear-coat lighting, palette-matched materials, inset lamp details and filtered grounding shadows.
+- **3D CARS** opens the interactive showroom in the front page’s game area. It uses the same decoded models and enhanced materials as the game for all eleven cars; drag to rotate, scroll to zoom and select each car’s available colours.
 - Import original **`.TRK`** files using **Tracks, replays and save backups**. Supported track files are 1,802 bytes.
 - Import original **`.RPL`** recordings with **Upload replay (.RPL)** beside the track upload. Upload before starting the game, then load the file from the in-game replay menu. Names must use 1–8 letters, numbers, underscores or hyphens. Existing files are kept. Recordings must use the supported original format and contain 1–12,000 frames.
+- Export individual files through **Tracks, replays and save backups → Download tracks & replays**. Downloads preserve the binary bytes and DOS filename (`.TRK` or `.RPL`) for use with the original game. The list includes bundled files and files saved or imported in the browser; a browser-local file with the same DOS path and name takes precedence over its bundled counterpart.
 - Saves are browser-local and tied to the hostname/port. Export a backup before changing browser or address. A Git checkout does not contain your hosted-game saves.
 
 ## How it works
@@ -106,7 +108,7 @@ The main game runs reconstructed TypeScript, not the DOS executable. Preparation
 - `vendor/`: redistributable synthesizer runtimes, corresponding source and font licenses.
 - `docs/`: input identification, setup and process documentation.
 
-The older `NativeDrive` prototype and private original-data regression fixtures are not required by the current game. Historical source remains for reference; its captured prototype seeds are deliberately not distributed. `/work/reference` provides the original DOS comparison using a bundle generated from your own installation.
+The `NativeDrive` prototype and private original-data regression fixtures are reference material, not runtime requirements. Captured prototype seeds are deliberately not distributed. `/work/reference` provides the original DOS comparison using a bundle generated from your own installation.
 
 ## Issues and rights
 
@@ -121,5 +123,3 @@ Third-party code, synthesizers and fonts retain their existing licenses; see [TH
 ### Social sharing image
 
 The live site uses a branded 1731 × 909 PNG sharing card (approximately 1.91:1). Original-art-derived promotional imagery is not redistributed in this source repository. To supply your own card, place it at `public/og.png` before building and update its dimensions, image URL and site URL in `app/layout.tsx` for your deployment. By default the metadata references the publicly hosted playstunts.com card; remove the image metadata if your deployment will not use a sharing image. The live card was generated using the original cover as a reference, with the yellow Stunts wordmark, red car, “PLAY IN YOUR BROWSER” and “playstunts.com” on black.
-
-Saved tracks and replays can also be exported individually: open **Tracks, replays and save backups → Download tracks & replays**, then choose a file. Downloads preserve the saved binary bytes and DOS filename (.TRK or .RPL); copy them to your original game directory. The list includes the bundled tracks and replays as well as files saved or imported in this browser. Saved files override bundled files with the same DOS path and name. Save an unsaved track or run in the game first.
