@@ -10,7 +10,7 @@ You can build and run the game from this checkout using your own compatible DOS 
 - **Python 3.11 or newer** and the packages in `tools/requirements.txt` (Pillow and Unicorn).
 - Your own **complete extracted Stunts installation matching the December 1990 revision** used by this project. A ZIP, a single executable or a `.TRK` file is insufficient. Keep all installation files together. [Resource checksums](docs/original-file-checksums.json) and [direct-input checksums](docs/direct-asset-recipes.json) identify the supported files; other revisions are not automatically compatible.
 - For **Roland MT-32 sound**, your own compatible control and PCM ROMs, described below. Without them, select another sound device in Setup before starting the game.
-- A desktop browser with WebAssembly, Web Audio and WebGL support, and a keyboard. The preparation procedure was verified on macOS; Windows users can use WSL with the same shell commands.
+- A desktop browser with WebAssembly, Web Audio and WebGL support, and a keyboard. The preparation procedure has been verified on macOS.
 
 ## Install and run
 
@@ -52,13 +52,12 @@ The controls below the MT-32 provide power, reverb on/off, reverb amount, left/r
 
 ### Optional website artwork
 
-The game works without the hosted site's manual scans and cropped red-car artwork. The checkout uses a text wordmark and the original game's decoded title screen as fallbacks; the decorative car and idle Setup preview are omitted. These are website presentation differences, not missing game assets.
+The game works without the hosted site's decorative artwork. The checkout uses a text wordmark and the original game's decoded title screen as fallbacks; the decorative red car, interactive box scans and idle Setup preview are omitted when their optional files are unavailable. These are website presentation differences, not missing game assets.
 
-To reproduce the additional manual artwork, supply your own permitted images in a directory with these names and add `--site-art "/path/to/art"` to preparation:
+To reproduce the additional website artwork, supply your own permitted images in a directory with these names and add `--site-art "/path/to/art"` to preparation:
 
 - `manual-cover-spread.png`: image used by the masthead wordmark.
 - `manual-red-car.png`: decorative red-car crop.
-- `manual-front-cover.jpg`: manual cover beside the game.
 - `setup-menu.png`: idle Setup preview.
 
 The front-page 3D box can additionally use six permitted scans in a `stunts-box` subdirectory named `Stunts-front.jpg`, `Stunts-back.jpg`, `Stunts-left.jpg`, `Stunts-right.jpg`, `Stunts-top.jpg` and `Stunts-bottom.jpg`. Optional enhanced scenery belongs in an `enhanced-backgrounds` subdirectory. Both subdirectories are copied when present but remain excluded from Git because they contain artwork rather than reconstruction source.

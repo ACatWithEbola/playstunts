@@ -111,7 +111,7 @@ def main():
                 if hashlib.sha256(rom.read_bytes()).hexdigest()!=expected['sha256']:raise ValueError('Unsupported Roland ROM: '+name)
                 shutil.copyfile(rom,game/'mt32-local'/name)
         if args.site_art:
-            for name in ['manual-cover-spread.png','manual-red-car.png','manual-front-cover.jpg','setup-menu.png']:
+            for name in ['manual-cover-spread.png','manual-red-car.png','setup-menu.png']:
                 file=args.site_art/name
                 if not file.is_file():raise ValueError('Missing optional site artwork: '+name)
                 shutil.copyfile(file,public/'site'/name)
