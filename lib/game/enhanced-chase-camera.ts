@@ -16,7 +16,6 @@ const PRESETS={
  3:{distance:440,height:150,lookAhead:215,targetHeight:52,fov:62},
 } as const;
 const TRANSITION_MS=320;
-const SHALLOW_SIGHTLINE_FRACTION=.75;
 type ChaseRig={distance:number;height:number;lookAhead:number;targetHeight:number;fov:number};
 
 const copyRig=(rig:ChaseRig):ChaseRig=>({...rig});
@@ -49,28 +48,8 @@ export function createEnhancedChaseCamera(track:{raw:number[];objects:TrackObjec
   const result=originalExternalCameraClearance(source,track.raw,track.objects,track.planes,mode);
   return [result[0],result[1],-result[2]];
  };
- const clearSightline=(eye:Vector,aim:Vector,mode:number):Vector=>{
-  const ray=new Vector3(...eye).sub(new Vector3(...aim));
-  // A few source-terrain probes are cheaper and more predictable than a
-  // recursive raycast through every upgraded mesh. Move inward only when the
-  // terrain rises through the line between the car and the requested eye.
-  for(let step=2;step<=10;step++){
-   const fraction=step/10,point=new Vector3(...aim).addScaledVector(ray,fraction),cleared=clear(point.toArray() as Vector,mode);
-   if(cleared[1]>point.y+4){
-    const safe=Math.max(.18,(step-1)/10);
-    // A raised road directly below the last quarter of the camera arm is a
-    // shallow sightline contact, not a wall behind the car. Retracting for a
-    // few frames as a jump lands made the view snap in and immediately back
-    // out. Keep the requested eye (with its own ground clearance) in that case;
-    // earlier, substantial obstructions still pull the camera safely inward.
-    if(safe>=SHALLOW_SIGHTLINE_FRACTION)return clear(eye,mode);
-    return clear(new Vector3(...aim).addScaledVector(ray,safe).toArray() as Vector,mode);
-   }
-  }
-  return clear(eye,mode);
- };
  return {
-  sample(pose:RenderPose,level:Exclude<EnhancedChaseCameraLevel,0>,carIndex:number,now:number,frame:number,raceMode:number,grounded:boolean){
+  sample(pose:RenderPose,level:Exclude<EnhancedChaseCameraLevel,0>,carIndex:number,now:number,frame:number,raceMode:number){
    const preset=PRESETS[level],car=new Vector3(pose.position[0],pose.position[1],-pose.position[2]);
    const interrupted=!initialized||carIndex!==lastCarIndex||now-lastAt>250||frame<lastFrame||car.distanceToSquared(lastCar)>1024*1024;
    const basis=upgradedCameraBasis([pose.rotation[2],pose.rotation[1],pose.rotation[0]]);
@@ -100,20 +79,21 @@ export function createEnhancedChaseCamera(track:{raw:number[];objects:TrackObjec
    up.set(0,1,0);
    desiredTarget.copy(car).addScaledVector(forward,rig.lookAhead).addScaledVector(up,rig.targetHeight);
    desiredPosition.copy(car).addScaledVector(forward,-rig.distance).addScaledVector(up,rig.height);
-   // Stay above the car throughout a jump. Airborne sightline probes can hit
-   // the ramp or landing slope below the car and briefly retract the camera;
-   // that was the touchdown wobble. While airborne only protect the eye itself.
-   // Full terrain/sightline clearance resumes once the wheels are in contact.
-   desiredPosition.fromArray((grounded?clearSightline(desiredPosition.toArray() as Vector,desiredTarget.toArray() as Vector,raceMode):clear(desiredPosition.toArray() as Vector,raceMode)));
+   // Keep the selected chase arm length invariant. Probing the complete line
+   // from the car to the eye mistook ramps and descending landing slopes for
+   // occluders: the grounded flag then retracted the camera for one source
+   // frame and released it on the next. Protect only the actual eye from the
+   // terrain so contact changes cannot masquerade as a zoom transition.
+   desiredPosition.fromArray(clear(desiredPosition.toArray() as Vector,raceMode));
    position.copy(desiredPosition);target.copy(desiredTarget);
    // Keep the view pitch independent of suspension travel and terrain
-   // clearance. Clearance can shorten the camera arm, so preserve the pitch
-   // angle rather than only preserving its original vertical offset.
+   // clearance. Clearance can raise the eye, so preserve the selected pitch
+   // angle rather than allowing the horizon to follow that correction.
    const horizontalLookDistance=Math.hypot(target.x-position.x,target.z-position.z);
    target.y=position.y+horizontalLookDistance*(rig.targetHeight-rig.height)/(rig.distance+rig.lookAhead);
    initialized=true;lastAt=now;lastCarIndex=carIndex;lastFrame=frame;lastCar.copy(car);
-   // Panorama pitch is a property of the selected rig, not of the shortened
-   // camera arm returned by terrain clearance. Keeping it explicit prevents
+   // Panorama pitch is a property of the selected rig, not of any eye-height
+   // correction returned by terrain clearance. Keeping it explicit prevents
    // one-angle-unit horizon hops while the car crosses banked curb pieces.
    const backgroundPitch=Math.round(Math.atan2(rig.targetHeight-rig.height,rig.distance+rig.lookAhead)*512/Math.PI)&1023;
    return {position:position.toArray() as Vector,target:target.toArray() as Vector,up:up.toArray() as Vector,fov:rig.fov,backgroundPitch};

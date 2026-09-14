@@ -58,7 +58,9 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
  ground.renderOrder=-1;ground.userData.retroDistanceColour=false;
  ground.rotation.x=-Math.PI/2;ground.position.set(15360,-1,15360);world.add(ground);
       const sourceMaterials={...trackMaterials,...readOriginalMaterialPatterns(runtime.session.state.memory)};
-      const trackModel=createTrackModelFactory(sourceMaterials);
+      // One native raster pixel maps to four pixels on this 4x presentation.
+      // Keep every source line primitive at that screen-space weight.
+      const trackModel=createTrackModelFactory(sourceMaterials,4);
       const visibilityPlacements:{model:THREE.Group;key:string;detail?:number;tile?:number;terrain?:number;underlay?:boolean;castsShadow?:boolean;shadow?:RetroSceneryCaster;keepInWorld?:boolean;origin:number[];paint:number;visible:boolean[]}[]=[];
 
       for (let z = 0; z < 30; z++)
@@ -175,7 +177,7 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
  for(let index=0;index<256;index++){const at=index*3,red=trackMaterials.palette[at],green=trackMaterials.palette[at+1],blue=trackMaterials.palette[at+2];opaquePalette[index]=packColour(red,green,blue,255);transparentPalette[index]=packColour(red,green,blue,0);paletteCss[index]=`rgb(${red},${green},${blue})`;}
  const overlayPixels=new Uint32Array(image.data.buffer,image.data.byteOffset,64000),skyPixels=new Uint32Array(skyImage.data.buffer,skyImage.data.byteOffset,64000);
  const transporterBounds=new THREE.Box3();
- let appliedGraphicsRevision=-1,appliedOverlaySourceCamera='',appliedReplayPanelSignature=-1,orderedScene=false,worldVisibilityKey='',sceneryRevision=0,lastChaseLevel:EnhancedChaseCameraLevel=0,truckChanged=false,transporterBoundsKnown=false,lastSourceCamera='',backgroundHeightCamera='',backgroundHeight=0,lastBackgroundSourceFrame=-1;
+ let appliedGraphicsRevision=-1,appliedOverlaySourceCamera='',appliedReplayPanelSignature=-1,orderedScene=false,worldVisibilityKey='',sceneryRevision=0,lastChaseLevel:EnhancedChaseCameraLevel=0,truckChanged=false,transporterBoundsKnown=false,lastSourceCamera='',backgroundHeightCamera='',backgroundHeight=0,tvPitchCamera='',tvPitch=0,lastBackgroundSourceFrame=-1;
  return {
   draw(canvas:HTMLCanvasElement){
    if(renderer.getContext().isContextLost())throw Error('Graphics context lost');
@@ -199,11 +201,10 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    if(lastSourceCamera&&requestedChaseLevel&&sourceCamera!==lastSourceCamera){selectOriginalCamera();requestedChaseLevel=0;}
    lastSourceCamera=sourceCamera;
    const chaseCar=cameraTarget&&live[d+0x8fc8]?1:0;
-   const chaseCarState=chaseCar?runtime.session.state.opponent.car:runtime.session.state.player.driving.car;
    const chasedCarPosition=new THREE.Vector3(shown.cars[chaseCar].position[0],shown.cars[chaseCar].position[1],-shown.cars[chaseCar].position[2]);
    if(truck.group.visible){truck.group.updateWorldMatrix(true,true);transporterBounds.setFromObject(truck.group).expandByScalar(12);transporterBoundsKnown=true;}
    const chaseLevel=requestedChaseLevel as EnhancedChaseCameraLevel;
-   const chase=chaseLevel?chaseCamera.sample(shown.cars[chaseCar],chaseLevel,chaseCar,now,sourceFrame,live[d+0xa3c2],!!chaseCarState.grip.allContact):undefined;
+   const chase=chaseLevel?chaseCamera.sample(shown.cars[chaseCar],chaseLevel,chaseCar,now,sourceFrame,live[d+0xa3c2]):undefined;
    let transporterCutaway=false;
    if(chase&&transporterBoundsKnown){
     const carInsideTransporter=transporterBounds.containsPoint(chasedCarPosition);
@@ -218,7 +219,31 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    }
    const chaseChanged=chaseLevel!==lastChaseLevel;
    if(!chase)chaseCamera.reset();
-   const basis=upgradedCameraBasis(shown.camera.rotation);
+   // A TV camera is fixed at a trackside site, but the original view pitches
+   // vertically toward every change in the car's height. In enhanced mode that
+   // makes the complete world and horizon bob on small bumps. Its nearest-site
+   // index also advances repeatedly around the track, so maintain one stable
+   // panorama pitch across those changes while retaining the live horizontal
+   // pan and the source's immediate camera-site cuts.
+   const capturedSourceCamera=live[d+0x12f]+'/'+live[d+0xa9f0],backgroundSeek=lastBackgroundSourceFrame>=0&&Math.abs(sourceFrame-lastBackgroundSourceFrame)>1;
+   // Do not re-anchor on a skipped presentation frame. That is ordinary
+   // playback under load, not evidence of a real replay seek, and using it as
+   // a reset made the horizon jump when the car happened to be airborne.
+   if(!chase&&cameraMode===3&&capturedSourceCamera===sourceCamera&&tvPitchCamera!==sourceCamera){
+    tvPitchCamera=sourceCamera;tvPitch=shown.camera.rotation[1];
+   }
+   if(!chase&&cameraMode===3&&tvPitchCamera===sourceCamera){
+    // Ignore only sub-degree/low-degree pitch jitter. Larger intentional aim
+    // changes follow immediately (with no time-based lag), so a TV camera can
+    // still tilt through a loop while bumps cannot twitch the far horizon.
+    const delta=((Math.round(shown.camera.rotation[1]-tvPitch)+512)&1023)-512,deadzone=4;
+    if(Math.abs(delta)>deadzone)tvPitch=(tvPitch+delta-Math.sign(delta)*deadzone)&1023;
+   }
+   // Keep the actual TV camera's complete live aim so it can follow the car
+   // vertically through loops. Only the infinitely distant panorama below
+   // uses the held pitch; locking the Three.js camera itself lost that tracking.
+   const displayCameraRotation=[...shown.camera.rotation] as Vector;
+   const basis=upgradedCameraBasis(displayCameraRotation);
    const position=chase?.position??[shown.camera.position[0],shown.camera.position[1],-shown.camera.position[2]] as Vector;
    const target=chase?.target??[position[0]+basis.forward[0],position[1]+basis.forward[1],position[2]-basis.forward[2]] as Vector;
    const displayUp=chase?.up??[basis.up[0],basis.up[1],-basis.up[2]] as Vector;
@@ -308,20 +333,23 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
     for(let i=0;i<64000;i++)overlayPixels[i]=frame.mask[i]?opaquePalette[overlaySource[i]]:transparentPalette[overlaySource[i]];
     overlayContext.putImageData(image,0,0);appliedGraphicsRevision=frame.revision;appliedOverlaySourceCamera=sourceCamera;appliedReplayPanelSignature=replayPanelSignature;
    }
-   const context=canvas.getContext('2d')!,backgroundAngles=chase?backgroundCamera(position,target,displayUp).angles:shown.camera.rotation;
+   const context=canvas.getContext('2d')!,backgroundAngles=chase?backgroundCamera(position,target,displayUp).angles:[...displayCameraRotation] as Vector;
    if(chase)backgroundAngles[1]=chase.backgroundPitch;
-   const backgroundView=upgradedBackgroundView(backgroundAngles);
+   else if(cameraMode===3&&tvPitchCamera===sourceCamera)backgroundAngles[1]=tvPitch;
    // Preserve the native horizon height when a following camera is selected,
    // then hold that reference while the car crosses bumps, slopes and raised
    // track pieces. A large replay seek refreshes the reference at its new frame.
-   // Trackside cameras are fixed in world space already, while presentation-only
-   // chase rigs keep their horizon entirely in their stable pitch calculation.
-   const capturedSourceCamera=live[d+0x12f]+'/'+live[d+0xa9f0],backgroundSeek=lastBackgroundSourceFrame>=0&&Math.abs(sourceFrame-lastBackgroundSourceFrame)>1;
+   // Trackside cameras are already fixed in world space and now share the held
+   // display pitch above. Presentation-only chase rigs use their stable pitch.
    if(!chase&&cameraMode!==3&&capturedSourceCamera===sourceCamera&&(backgroundHeightCamera!==sourceCamera||backgroundSeek)){
     backgroundHeightCamera=sourceCamera;backgroundHeight=shown.camera.position[1];
    }
    lastBackgroundSourceFrame=sourceFrame;
-   const effectiveBackgroundHeight=chase?0:cameraMode===3?shown.camera.position[1]:backgroundHeightCamera===sourceCamera?backgroundHeight:shown.camera.position[1];
+   const backgroundView=upgradedBackgroundView(backgroundAngles);
+   // The panorama represents scenery at effectively infinite distance. A TV
+   // cut may select a site at another elevation, but that translation must not
+   // move the far horizon; only its stabilized pitch determines the framing.
+   const effectiveBackgroundHeight=chase||cameraMode===3?0:backgroundHeightCamera===sourceCamera?backgroundHeight:shown.camera.position[1];
    const background=backdrop.render(backgroundView.angles,effectiveBackgroundHeight,4/3,camera.fov,frame.projection,live[d+0x134]);
    const enhancedBackgroundDrawn=enhancedBackground?.draw(context,{width:canvas.width,height:canvas.height,heading:backgroundView.angles[2],horizon:background.panoramaHorizon??enhancedPanoramaHorizon(background.pixels,background.ground,background.width),rotation:backgroundView.rotation,sky:paletteCss[background.sky],ground:paletteCss[background.ground]})??false;
    if(!enhancedBackgroundDrawn){

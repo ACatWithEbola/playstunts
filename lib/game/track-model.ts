@@ -17,7 +17,7 @@ export type TrackMaterials={indices:number[];palette:number[]}&OriginalMaterialP
 const ROAD_SURFACE_MATERIALS=new Set([19,21,23,24,25,27,28,30]);
 const ROAD_MARKING_MATERIALS=new Set([21,24,27,30]);
 const TERRAIN_SURFACE_MATERIALS=new Set([101,102]);
-export function createTrackModel(shape: Shape,trackMaterials:TrackMaterials,paint=0,terrainUnderlay=false) {
+export function createTrackModel(shape: Shape,trackMaterials:TrackMaterials,paint=0,terrainUnderlay=false,lineWidth=1) {
   const patternMaterials:number[]=[],curbPriorities:number[]=[],roadSurfaces:number[]=[],terrainSurfaces:number[]=[],roadMarkings:number[]=[];
   const markingSurfaces=roadMarkingSurfaces(shape,paint);
   const vertices:number[]=[],colors:number[]=[],normals:number[]=[],layers:number[]=[],parentPlanes:number[]=[],lines:number[]=[],lineColors:number[]=[],edgeLines:number[]=[],edgeLineColors:number[]=[];
@@ -134,7 +134,18 @@ export function createTrackModel(shape: Shape,trackMaterials:TrackMaterials,pain
   material.customProgramCacheKey=()=> `original-track-attached-depth-v13-${terrainUnderlay ? 'terrain' : 'object'}`;
   applyOriginalMaterialPattern(material,geometry,patternMaterials,trackMaterials);
   group.add(new THREE.Mesh(geometry,material));
-  if(lines.length){const geometry=new THREE.BufferGeometry();geometry.userData.originalPrimitiveRanges=lineRanges;geometry.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));geometry.setAttribute('color',new THREE.Float32BufferAttribute(lineColors,3));group.add(new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({vertexColors:true,toneMapped:false})));}
+  if(lines.length){
+   if(lineWidth>1){
+    const geometry=new LineSegmentsGeometry();geometry.setPositions(lines);geometry.setColors(lineColors);
+    // Preserve the source line's one-pixel footprint on the 4x enhanced
+    // canvas. A screen-space strip keeps cables equally legible at every
+    // camera distance without changing their endpoints or bridge geometry.
+    const line=new LineSegments2(geometry,new LineMaterial({vertexColors:true,linewidth:lineWidth,side:THREE.DoubleSide,toneMapped:false}));
+    line.userData.originalTrackLine=true;group.add(line);
+   }else{
+    const geometry=new THREE.BufferGeometry();geometry.userData.originalPrimitiveRanges=lineRanges;geometry.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));geometry.setAttribute('color',new THREE.Float32BufferAttribute(lineColors,3));group.add(new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({vertexColors:true,toneMapped:false})));
+   }
+  }
   if(edgeLines.length){
    const geometry=new LineSegmentsGeometry();geometry.setPositions(edgeLines);geometry.setColors(edgeLineColors);
    // The source canvas is 320 pixels wide and the upgraded canvas is 4x.
@@ -158,13 +169,13 @@ export function createTrackModel(shape: Shape,trackMaterials:TrackMaterials,pain
 /** Per-scene prototypes share immutable GPU resources between repeated tiles.
  * Each placement still owns its transform and visibility, including paint animation.
  */
-export function createTrackModelFactory(materials:TrackMaterials){
- const models=new Map<Shape,Map<number,THREE.Group>>();
- return (shape:Shape,paint=0,terrainUnderlay=false)=>{
-  const key=paint*2+Number(terrainUnderlay);
+export function createTrackModelFactory(materials:TrackMaterials,sourceLineWidth=1){
+ const models=new Map<Shape,Map<string,THREE.Group>>();
+ return (shape:Shape,paint=0,terrainUnderlay=false,lineWidth=sourceLineWidth)=>{
+  const key=paint+'/'+Number(terrainUnderlay)+'/'+lineWidth;
   let paints=models.get(shape);if(!paints){paints=new Map();models.set(shape,paints);}
   let prototype=paints.get(key);
-  if(!prototype){prototype=createTrackModel(shape,materials,paint,terrainUnderlay);paints.set(key,prototype);}
+  if(!prototype){prototype=createTrackModel(shape,materials,paint,terrainUnderlay,lineWidth);paints.set(key,prototype);}
   return prototype.clone(true);
  };
 }
