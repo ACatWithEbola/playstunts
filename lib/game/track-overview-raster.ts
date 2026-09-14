@@ -9,7 +9,7 @@ import {drainOriginalPrimitiveQueue} from './drain-primitive-queue.ts';
 import {rasterOriginalDrawCall} from './raster-original-draw-call.ts';
 import {drawEditorClippedRaster} from './editor-clipped-raster.ts';
 /** SuppliedE7DC..ED57. Caller supplies the currently loaded panorama/model bank. */
-export function drawOriginalTrackOverview(target:Uint8Array,baseline:Uint8Array,raw:ReadonlyArray<number>,groundModels:Record<string,ReadonlyArray<number>>){
+export function drawOriginalTrackOverview(target:Uint8Array,baseline:Uint8Array,raw:ReadonlyArray<number>,groundModels:Record<string,ReadonlyArray<number>>,captureBackdrop?:(pixels:Uint8Array,layout:{horizon:number;height:number})=>void){
  const memory=baseline.slice(),d=0x2d1a0,c=0x209e0,v=new DataView(memory.buffer),word=(o:number)=>v.getUint16(d+o,true),signed=(o:number)=>v.getInt16(d+o,true),set=(o:number,n:number)=>v.setUint16(d+o,n,true);
  // The retained driving baseline omitted these overview-only ground models.
  // Install complete supplied GAME2 resources, including masks and primitives.
@@ -22,7 +22,7 @@ export function drawOriginalTrackOverview(target:Uint8Array,baseline:Uint8Array,
  const fill=(top:number,bottom:number,color:number)=>{for(let y=Math.max(0,top);y<Math.min(200,bottom);y++)target.fill(color&255,y*320,(y+1)*320);};
  fill(0,horizon-signed(0x7fe4),word(0x9be2));
  for(const [field,x,heightField]of [[0xa398,0,0x9b30],[0xa39c,320,0x9b32]]){const address=word(field+2)*16+word(field),width=v.getUint16(address,true),height=v.getUint16(address+2,true);drawEditorClippedRaster(target,320,{width,height,pixels:memory.subarray(address+16,address+16+width*height)},x,horizon-signed(heightField),'copy',{left:0,right:320,top:0,bottom:100});}
- fill(horizon,200,word(0x909e));memory.set(target,0x90000);
+ fill(horizon,200,word(0x909e));captureBackdrop?.(target.slice(),{horizon,height:signed(0x9b30)});memory.set(target,0x90000);
  [160,100,192,120].forEach((n,i)=>set(0x4b88+i*2,n));set(0x558c,0);set(0x558e,0x8000);
  for(const [off,n]of [[0x5d96,0x9000],[0x5d9e,0x6376],[0x5da0,0],[0x5da2,320],[0x5dae,0],[0x5db0,320],[0x5da4,0],[0x5da6,200],[0x5da8,320]])v.setUint16(c+off,n,true);
  for(let i=0;i<256;i++)v.setUint16(c+0x6376+i*2,(i*320)&65535,true);

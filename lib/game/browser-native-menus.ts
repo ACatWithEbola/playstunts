@@ -2,7 +2,7 @@ import {bundledTrackReplays} from './bundled-track-replays.ts';
 import showroomMaterials from '../../public/game/track-materials.json';
 import {createUpgradedCarMenu} from './upgraded-car-menu';
 import type {createUpgradedRaceScene} from './upgraded-race-scene';
-export interface BrowserGraphicsSwitch {enabled:boolean;refresh?:()=>void;notice?:(message:string)=>void;performanceFrame?:(at:number)=>void;resetPerformance?:()=>void;setPerformancePaused?:(paused:boolean)=>void;}
+export interface BrowserGraphicsSwitch {enabled:boolean;chaseCamera?:0|1|2|3;selectOriginalCamera?:()=>void;refresh?:()=>void;notice?:(message:string)=>void;performanceFrame?:(at:number)=>void;resetPerformance?:()=>void;setPerformancePaused?:(paused:boolean)=>void;}
 import {focusBrowserGameCanvas} from './browser-game-focus.ts';
 import {createBrowserHerculesPresenter} from './browser-hercules-presenter.ts';
 import {prepareBrowserNativeMainMenu} from './browser-native-display-race.ts';
@@ -59,6 +59,8 @@ import {createNativeDialogRuntime} from './native-dialog-runtime.ts';
 import {runNativeRaceResults,type NativeRaceResultsState,type NativeRaceResultsHost,type NativeEvaluationResources} from './native-race-results.ts';
 import type {NativeHighScorePreparationHost} from './native-high-score-preparation.ts';
 import type {Assets} from './types.ts';
+const ENHANCED_BACKGROUND_ROOT='/site/enhanced-backgrounds';
+const enhancedTrackOverviews=['desert','tropical','alpine','city','country'].map(name=>`${ENHANCED_BACKGROUND_ROOT}/${name}-overview.png`);
 type TextResources={resources:NativeDialogHost['resources']};
 type ScreenResources=NativeEditorHost['screenResources'];
 type RouteResources=NativeEditorHost['routeResources'];
@@ -143,7 +145,25 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
  };
  const selectTrack=async()=>{
   show('track');focusBrowserGameCanvas(canvas);const menuHost:NativeTrackMenuHost={...trackHost,track,configuration,baseline,groundModels:ground.resources,panoramas,loadTrack:async({path,name})=>Array.from(await files.read(path,name,'.trk')),readScores:async(name,path)=>files.exists(path,name,'.hig')?Array.from(await files.read(path,name,'.hig')):null,editTrack:async()=>{await editTrack();show('track');}};
-  if(!options.displayMode)return runNativeTrackMenu(menuHost);
+  if(!options.displayMode){
+   const upgraded=new Map(enhancedTrackOverviews.map((source,panorama)=>{const image=new Image();image.decoding='async';image.src=source;return [panorama,image] as const;}));
+   const layer=document.createElement('canvas'),layerContext=layer.getContext('2d')!,mask=document.createElement('canvas'),maskContext=mask.getContext('2d')!;mask.width=320;mask.height=200;
+   const maskImage=maskContext.createImageData(320,200);let backdrop:Uint8Array|undefined,layout:{horizon:number;height:number}|undefined;
+   const presentTrack=()=>{
+    paint();if(!options.graphics)return;options.graphics.refresh=presentTrack;
+    const image=upgraded.get(track.raw[900]&7);
+    if(!options.graphics.enabled||!backdrop||!layout||!image?.complete||!image.naturalWidth)return;
+    if(layer.width!==canvas.width||layer.height!==canvas.height){layer.width=canvas.width;layer.height=canvas.height;}
+    maskImage.data.fill(0);const top=Math.max(0,layout.horizon-layout.height),bottom=Math.min(100,layout.horizon);
+    for(let y=top;y<bottom;y++)for(let x=0;x<320;x++){const i=y*320+x;if(pixels[i]===backdrop[i])maskImage.data[i*4+3]=255;}
+    maskContext.putImageData(maskImage,0,0);layerContext.setTransform(1,0,0,1,0,0);layerContext.clearRect(0,0,layer.width,layer.height);
+    layerContext.imageSmoothingEnabled=true;layerContext.imageSmoothingQuality='high';layerContext.drawImage(image,0,top*canvas.height/200,canvas.width,(bottom-top)*canvas.height/200);
+    layerContext.globalCompositeOperation='destination-in';layerContext.imageSmoothingEnabled=false;layerContext.drawImage(mask,0,0,layer.width,layer.height);layerContext.globalCompositeOperation='source-over';
+    context.drawImage(layer,0,0);
+   };
+   upgraded.forEach(image=>{image.onload=()=>options.graphics?.refresh?.();});menuHost.captureOverviewBackdrop=(captured,capturedLayout)=>{backdrop=captured;layout=capturedLayout;};menuHost.present=presentTrack;
+   try{return await runNativeTrackMenu(menuHost);}finally{upgraded.forEach(image=>{image.src='';});layer.width=layer.height=1;if(options.graphics?.refresh===presentTrack)options.graphics.refresh=undefined;}
+  }
   const display=await prepareBrowserNativeTrackDisplay({catalog:await loadBrowserOriginalResourceCatalog()},options.displayMode,options.hercules),{owner}=display;
   const present=()=>{pixels.set(display.pixels());paint(display.palette,display);};menuHost.present=present;
   const dialogs=createNativeDisplayDialogRuntime({...menuHost,memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,capture:retain=>captureNativeDisplayDialogBackground(owner,retain),present},0xe800,{enumerate:host.enumerate,editPath:(path,length,timeout,field)=>editNativeDisplayPath({memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,present,counters:input.counters,keyboard:input.keyboard},path,length,timeout,field,0xe800)});
@@ -183,7 +203,7 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
     display();if(!graphics)return;graphics.refresh=presentWorld;
     if(!graphics.enabled)return;
     if(failed)return;
-    if(!upgraded){if(!loading){loading=true;graphics.notice?.('Loading upgraded driving graphics…');void import('./upgraded-race-scene').then(({createUpgradedRaceScene})=>{if(closed)return;upgraded=createUpgradedRaceScene(options.assets,baseline,runtime);graphics.refresh?.();}).catch(()=>{failed=true;graphics.notice?.('Upgraded graphics are unavailable. Original graphics remain active.');});}return;}
+    if(!upgraded){if(!loading){loading=true;graphics.notice?.('Loading upgraded driving graphics…');void import('./upgraded-race-scene').then(({createUpgradedRaceScene})=>{if(closed)return;upgraded=createUpgradedRaceScene(options.assets,baseline,runtime,()=>graphics.chaseCamera??0,()=>graphics.selectOriginalCamera?.());graphics.refresh?.();}).catch(()=>{failed=true;graphics.notice?.('Upgraded graphics are unavailable. Original graphics remain active.');});}return;}
     try{const shown=upgraded.draw(canvas);if(shown)graphics.performanceFrame?.(performance.now());graphics.notice?.(shown?'Upgraded driving graphics · experimental':'Original graphics for this scene');}catch{failed=true;upgraded.close();upgraded=undefined;display();graphics.notice?.('Upgraded graphics are unavailable. Original graphics remain active.');}
    };
    const gameText=await json<TextResources>('race-dialog-text');

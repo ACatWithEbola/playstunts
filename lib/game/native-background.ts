@@ -1,7 +1,8 @@
 import {Euler,Matrix4,Vector3} from 'three';
 import {rotateZXY} from '../physics/rotation.ts';
-import {vecTransform,type Vector} from '../physics/math.ts';
+import {i16,vecTransform,type Vector} from '../physics/math.ts';
 import {renderOriginalSceneBackground} from './render-scene-background.ts';
+import {projectOriginalVector} from './project-original-vector.ts';
 
 /** Recover the original angle convention from the actual display camera.
  * The display reflects world Z; its local forward is original positive Z.
@@ -29,8 +30,13 @@ export function createNativeBackground(baseline:Uint8Array){
   const nextWidth=Math.max(1,Math.round(240*aspect));
   if(nextWidth!==width){width=nextWidth;pixels=new Uint8Array(width*200);}
   const scale=100/Math.tan(fov*Math.PI/360);
-  (projection??[Math.round(width/2),100,Math.round(scale*1.2),Math.round(scale)]).forEach((n,i)=>v.setInt16(d+0x4b88+i*2,n,true));
+  const projected=projection??[Math.round(width/2),100,Math.round(scale*1.2),Math.round(scale)];
+  projected.forEach((n,i)=>v.setInt16(d+0x4b88+i*2,n,true));
   const matrix=rotateZXY(angles[0],angles[1],0,true),direction=vecTransform([0,0,1000],matrix)[2]>0?1:-1;
+  const horizonVector=vecTransform([0,i16(-height),i16(15000*direction)],matrix);
+  const panoramaHorizon=angles[0]===0&&direction===1&&horizonVector[2]>=0
+   ?Math.max(0,projectOriginalVector(horizonVector,[projected[0]!,projected[1]!],[projected[2]!,projected[3]!])[1])
+   :undefined;
   // DF2A advances one panorama pixel per heading unit. Center the extended
   // view on the same heading while leaving each sprite's pixel scale intact.
   // E09C receives the camera heading itself, not selectOriginalView's
@@ -38,6 +44,10 @@ export function createNativeBackground(baseline:Uint8Array){
   const heading=(angles[2]+Math.round((width-320)/2))&1023;
   pixels.fill(v.getUint16(d+0x9be2,true)&255);
   renderOriginalSceneBackground(pixels,memory,d,[0,width,0,200],direction,matrix,angles[0],heading,height,imageAt,width);
-  return {pixels,width,height:200};
+  // Return the source colours as metadata instead of asking consumers to
+  // infer them from a rendered pixel. A cloud can cover any sampled sky pixel
+  // for a frame, while these are the stable values the original renderer uses
+  // to clear the sky and ground before drawing panorama artwork.
+  return {pixels,width,height:200,panoramaHorizon,sky:v.getUint16(d+0x9be2,true)&255,ground:v.getUint16(d+0x909e,true)&255};
  }};
 }

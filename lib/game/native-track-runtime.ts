@@ -12,6 +12,7 @@ export interface NativeTrackMenuHost extends NativeDialogHost {
  readScores(name:string,path:string):Promise<ReadonlyArray<number>|null>;
  loadTrack(selection:{path:string;name:string}):Promise<number[]>;
  editTrack(track:NativeMenuTrack):Promise<void>;
+ captureOverviewBackdrop?:(pixels:Uint8Array,layout:{horizon:number;height:number})=>void;
 }
 export interface NativeTrackMenuPresentation {
  draw(track:NativeMenuTrack,score:ReadonlyArray<number>|null):void|Promise<void>;
@@ -29,7 +30,7 @@ export async function runNativeTrackMenu(host:NativeTrackMenuHost,editImmediatel
    retained?.close();
    if(display){const scores=await host.readScores(host.track.name,host.track.path);await display.draw(host.track,scores?.slice(0,52)??null);retained=display.capture();}
    else {const landscape=host.track.raw[900],panorama=host.panoramas[landscape&7];if(!panorama)throw Error('Missing original landscape '+landscape);
-   installOriginalMenuPanorama(host.baseline,0x2d1a0,landscape,panorama.resources);drawOriginalTrackOverview(host.pixels,host.baseline,host.track.raw,host.groundModels);
+   installOriginalMenuPanorama(host.baseline,0x2d1a0,landscape,panorama.resources);drawOriginalTrackOverview(host.pixels,host.baseline,host.track.raw,host.groundModels,host.captureOverviewBackdrop);
    const scores=await host.readScores(host.track.name,host.track.path);drawOriginalTrackMenuOverlay(host.pixels,host.font,host.smallFont,host.resources,host.track.name,scores?.slice(0,52)??null);}
    background=host.pixels.slice();selected=0;previous=-1;rebuild=false;
   }

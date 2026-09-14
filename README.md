@@ -61,6 +61,8 @@ To reproduce the additional manual artwork, supply your own permitted images in 
 - `manual-front-cover.jpg`: manual cover beside the game.
 - `setup-menu.png`: idle Setup preview.
 
+The front-page 3D box can additionally use six permitted scans in a `stunts-box` subdirectory named `Stunts-front.jpg`, `Stunts-back.jpg`, `Stunts-left.jpg`, `Stunts-right.jpg`, `Stunts-top.jpg` and `Stunts-bottom.jpg`. Optional enhanced scenery belongs in an `enhanced-backgrounds` subdirectory. Both subdirectories are copied when present but remain excluded from Git because they contain artwork rather than reconstruction source.
+
 See `app/StuntsBrand.tsx` and the `.stunts-` rules in `app/globals.css` for the crop/layout. The generated favicon is a simple S fallback. Optional scans and ROMs remain local and ignored by Git.
 
 ## Checks and production build
@@ -83,9 +85,10 @@ The file checker verifies the required runtime files and your installation's has
 - Arrow keys: accelerate/brake and steer.
 - **A / Z**: shift up/down with manual gears; Space / Enter also work.
 - Escape: game menu. C or F1–F4: camera views. T: view the opponent’s car. D: show or hide the dashboard.
-- With enhanced graphics enabled, **F** shows or hides the driving/replay performance display: current FPS, session average and 1% low. It is hidden outside active driving and replay playback.
+- With enhanced graphics enabled, **F** shows or hides the driving/replay performance display: current FPS, session average and 1% low. **V** cycles the current Stunts camera → close → standard → far → the current Stunts camera; C, F1–F4 or a replay camera-button selection returns immediately to the selected original camera. Both enhanced overlays are inactive outside driving and replay playback.
+- The close, standard and far chase views keep the camera above the car, preserve a stable distant horizon over jumps and uneven ground, hide the dashboard while driving, and retain the original replay camera as the authoritative view when leaving enhanced chase mode. Enhanced replay rendering also preserves the source crash, fireball and debris states.
 - In replays, Ctrl + arrow keys adjusts the camera, + / − zooms, arrow keys select a replay control, and Enter or Space activates it. Shift + F1 opens the terrain editor.
-- Setup selects MCGA, EGA, CGA, Tandy or Hercules. Optional upgraded graphics uses full colour and now retains source signs, clouds, vehicle details and live steering/suspension wheel movement; switching back restores the selected original mode.
+- Setup selects MCGA, EGA, CGA, Tandy or Hercules. Optional upgraded graphics uses full colour and now retains source signs, clouds, vehicle details and live steering/suspension wheel movement; switching back restores the selected original mode. Its Alpine, Tropical, Desert, City and Country panoramas are presentation-only replacements selected from the same terrain metadata as the original backgrounds and are also used by enhanced track previews.
 - Enhanced cars retain their five source colours and original geometry while adding polished clear-coat lighting, corrected palette-placeholder materials, inset lamp detail and filtered grounding shadows.
 - **3D CARS** opens the interactive showroom in the front page’s game area. It uses the same decoded models and upgraded materials as the game for all eleven cars; drag to rotate, scroll to zoom and select each car’s available colours.
 - Import original **`.TRK`** files using **Tracks, replays and save backups**. Supported track files are 1,802 bytes.

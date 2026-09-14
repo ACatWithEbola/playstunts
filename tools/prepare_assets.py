@@ -115,6 +115,9 @@ def main():
                 file=args.site_art/name
                 if not file.is_file():raise ValueError('Missing optional site artwork: '+name)
                 shutil.copyfile(file,public/'site'/name)
+            for directory in ['stunts-box','enhanced-backgrounds']:
+                source=args.site_art/directory
+                if source.is_dir():shutil.copytree(source,public/'site'/directory,dirs_exist_ok=True)
         node = shutil.which('node')
         if node is None:
             raise ValueError('Node.js 24 or newer is required for native startup resource generation')
