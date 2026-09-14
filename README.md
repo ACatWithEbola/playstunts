@@ -99,7 +99,7 @@ npm run start
 
 `npm run start` serves the production build through Wrangler; use the address it prints. Build output is in `dist/`. A hosted installation needs the generated assets as well as the compiled application. The repository's build configuration targets Cloudflare Workers through Vinext; no private hosting credentials are included. Deploying original assets publicly is a separate distribution decision—this repository does not grant rights to them.
 
-The file checker verifies the required runtime files and your installation's hashes. The smoke check initializes a fresh Countach race and renders 180 frames while checking that no protected-startup crash occurs. Browser checks cover Setup, the opening/menu and a normal race using generated assets. These checks establish an installable game, not perfect equivalence in every race. `--reference` on the file checker optionally compares the extended reference inventory, which includes unused research fixtures and therefore reports expected differences.
+The file checker verifies the required runtime files and your installation's hashes. The smoke check initializes a fresh Countach race, completes the starting-truck sequence and drives beyond the original protection interval while checking that no startup crash occurs. Browser checks cover Setup, the opening/menu and a normal race using generated assets. These checks establish an installable game, not perfect equivalence in every race. `--reference` on the file checker optionally compares the extended reference inventory, which includes unused research fixtures and therefore reports expected differences.
 
 ## Playing and saves
 

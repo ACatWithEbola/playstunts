@@ -12,6 +12,9 @@ const output=process.argv[2];if(!output)throw Error('Pass the generated game dir
 const initial=JSON.parse(readFileSync(join(output,'native-initial-data.json'),'utf8')).modes.mcga;
 const d=0x2d1a0,c=0x209e0;let memory:Uint8Array=new Uint8Array(0x100000);
 initializeOriginalDataSegment(memory,d,Uint8Array.from(Buffer.from(initial.data,'hex')));
+// The browser runtime does not execute the original DOS ownership prompt.
+// Seed the same successful-validation state before deriving any race image.
+memory[d+0xa42a]=1;
 const word=(at:number,n:number)=>new DataView(memory.buffer).setUint16(at,n&65535,true);
 // An empty native conventional-memory arena and original 18-byte descriptors.
 for(let i=0;i<64;i++){word(d+0x6d00+i*18+14,i?0xa000:0x4000);word(d+0x6d00+i*18+16,i?0:2);}
