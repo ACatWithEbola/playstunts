@@ -11,6 +11,6 @@ export async function editNativeDisplaySaveName(host:NativeDisplayDialogHost&Pic
   if(content.fields.length!==3)throw Error('Original Save dialog requires three fields');
   const font=word(0x4dd2)*16;v.setUint16(font,word(0x4e8a)&(host.mode==='cga'?3:15),true);v.setUint16(font+2,0,true);
   for(const [i,text] of [title,state.path,state.name].entries()){memory.set([...Array.from(text,c=>c.charCodeAt(0)),0],d+scratch);host.drawing.text(scratch,content.fields[i].x,content.fields[i].y,true);}
-  host.present();return await interactNativeSaveName(host,state,content.fields);
- }finally{restore();host.present();}
+  if(host.presentDialog)host.presentDialog(content.layout.bounds);else host.present();return await interactNativeSaveName(host,state,content.fields);
+ }finally{restore();if(host.presentDialog)host.presentDialog(null);else host.present();}
 }

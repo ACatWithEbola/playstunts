@@ -210,15 +210,17 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
    activeRace=runtime;racePoll=onPoll;
    const memory=()=>runtime.session.state.memory;
    const display=()=>{pixels.set(runtime.pixels);show('race');paint(alternate?.palette,undefined,alternate?.owner);};
+   const alternateDialogPresent=()=>{if(!alternate){paint();return;}pixels.set(alternate.display.pixels());show('race');paint(alternate.palette,undefined,alternate.owner);};
    const control=(mode:number,start:number,current:number)=>{runtime.controlReplay(mode,start,current);if(mode===1)presentWorld();};
-   let dialogRefresh:(()=>void)|undefined;
-   const presentRaceDialog=(bounds:readonly number[]|null)=>{
+   let dialogRefresh:(()=>void)|undefined,activeDialogBounds:readonly number[]|null=null;
+   const presentRaceDialog=(bounds:readonly number[]|null,presentSource:()=>void=()=>paint())=>{
+    activeDialogBounds=bounds;
     if(!bounds){dialogRefresh=undefined;graphics?.setPerformancePaused?.(false);presentWorld();return;}
     graphics?.setPerformancePaused?.(true);
     const redraw=()=>{
      // Keep the source menu opaque, including black pixels which may also
      // match the source background. Only its rectangle covers the 3D scene.
-     paint();
+     presentSource();
      if(graphics?.enabled&&upgraded&&!failed){
       try{if(upgraded.draw(canvas)){
        const [left,right,top,bottom]=bounds,sx=canvas.width/320,sy=canvas.height/200;
@@ -228,32 +230,37 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
      }
      dialogRefresh=redraw;if(graphics)graphics.refresh=redraw;
     };
-    redraw();
+   redraw();
    };
    const displayDialogs=(resources:Record<string,ReadonlyArray<number>>)=>{
-    if(!alternate)return createNativeDialogRuntime({...host,resources,presentDialog:presentRaceDialog});
-    const owner=alternate.owner,dialog=createNativeDisplayDialogRuntime({...host,memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,resources,capture:retain=>captureNativeDisplayDialogBackground(owner,retain),present:display},0xe800,{enumerate:host.enumerate,editPath:(path,length,timeout,field)=>editNativeDisplayPath({memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,present:display,counters:input.counters,keyboard:input.keyboard},path,length,timeout,field,0xe800)});
-    return {file:dialog.file,dialog(resource:string,mode:number,selected=0,border=4,disabled?:ReadonlyArray<number>){const m=owner.memory(),originalBorder=m[owner.d+0x4ec2]|(m[owner.d+0x4ec3]<<8);return dialog.dialog(resource,mode,selected,border===4?originalBorder:border===1?(m[owner.d+0x4ec0]|(m[owner.d+0x4ec1]<<8)):border,disabled);}};
+    if(!alternate){
+     const presentDialog=(bounds:readonly number[]|null)=>presentRaceDialog(bounds),editPath:NativeDialogHost['editPath']=(path,length,timeout,field)=>editNativePath({pixels,font,present:()=>activeDialogBounds?presentDialog(activeDialogBounds):paint(),counters:()=>input.counters(),keyboard:()=>input.keyboard()},path,length,timeout,field),dialogHost={...host,resources,presentDialog,editPath};
+     const dialog=createNativeDialogRuntime(dialogHost);
+     return {file:(...args:Parameters<typeof dialog.file>)=>dialog.file(...args),dialog:(...args:Parameters<typeof dialog.dialog>)=>dialog.dialog(...args),saveName:(state:{name:string;path:string},title:string)=>editNativeSaveName(dialogHost,state,title)};
+    }
+    const owner=alternate.owner,presentDialog=(bounds:readonly number[]|null)=>presentRaceDialog(bounds,alternateDialogPresent),editPath:NativeDialogHost['editPath']=(path,length,timeout,field)=>editNativeDisplayPath({memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,present:()=>activeDialogBounds?presentDialog(activeDialogBounds):alternateDialogPresent(),counters:()=>input.counters(),keyboard:()=>input.keyboard()},path,length,timeout,field,0xe800),dialogHost={...host,memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,resources,capture:(retain:boolean)=>captureNativeDisplayDialogBackground(owner,retain),present:alternateDialogPresent,presentDialog,editPath};
+    const dialog=createNativeDisplayDialogRuntime(dialogHost,0xe800,{enumerate:(...args)=>host.enumerate(...args),editPath});
+    return {file:(...args:Parameters<typeof dialog.file>)=>dialog.file(...args),dialog(resource:string,mode:number,selected=0,border=4,disabled?:ReadonlyArray<number>){const m=owner.memory(),originalBorder=m[owner.d+0x4ec2]|(m[owner.d+0x4ec3]<<8);return dialog.dialog(resource,mode,selected,border===4?originalBorder:border===1?(m[owner.d+0x4ec0]|(m[owner.d+0x4ec1]<<8)):border,disabled);},saveName:(state:{name:string;path:string},title:string)=>editNativeDisplaySaveName(dialogHost,state,title,0xe800)};
    };
    const dialogs=displayDialogs(gameText.resources),setupDialogs=displayDialogs(host.resources);
    const saveResources={...host.resources,...Object.fromEntries(['esav','efex','eser'].map(key=>[key,trackText.resources[key]]))},saveDialogs=displayDialogs(saveResources);
-   const saveName=(state:{name:string;path:string},title:string)=>{if(!alternate)return editNativeSaveName({...host,resources:saveResources},state,title);const owner=alternate.owner;return editNativeDisplaySaveName({...host,resources:saveResources,memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,capture:retain=>captureNativeDisplayDialogBackground(owner,retain),present:display,editPath:(path,length,timeout,field)=>editNativeDisplayPath({memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,present:display,counters:input.counters,keyboard:input.keyboard},path,length,timeout,field,0xe800)},state,title,0xe800);};
-   const dialog=async(resource:string,mode:number,selected:number,border:number,disabled?:ReadonlyArray<number>)=>{display();return dialogs.dialog(resource,mode,selected,border,disabled);};
+   const saveName=(state:{name:string;path:string},title:string)=>saveDialogs.saveName(state,title);
+   const dialog=async(resource:string,mode:number,selected:number,border:number,disabled?:ReadonlyArray<number>)=>{pixels.set(runtime.pixels);return dialogs.dialog(resource,mode,selected,border,disabled);};
    let waitingField:{x:number;y:number}|undefined;
    const opponent={
     async show(resource:string,mode:number,x:number,y:number,border:number){
-     display();if(alternate){const owner=alternate.owner,m=owner.memory(),d=owner.d,word=(at:number)=>m[d+at]|(m[d+at+1]<<8);restoreOriginalDisplayWindow(m,d,owner.mode);const content=drawOriginalDialogDisplay(m,d,owner.mode,owner.drawing,gameText.resources[resource],0,{text:word(0x4e8a),border:border===4?word(0x4ec2):border,disabled:0},0xe800,undefined,mode,{x,y});waitingField=content.fields[0];display();return;}
-     const content=drawOriginalDialog(pixels,font,gameText.resources[resource],0,{text:memory()[0x2d1a0+0x4e8a],border,disabled:0},undefined,mode,{x,y});waitingField=content.fields[0];present();
+     pixels.set(runtime.pixels);if(alternate){const owner=alternate.owner,m=owner.memory(),d=owner.d,word=(at:number)=>m[d+at]|(m[d+at+1]<<8);restoreOriginalDisplayWindow(m,d,owner.mode);const content=drawOriginalDialogDisplay(m,d,owner.mode,owner.drawing,gameText.resources[resource],0,{text:word(0x4e8a),border:border===4?word(0x4ec2):border,disabled:0},0xe800,undefined,mode,{x,y});waitingField=content.fields[0];presentRaceDialog(content.layout.bounds,alternateDialogPresent);return;}
+     const content=drawOriginalDialog(pixels,font,gameText.resources[resource],0,{text:memory()[0x2d1a0+0x4e8a],border,disabled:0},undefined,mode,{x,y});waitingField=content.fields[0];presentRaceDialog(content.layout.bounds);
     },
-    drawTime(text:string){if(!waitingField)throw Error('Original opponent timer field is missing');if(alternate){const owner=alternate.owner,m=owner.memory(),d=owner.d,v=new DataView(m.buffer),fontAt=v.getUint16(d+0x4dd2,true)*16,bytes=Array.from(text,c=>c.charCodeAt(0)),x=Math.trunc((320-measureOriginalFont(m.subarray(fontAt,fontAt+65536),bytes))/2);m.set([...bytes,0],d+0xe800);owner.drawing.text(0xe800,x,waitingField.y,true);display();return;}const x=Math.trunc((320-measureOriginalFont(font,Array.from(text,c=>c.charCodeAt(0))))/2);drawOriginalFont(pixels,font,text,x,waitingField.y,memory()[0x2d1a0+0x4e8a],Array.from({length:256},(_,i)=>(i*320)&65535),0);present();},
+    drawTime(text:string){if(!waitingField)throw Error('Original opponent timer field is missing');if(alternate){const owner=alternate.owner,m=owner.memory(),d=owner.d,v=new DataView(m.buffer),fontAt=v.getUint16(d+0x4dd2,true)*16,bytes=Array.from(text,c=>c.charCodeAt(0)),x=Math.trunc((320-measureOriginalFont(m.subarray(fontAt,fontAt+65536),bytes))/2);m.set([...bytes,0],d+0xe800);owner.drawing.text(0xe800,x,waitingField.y,true);presentRaceDialog(activeDialogBounds,alternateDialogPresent);return;}const x=Math.trunc((320-measureOriginalFont(font,Array.from(text,c=>c.charCodeAt(0))))/2);drawOriginalFont(pixels,font,text,x,waitingField.y,memory()[0x2d1a0+0x4e8a],Array.from({length:256},(_,i)=>(i*320)&65535),0);presentRaceDialog(activeDialogBounds);},
     key:fastForwardKey
    };
 
    focusBrowserGameCanvas(canvas);
    const waiting=()=>{if(!alternate){drawOriginalRaceWaiting(pixels,font,host.resources.ewai,memory(),0x2d1a0);show('race');present();}else{const owner=alternate.owner,m=owner.memory(),v=new DataView(m.buffer),live=memory(),source=new DataView(live.buffer),at={cga:0x8ff0,tandy:0x9030,ega:0x8e6c}[owner.mode];v.setInt16(owner.d+at,source.getInt16(0x2d1a0+0x8a10,true),true);restoreOriginalDisplayWindow(m,owner.d,owner.mode);drawOriginalRaceWaitingDisplay(m,owner.d,owner.mode,owner.drawing,host.resources.ewai,0xe800);live[0x2d1a0+0x131]=0;display();}canvas.style.cursor='none';};
-   return {control,present:display,presentWorld,dialog,opponent,waiting,saveName,saveDialog:saveDialogs.dialog,file:setupDialogs.file,setupDialog:async(resource:string,mode:number,selected:number,border:number)=>{display();return setupDialogs.dialog(resource,mode,selected,border);},read:()=>input.readMemory(memory,0x2d1a0,()=>originalElapsedInputTicks(memory(),0x2d1a0)),input:(delta:number)=>input.readMemory(memory,0x2d1a0,delta),ctrlHeld:input.ctrlHeld,waitTicks:input.waitTicks,
-    changeGraphics:(writeAudio:(writes:number[][])=>void)=>selectAllocatedGraphicsLevel({memory,audio:operation=>writeAudio(runtime.dialogAudio(operation)),dialog:async(...args)=>{display();return setupDialogs.dialog(...args);},hideCursor(){canvas.style.cursor='none';}},0x2d1a0),
-    selectMouse:(writeAudio:(writes:number[][])=>void)=>selectAllocatedMouseControl({memory,audio:operation=>writeAudio(runtime.dialogAudio(operation)),dialog:async(...args)=>{display();return setupDialogs.dialog(...args);},hideCursor(){canvas.style.cursor='none';}},0x2d1a0),
+   return {control,present:presentWorld,presentWorld,dialog,opponent,waiting,saveName,saveDialog:saveDialogs.dialog,file:setupDialogs.file,setupDialog:async(resource:string,mode:number,selected:number,border:number)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(resource,mode,selected,border);},read:()=>input.readMemory(memory,0x2d1a0,()=>originalElapsedInputTicks(memory(),0x2d1a0)),input:(delta:number)=>input.readMemory(memory,0x2d1a0,delta),ctrlHeld:input.ctrlHeld,waitTicks:input.waitTicks,
+    changeGraphics:(writeAudio:(writes:number[][])=>void)=>selectAllocatedGraphicsLevel({memory,audio:operation=>writeAudio(runtime.dialogAudio(operation)),dialog:async(...args)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(...args);},hideCursor(){canvas.style.cursor='none';}},0x2d1a0),
+    selectMouse:(writeAudio:(writes:number[][])=>void)=>selectAllocatedMouseControl({memory,audio:operation=>writeAudio(runtime.dialogAudio(operation)),dialog:async(...args)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(...args);},hideCursor(){canvas.style.cursor='none';}},0x2d1a0),
     hideCursor(){canvas.style.cursor='none';},
     counter:()=>originalElapsedInputTicks(memory(),0x2d1a0)&65535,nextFrame:input.nextFrame,key:input.takeKey,mouseButtons:()=>input.mouse().buttons,joystickButtons:input.joystickButtons,releaseInput:input.release,resetMouse:input.resetMouse,
     devices:{mouse:input.mouse,controls:input.controls,keyDown:input.keyDown,joystickSteering:input.joystickSteering},

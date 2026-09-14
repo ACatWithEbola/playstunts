@@ -26,8 +26,8 @@ export function createNativeDialogRuntime(host:NativeDialogHost){
   },
   async file(path:string,extension:string,title:string,onPathChange?:(path:string)=>void){
    const saved=host.pixels.slice();
-   try{return await interactNativeFileDialog({...host,draw(input){const result=drawOriginalFileDialog(host.pixels,host.font,host.resources,{...input,title});host.present();return result;}},path,extension,onPathChange);}
-   finally{host.pixels.set(saved);host.present();}
+   try{return await interactNativeFileDialog({...host,draw(input){const result=drawOriginalFileDialog(host.pixels,host.font,host.resources,{...input,title});if(host.presentDialog)host.presentDialog(result.layout.bounds);else host.present();return result;}},path,extension,onPathChange);}
+   finally{host.pixels.set(saved);if(host.presentDialog)host.presentDialog(null);else host.present();}
   },
  };
 }
