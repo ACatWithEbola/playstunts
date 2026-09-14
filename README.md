@@ -60,7 +60,13 @@ To reproduce the additional website artwork, supply your own permitted images in
 - `manual-red-car.png`: decorative red-car crop.
 - `setup-menu.png`: idle Setup preview.
 
-The front-page 3D box can additionally use six permitted scans in a `stunts-box` subdirectory named `Stunts-front.jpg`, `Stunts-back.jpg`, `Stunts-left.jpg`, `Stunts-right.jpg`, `Stunts-top.jpg` and `Stunts-bottom.jpg`. Optional enhanced scenery belongs in an `enhanced-backgrounds` subdirectory. Both subdirectories are copied when present but remain excluded from Git because they contain artwork rather than reconstruction source.
+The front-page 3D box can additionally use six permitted scans in a `stunts-box` subdirectory named `Stunts-front.jpg`, `Stunts-back.jpg`, `Stunts-left.jpg`, `Stunts-right.jpg`, `Stunts-top.jpg` and `Stunts-bottom.jpg`. Optional enhanced scenery belongs in an `enhanced-backgrounds` subdirectory. Optional reconstructed title and menu artwork belongs in an `enhanced-artwork` subdirectory with these names:
+
+- `SDTITL-prod-mindscape-v1.png`: Mindscape intro card.
+- `SDTITL-titl-title-v2.png`: 4-D Sports Driving title card.
+- `SDMSEL-scrn-menu-v1.png`: main menu background.
+
+These artwork subdirectories are copied when present but remain excluded from Git because they contain artwork rather than reconstruction source. If the enhanced title or menu images are absent, the game uses its decoded original artwork.
 
 See `app/StuntsBrand.tsx` and the `.stunts-` rules in `app/globals.css` for the crop/layout. The generated favicon is a simple S fallback. Optional scans and ROMs remain local and ignored by Git.
 

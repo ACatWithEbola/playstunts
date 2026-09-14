@@ -42,6 +42,7 @@ import {PC_PIT_INPUT_HZ,ORIGINAL_PIT_DIVISOR} from '@/lib/game/timer-interrupt';
 import type {Vector} from '@/lib/physics/math';
 import {createFramePerformanceCounter,type FramePerformanceSnapshot} from '@/lib/game/frame-performance';
 import {ENHANCED_CHASE_CAMERA_LABELS,nextEnhancedChaseCameraLevel,type EnhancedChaseCameraLevel} from '@/lib/game/enhanced-chase-camera';
+import {ENHANCED_STATIC_ARTWORK,loadEnhancedStaticArtwork} from '@/lib/game/enhanced-static-artwork';
 function originalTrackValidationCode(reason:unknown){
  if(!(reason instanceof Error))return null;
  const match=/^Original (?:track route|terrain) error (\d+)$/.exec(reason.message);
@@ -111,7 +112,9 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
    setStatus('Loading original opening assets…');
    const json=async<T,>(name:string):Promise<T>=>{const r=await fetch('/game/'+name+'.json');if(!r.ok)throw Error('Original opening asset failed to load: '+name);return r.json() as Promise<T>;};
    const binary=async(name:string)=>{const r=await fetch('/game/'+name);if(!r.ok)throw Error('Original opening asset failed to load: '+name);return new Uint8Array(await r.arrayBuffer());};
+   const enhancedTitlesPromise=Promise.all([loadEnhancedStaticArtwork(ENHANCED_STATIC_ARTWORK.prod),loadEnhancedStaticArtwork(ENHANCED_STATIC_ARTWORK.titl)]);
    const [titles,credits,layout,shapes,materials,font,_menu,startup,baseline,objects,planes,walls,records,points,indices]=await Promise.all([json<{resources:Record<string,{bytes:number[]}>}>('title-art'),json<{resources:Record<string,number[]>}>('credits-art'),json<{text:{text:string;x:number;y:number;color:number;shadow:number}[]}>('credits-layout'),json<{resources:Record<string,{bytes:number[]}>}>('intro-shapes'),json<{palette:number[]}>('track-materials'),binary('fontdef.fnt'),binary('main-menu-art.bin'),binary('native-race-startup.bin'),binary('native-render-resources.bin'),json<IntroDrivingData['objects']>('track-objects'),json<IntroDrivingData['planes']>('collision-planes'),json<{walls:IntroDrivingData['walls']}>('collision-walls'),json<IntroDrivingData['records']>('route-records'),json<IntroDrivingData['points']>('route-point-vectors'),json<IntroDrivingData['indices']>('route-speed-indices')]);
+   const [enhancedProd,enhancedTitl]=await enhancedTitlesPromise;
    retainedSession=readRetainedMenuSession(startup,0x2d1a0);menuClockAt=openingInput.counter();
    if(disposed)return;
    if(soundDevice==='mt32'){roland=await createBrowserNativeMt32Music(runAudio,demoAbort.signal,rolandPower);music=roland.music;}else music=await (soundDevice==='tandy'?createNativeTandyMusic(runAudio):soundDevice==='pc-speaker'?createNativePcSpeakerMusic(runAudio):createNativeMusic(runAudio));if(disposed){music.close();roland?.output.close();return;}
@@ -119,22 +122,30 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
    applyNativeStartupAudio(initiallyMuted,music.control);
    const context=element.getContext('2d')!;context.imageSmoothingEnabled=false;
    const originalSurface=document.createElement('canvas');originalSurface.width=320;originalSurface.height=200;const originalContext=originalSurface.getContext('2d')!,originalImage=originalContext.createImageData(320,200);
+   const enhancedTitleSurface=document.createElement('canvas');enhancedTitleSurface.width=element.width;enhancedTitleSurface.height=element.height;const enhancedTitleContext=enhancedTitleSurface.getContext('2d')!;
+   const titleMaskSurface=document.createElement('canvas');titleMaskSurface.width=320;titleMaskSurface.height=200;const titleMaskContext=titleMaskSurface.getContext('2d')!,titleMaskImage=titleMaskContext.createImageData(320,200);
    const palette=materials.palette,rows=Uint16Array.from({length:200},(_,i)=>i*320),rowArray=Array.from(rows);
-   const windowPixels=new Uint8Array(65536);let video=new Uint8Array(65536);
+   const windowPixels=new Uint8Array(65536),opaqueTitlePixels=new Uint8Array(64000).fill(1);let video=new Uint8Array(65536),titleReveal=new Uint8Array(65536),selectedTitle:'prod'|'titl'|undefined;
    const display=()=>{graphics.current.refresh=display;context.imageSmoothingEnabled=false;
     for(let i=0;i<64000;i++){const c=video[i]*3;originalImage.data.set([palette[c],palette[c+1],palette[c+2],255],i*4);}
-    originalContext.putImageData(originalImage,0,0);context.setTransform(1,0,0,1,0,0);context.drawImage(originalSurface,0,0,element.width,element.height);
+    originalContext.putImageData(originalImage,0,0);context.setTransform(1,0,0,1,0,0);
+    const enhancedTitle=selectedTitle==='prod'?enhancedProd:selectedTitle==='titl'?enhancedTitl:undefined;
+    if(graphics.current.enabled&&!displayMode&&enhancedTitle){
+     for(let i=0;i<64000;i++)titleMaskImage.data.set([255,255,255,titleReveal[i]?255:0],i*4);
+     titleMaskContext.putImageData(titleMaskImage,0,0);enhancedTitleContext.setTransform(1,0,0,1,0,0);enhancedTitleContext.clearRect(0,0,element.width,element.height);enhancedTitleContext.imageSmoothingEnabled=true;enhancedTitleContext.imageSmoothingQuality='high';enhancedTitleContext.drawImage(enhancedTitle,0,0,element.width,element.height);enhancedTitleContext.globalCompositeOperation='destination-in';enhancedTitleContext.imageSmoothingEnabled=false;enhancedTitleContext.drawImage(titleMaskSurface,0,0,element.width,element.height);enhancedTitleContext.globalCompositeOperation='source-over';context.fillStyle='black';context.fillRect(0,0,element.width,element.height);context.drawImage(enhancedTitleSurface,0,0);return;
+    }
+    context.drawImage(originalSurface,0,0,element.width,element.height);
    };
    const takeKey=(delta?:number)=>openingInput.readImmediate(delta).key;
    let lastCounter=0;const started=performance.now(),counter=()=>Math.floor((performance.now()-started)*PC_PIT_INPUT_HZ/(ORIGINAL_PIT_DIVISOR*1000));
    const timer=async()=>{await frame();const current=counter(),delta=(current-lastCounter)&65535;lastCounter=current;return delta;};
    async function timed(flow:Generator<{type:'timer'}|{type:'input';delta:number},number,number>){let step=flow.next();while(!step.done&&!disposed){step=flow.next(step.value.type==='timer'?await timer():takeKey(step.value.delta));}return step.done?step.value:0;}
-   const present=(mode:number)=>timed(originalSpritePresentation({selectVideo(){},hideMouse(){},showMouse(){},drawWhole(){video.set(windowPixels);display();},drawPass(pass){video=drawOriginalTitleRevealPass(video,rows,{width:320,height:200,x:0,y:0,pixels:windowPixels.subarray(0,64000)},pass);display();}},mode));
+   const present=(mode:number)=>timed(originalSpritePresentation({selectVideo(){},hideMouse(){},showMouse(){},drawWhole(){video.set(windowPixels);titleReveal.fill(1,0,64000);display();},drawPass(pass){video=drawOriginalTitleRevealPass(video,rows,{width:320,height:200,x:0,y:0,pixels:windowPixels.subarray(0,64000)},pass);titleReveal=drawOriginalTitleRevealPass(titleReveal,rows,{width:320,height:200,x:0,y:0,pixels:opaqueTitlePixels},pass);display();}},mode));
    async function playOpening(){
     if(displayMode){music!.play('titl');openingInput.setActive(false);demoData??=await loadBrowserNativeDemoData(assets);const random=demoRandomState??Array.from(demoData.base.subarray(0x2d1a0+0x9f5c,0x2d1a0+0x9f62));const opening=await runBrowserNativeOpening(element,displayMode,demoAbort.signal,demoData,assets,random,stage=>{if(!disposed)setStatus('Original '+stage);},hercules);demoRandomState=opening.randomState;openingDisplay=opening.display;return opening.key;}
     music!.play('titl');openingInput.setActive(true);
    let selected='prod';focusBrowserGameCanvas(element);setStatus('Original title sequence');
-   const titleFlow=originalTitleCards({hideMouse(){},clearVideo(){video.fill(0);display();},showMouse(){},clearWindow(){windowPixels.fill(0);},locate(name){selected=name;const b=titles.resources[name].bytes;return b[10]+256*b[11];},draw(){windowPixels.set(titles.resources[selected].bytes.slice(16));}});
+   const titleFlow=originalTitleCards({hideMouse(){},clearVideo(){video.fill(0);titleReveal.fill(0);selectedTitle=undefined;display();},showMouse(){},clearWindow(){windowPixels.fill(0);},locate(name){selected=name;selectedTitle=name;titleReveal.fill(0);const b=titles.resources[name].bytes;return b[10]+256*b[11];},draw(){windowPixels.set(titles.resources[selected].bytes.slice(16));}});
    let step=titleFlow.next();while(!step.done&&!disposed){const value=step.value.type==='present'?await present(step.value.argument):await timed(originalInputWait(step.value.argument));step=titleFlow.next(value);}
    if(disposed)return;let skipped=step.done?step.value:0;
    if(!skipped){
@@ -166,7 +177,7 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
    }
    if(disposed)return;
    if(!skipped){
-    setStatus('Original credits');windowPixels.fill(0);video.fill(0);display();
+    setStatus('Original credits');selectedTitle=undefined;windowPixels.fill(0);video.fill(0);display();
     const names=['arow','arrw','arw1','arw2','arw3','arw4','arw5','arw6','arw7','arw8','type'];
     const art=names.map(name=>{const b=credits.resources[name] as number[],v=new DataView(Uint8Array.from(b).buffer);return {...expandEditorArt(b),x:v.getInt16(8,true),y:v.getInt16(10,true)};});
     const draw=(destination:Uint8Array,index:number,x=art[index].x,y=art[index].y)=>drawEditorClippedRaster(destination,320,art[index],x,y,'copy',{left:0,right:320,top:0,bottom:200});

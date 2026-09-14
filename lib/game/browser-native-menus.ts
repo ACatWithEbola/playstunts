@@ -39,6 +39,8 @@ import type {createNativeRaceSession} from './native-race-session.ts';
 import {runNativeMenuCoordinator} from './native-menu-coordinator.ts';
 import {runNativeMainMenuSelection} from './native-main-menu.ts';
 import {restoreOriginalMainMenuPixels} from './main-menu-raster.ts';
+import {originalMainMenuBounds} from './main-menu-hit.ts';
+import {ENHANCED_STATIC_ARTWORK,loadEnhancedStaticArtwork} from './enhanced-static-artwork.ts';
 import {runNativeCarMenu,type NativeCarMenuHost} from './native-car-runtime.ts';
 import {runNativeOpponentMenu,type NativeOpponentHost} from './native-opponent-runtime.ts';
 import {runNativeOptions,type NativeOptionsHost} from './native-options-runtime.ts';
@@ -73,11 +75,12 @@ export interface BrowserNativeMenuOptions {
 export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions){
  const json=async<T>(name:string):Promise<T>=>{const r=await fetch('/game/'+name+'.json');if(!r.ok)throw Error('Original menu resource could not load: '+name);return r.json() as Promise<T>;};
  const binary=async(name:string)=>{const r=await fetch('/game/'+name);if(!r.ok)throw Error('Original menu resource could not load: '+name);return new Uint8Array(await r.arrayBuffer());};
+ const enhancedMainMenuPromise=loadEnhancedStaticArtwork(ENHANCED_STATIC_ARTWORK.mainMenu);
  const [misc,mainText,trackText,materials,font,smallFont,baseline,ground,panoramas,opponentArt,carArt,art,paletteMemory,terrainNames,packedArt,objects,records,metadataVectors,sampleVectors,presets,errorKeys,scores]=await Promise.all([
   json<TextResources>('misc-dialog-text'),json<TextResources>('main-dialog-text'),json<TextResources>('track-menu-text'),json<{palette:number[]}>('track-materials'),binary('fontdef.fnt'),binary('fontn.fnt'),binary('native-render-resources.bin'),json<{resources:NativeTrackMenuHost['groundModels']}>('overview-ground-models'),json<NativeTrackMenuHost['panoramas']>('menu-panorama-art'),json<{resources:NativeOpponentHost['art'];descriptions:NativeOpponentHost['descriptions']}>('opponent-menu-art'),json<{resources:NativeCarMenuHost['art'];descriptions:NativeCarMenuHost['descriptions']}>('car-menu-art'),json<Array<ScreenResources['art'][number]&{labelResource:string}>>('editor-tile-art'),json<{bytes:number[]}>('editor-palette-memory'),json<{names:ScreenResources['terrainNames']}>('editor-terrain-art'),json<{resources:Record<string,{bytes:number[]}>}>('editor-art'),json<ScreenResources['objects']>('track-objects'),json<RouteResources['records']>('route-records'),json<RouteResources['metadataVectors']>('route-vectors'),json<RouteResources['sampleVectors']>('route-sample-vectors'),json<NativeEditorHost['presets']>('editor-terrain-presets'),json<{keys:string[]}>('editor-error-keys'),json<Record<string,{file:string}>>('high-scores/manifest'),
  ]);
 
- const mainMenuArt=await binary('main-menu-art.bin');
+ const mainMenuArt=await binary('main-menu-art.bin'),enhancedMainMenu=await enhancedMainMenuPromise;
  const original=bundledTrackReplays(options.assets.tracks,binary);
  for(const [name,entry] of Object.entries(scores))original.set(nativeFileKey('',name,'.hig'),()=>binary('high-scores/'+entry.file));
  const files=await createNativeFileStore(original,await openNativeFilePersistence());
@@ -101,7 +104,11 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
   if(presentHercules){const owner=scanoutOwner??lastNativeDisplay?.owner;if(!owner)throw Error('Native Hercules display owner is missing');presentHercules(owner);return;}
   context.setTransform(1,0,0,1,0,0);context.imageSmoothingEnabled=false;
   if(screen==='main'&&!options.displayMode)restoreOriginalMainMenuPixels(pixels,mainMenuArt,outline);
-  {for(let i=0;i<64000;i++){const c=pixels[i];image.data[i*4]=displayPalette[c*3];image.data[i*4+1]=displayPalette[c*3+1];image.data[i*4+2]=displayPalette[c*3+2];image.data[i*4+3]=255;}drawing.putImageData(image,0,0);context.drawImage(surface,0,0,canvas.width,canvas.height);}
+  {for(let i=0;i<64000;i++){const c=pixels[i];image.data[i*4]=displayPalette[c*3];image.data[i*4+1]=displayPalette[c*3+1];image.data[i*4+2]=displayPalette[c*3+2];image.data[i*4+3]=255;}drawing.putImageData(image,0,0);}
+  if(screen==='main'&&!options.displayMode&&options.graphics?.enabled&&enhancedMainMenu){
+   context.imageSmoothingEnabled=true;context.imageSmoothingQuality='high';context.drawImage(enhancedMainMenu,0,0,canvas.width,canvas.height);
+   if(outline){const [selection,color]=outline,[left,top,right,bottom]=originalMainMenuBounds[selection],sx=canvas.width/320,sy=canvas.height/200,c=color*3;context.fillStyle=`rgb(${displayPalette[c]} ${displayPalette[c+1]} ${displayPalette[c+2]})`;context.fillRect(left*sx,top*sy,(right-left+1)*sx,sy);context.fillRect(left*sx,bottom*sy,(right-left+1)*sx,sy);context.fillRect(left*sx,top*sy,sx,(bottom-top+1)*sy);context.fillRect(right*sx,top*sy,sx,(bottom-top+1)*sy);}
+  }else context.drawImage(surface,0,0,canvas.width,canvas.height);
  };
  const present=()=>paint();
  const host={pixels,font,smallFont,resources:{...misc.resources,...mainText.resources},present,input:input.read,release:input.release,gameCounter:input.gameCounter,counter:input.counter,waitTicks:input.waitTicks,enumerate:async(path:string,extension:string)=>files.enumerate(path,extension),editPath:(path:string,length:number,timeout:number,field:{x:number;y:number})=>editNativePath({pixels,font,present,counters:input.counters,keyboard:input.keyboard},path,length,timeout,field)};
