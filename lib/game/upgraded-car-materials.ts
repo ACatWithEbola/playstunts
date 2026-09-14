@@ -92,7 +92,7 @@ function installOriginalCarChroma(material:THREE.MeshStandardMaterial,polishedPa
 /** A source polygon is one authored panel, even when its rounded vertices
  * are not perfectly planar. Give its triangulated fragments one lighting
  * normal through the shader, leaving every geometry attribute untouched. */
-function installOriginalPanelNormal(material:THREE.MeshStandardMaterial,shape:Shape,primitiveIndex:number,groundContact=false){
+function installOriginalPanelNormal(material:THREE.MeshStandardMaterial,shape:Shape,primitiveIndex:number){
  const primitive=shape.primitives[primitiveIndex];
  if(!primitive||primitive.type<3||primitive.type>10)return;
  const points=primitive.indices.map(index=>new THREE.Vector3(...shape.vertices[index])),normal=new THREE.Vector3();
@@ -103,17 +103,10 @@ function installOriginalPanelNormal(material:THREE.MeshStandardMaterial,shape:Sh
  material.onBeforeCompile=(shader,renderer)=>{
   compile(shader,renderer);
   shader.uniforms.originalCarPanelNormal={value:normal};
-  shader.uniforms.originalGroundContactDepth={value:Number(groundContact)};
   shader.vertexShader='uniform vec3 originalCarPanelNormal;\n'+shader.vertexShader;
-  shader.fragmentShader='uniform float originalGroundContactDepth;\n'+shader.fragmentShader;
   shader.vertexShader=shader.vertexShader.replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\nobjectNormal=originalCarPanelNormal; // one original panel normal');
-  shader.fragmentShader=shader.fragmentShader.replace('#include <logdepthbuf_fragment>',`#include <logdepthbuf_fragment>
-#ifdef USE_LOGARITHMIC_DEPTH_BUFFER
-   float originalGroundContactSlope=max(abs(dFdx(gl_FragDepth)),abs(dFdy(gl_FragDepth)));
-   gl_FragDepth+=originalGroundContactDepth*(originalGroundContactSlope*0.5+0.000001);
-#endif`);
  };
- material.customProgramCacheKey=()=>key+'/original-panel-normal-v3';
+ material.customProgramCacheKey=()=>key+'/original-panel-normal-v4';
 }
 
 const groundContactPanels=new WeakMap<Shape,Set<number>>();
@@ -147,12 +140,6 @@ export function isOriginalGroundContactPanel(shape:Shape,primitiveIndex:number){
  return panels.has(primitiveIndex);
 }
 
-function prioritizeOriginalGroundContactDepth(material:THREE.MeshStandardMaterial){
- // Ordinary depth buffers use fixed-function offset; installOriginalPanelNormal
- // supplies the equivalent uniform-driven bias in the logarithmic race path.
- material.polygonOffset=true;material.polygonOffsetFactor=2;material.polygonOffsetUnits=2;
-}
-
 /** Source lamp lenses, not paint or windows. The spatial check disambiguates
  * shared palette IDs from trim/decals; the Indy driver's white helmet is a
  * sphere, not a lamp. Some coarse source models intentionally omit lamps. */
@@ -182,6 +169,10 @@ export function applyUpgradedCarMaterials(model:THREE.Group,shape:Shape){
    // Keep the original unlit lens, including source stipple/depth hooks.
    // It must not turn black under directional lighting or ACES tone mapping.
    node.userData.originalCarLamp=true;
+   // The source renderer substitutes material 45 with material 46 normally
+   // and material 47 while this car's braking byte is active. The car models
+   // use that placeholder only for their authored rear brake-light faces.
+   if(source===45)node.userData.originalCarBrakeLight=true;
    const plane=originalCarLampParentPlane(shape,node.userData.originalPrimitive);
    if(plane)for(const material of Array.isArray(node.material)?node.material:[node.material])if(material instanceof THREE.MeshBasicMaterial)installLampParentDepth(material,plane);
    return;
@@ -194,11 +185,42 @@ export function applyUpgradedCarMaterials(model:THREE.Group,shape:Shape){
    material.onBeforeCompile=old.onBeforeCompile.bind(old);material.onBeforeRender=old.onBeforeRender.bind(old);
    const sourceKey=old.customProgramCacheKey();material.customProgramCacheKey=()=>sourceKey+'/study-car-material-v1';
    installOriginalCarChroma(material,profile===CAR_STUDY_MATERIALS.body);
-   if(node.userData.originalBodyFace)installOriginalPanelNormal(material,shape,node.userData.originalPrimitive,groundContact);
-   if(groundContact){node.userData.originalGroundContactPanel=true;prioritizeOriginalGroundContactDepth(material);}
+   if(node.userData.originalBodyFace)installOriginalPanelNormal(material,shape,node.userData.originalPrimitive);
+   if(groundContact)node.userData.originalGroundContactPanel=true;
    return material;
   };
   node.material=Array.isArray(node.material)?node.material.map(replace):replace(node.material);
+ });
+}
+
+/** The detailed Countach contains two paint-coloured lower-chassis fills at
+ * exactly the tyre contact plane. The original depth ordering lets the road
+ * cover them while the car is planted, but keeps them available when the car
+ * is airborne or rolled over. Mirror that rule explicitly: logarithmic depth
+ * buffers cannot resolve two independently transformed coplanar surfaces
+ * reliably at every camera angle. */
+export function setUpgradedCarGroundContactPanels(model:THREE.Group,grounded:boolean){
+ const visible=!grounded;
+ if(model.userData.originalGroundContactPanelsVisible===visible)return;
+ model.userData.originalGroundContactPanelsVisible=visible;
+ model.traverse(node=>{
+  if(node instanceof THREE.Mesh&&node.userData.originalGroundContactPanel)node.visible=visible;
+ });
+}
+
+/** Apply the source's live material-45 substitution without rebuilding or
+ * modifying any car geometry. Captured race memory supplies the braking byte,
+ * so driving, opponents and replay seeks all select the correct frame state. */
+export function setUpgradedCarBrakeLights(model:THREE.Group,braking:boolean,materials:{indices:readonly number[];palette:readonly number[]}){
+ const state=braking?1:0;
+ if(model.userData.originalCarBrakeLightState===state)return;
+ model.userData.originalCarBrakeLightState=state;
+ const sourceMaterial=braking?47:46,index=materials.indices[sourceMaterial],at=index*3;
+ model.traverse(node=>{
+  if(!(node instanceof THREE.Mesh)||!node.userData.originalCarBrakeLight)return;
+  for(const material of Array.isArray(node.material)?node.material:[node.material])if(material instanceof THREE.MeshBasicMaterial){
+   material.color.setRGB(materials.palette[at]/255,materials.palette[at+1]/255,materials.palette[at+2]/255,THREE.SRGBColorSpace);
+  }
  });
 }
 

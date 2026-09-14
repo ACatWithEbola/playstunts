@@ -7,8 +7,8 @@ import {backgroundCamera,createNativeBackground} from './native-background';
 import * as THREE from 'three';
 import type {Assets} from './types';
 import {createTrackModelFactory} from './track-model';
-import {createCarModel} from './car-model';
-import {applyUpgradedCarMaterials,addUpgradedCarStudyLights} from './upgraded-car-materials';
+import {addUpgradedCarStudyLights,setUpgradedCarBrakeLights,setUpgradedCarGroundContactPanels} from './upgraded-car-materials';
+import {createCompleteUpgradedCarModel} from './complete-upgraded-car-model';
 import {createUpgradedCarWheelMotion} from './upgraded-car-wheels';
 import {createStartTruckModel} from './start-truck-model';
 import {createUpgradedTrackSigns} from './upgraded-track-signs';
@@ -138,13 +138,18 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
  const carIds=[0x8fc2,0x8fc9].map(at=>String.fromCharCode(...m.subarray(d+at,d+at+4)));
  const carPaints=[m[d+0x8fc6],m[d+0x8fcd]];
  const cars=carIds.map((id,i)=>{
-  carGrounding[i]=upgradedCarGroundingOffset(assets.shapes['ST'+id]?.car1);
-  return [1,2].map(detail=>{const shape=assets.shapes['ST'+id]?.['car'+detail];if(!shape)return undefined;
-   const model=createCarModel(shape,0xffffff,{...sourceMaterials,paint:m[d+(i?0x8fcd:0x8fc6)]});
-   applyUpgradedCarMaterials(model,shape);
-   if(detail===1)wheelMotion[i]=createUpgradedCarWheelMotion(shape,model);
-   model.scale.setScalar(400);world.add(model);return model;
-  });
+  const shapes=assets.shapes['ST'+id],raceShape=shapes?.car1,shape=shapes?.car0??raceShape;
+  carGrounding[i]=upgradedCarGroundingOffset(raceShape);
+  if(!shape)return [undefined];
+  // car0 is the full-detail showroom model. Its source coordinates are 20x
+  // the racing LOD, so normalize it to the same world footprint while keeping
+  // its complete body, wing, lamp and wheel geometry in every enhanced view.
+  // Material 45 is a live car-palette placeholder. The original race starts
+  // it at material 46 and switches it to 47 independently for each braking car.
+  const originalPaint={...sourceMaterials,paint:m[d+(i?0x8fcd:0x8fc6)],paletteMaterial:46};
+  const {model,sourceScale}=createCompleteUpgradedCarModel(shape,raceShape,0xffffff,originalPaint);
+  wheelMotion[i]=createUpgradedCarWheelMotion(shape,model,sourceScale);
+  model.scale.setScalar(400/sourceScale);world.add(model);return [model];
  });
  const motion=createLiveGraphicsMotion(),chaseCamera=createEnhancedChaseCamera({raw:track,objects:cameraTrackObjects as TrackObject[],planes:cameraCollisionPlanes as CollisionPlane[]});let fpsAt=performance.now(),fpsFrames=0;
  const crashEffects=createEnhancedCrashEffects({assets,memory:m,materials:sourceMaterials,carIds,paints:carPaints,world,scene});
@@ -177,7 +182,7 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
  for(let index=0;index<256;index++){const at=index*3,red=trackMaterials.palette[at],green=trackMaterials.palette[at+1],blue=trackMaterials.palette[at+2];opaquePalette[index]=packColour(red,green,blue,255);transparentPalette[index]=packColour(red,green,blue,0);paletteCss[index]=`rgb(${red},${green},${blue})`;}
  const overlayPixels=new Uint32Array(image.data.buffer,image.data.byteOffset,64000),skyPixels=new Uint32Array(skyImage.data.buffer,skyImage.data.byteOffset,64000);
  const transporterBounds=new THREE.Box3();
- let appliedGraphicsRevision=-1,appliedOverlaySourceCamera='',appliedReplayPanelSignature=-1,orderedScene=false,worldVisibilityKey='',sceneryRevision=0,lastChaseLevel:EnhancedChaseCameraLevel=0,truckChanged=false,transporterBoundsKnown=false,lastSourceCamera='',backgroundHeightCamera='',backgroundHeight=0,tvPitchCamera='',tvPitch=0,lastBackgroundSourceFrame=-1;
+ let appliedGraphicsRevision=-1,appliedOverlaySourceCamera='',appliedReplayPanelSignature=-1,orderedScene=false,worldVisibilityKey='',sceneryRevision=0,lastChaseLevel:EnhancedChaseCameraLevel=0,truckChanged=false,transporterBoundsKnown=false,lastSourceCamera='',backgroundHeightCamera='',backgroundHeight=0,cloudHeightCamera='',cloudHeight=0,tvPitchCamera='',tvPitch=0,lastBackgroundSourceFrame=-1;
  return {
   draw(canvas:HTMLCanvasElement){
    if(renderer.getContext().isContextLost())throw Error('Graphics context lost');
@@ -195,7 +200,7 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    // The captured graphics memory can trail it by one paused replay redraw,
    // which made the enhanced scene change view before its replay icon did.
    const cameraState=runtime.session.state.memory,cameraMode=cameraState[d+0x12f],cameraTarget=cameraState[d+0xa9f0],sourceFrame=v.getUint16(d+0x8c26,true);
-   const now=performance.now(),shown=motion.sample({camera:{position:frame.position,rotation:frame.angles},cars:[0,1].map(i=>({position:[0,1,2].map(axis=>v.getInt32(d+0x8c38+i*0xb8+axis*4,true)/64) as Vector,rotation:[0,1,2].map(axis=>v.getInt16(d+0x8c50+i*0xb8+axis*2,true)) as Vector})),wheels:frame.wheels},sourceFrame,[live[d+0xa3c2],cameraMode,cameraTarget,...frame.rectangle].join('/'),!!live[d+0x9aca],now,cameraMode===3);
+   const now=performance.now(),shown=motion.sample({camera:{position:frame.position,rotation:frame.angles},cars:[0,1].map(i=>({position:[0,1,2].map(axis=>v.getInt32(d+0x8c38+i*0xb8+axis*4,true)/64) as Vector,rotation:[0,1,2].map(axis=>v.getInt16(d+0x8c50+i*0xb8+axis*2,true)) as Vector})),wheels:frame.wheels,steering:[0,1].map(i=>v.getInt16(d+0x8c58+i*0xb8,true))},sourceFrame,[live[d+0xa3c2],cameraMode,cameraTarget,...frame.rectangle].join('/'),!!live[d+0x9aca],now,cameraMode===3);
    const sourceCamera=cameraMode+'/'+cameraTarget;
    let requestedChaseLevel=chaseCameraLevel();
    if(lastSourceCamera&&requestedChaseLevel&&sourceCamera!==lastSourceCamera){selectOriginalCamera();requestedChaseLevel=0;}
@@ -257,9 +262,12 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
 
    cars.forEach((models,i)=>models.forEach((model,detail)=>{if(!model)return;const state=i?runtime.session.state.opponent.car:runtime.session.state.player.driving.car,pose=shown.cars[i];
     setUpgradedCarPresentationPose(model,pose.position,pose.rotation,carGrounding[i]);
+    setUpgradedCarBrakeLights(model,!!live[d+0x8c38+i*0xb8+0xa4],sourceMaterials);
+    const carState=d+0x8c38+i*0xb8;
+    setUpgradedCarGroundContactPanels(model,!!live[carState+0xa9]&&!live[carState+0xb1]);
     if(graphicsChanged||chaseChanged)model.visible=detail===(live[d+0x134]>=2&&models[1]?1:0)&&originalCarVisible(chase?2:cameraMode,!!cameraTarget,state.grip.crash,!!i,!!live[d+0x8fc8]);
    }));
-   wheelMotion.forEach((motion,owner)=>{if(shown.wheels?.[owner])motion?.update(shown.wheels[owner]);});
+   wheelMotion.forEach((motion,owner)=>motion?.update(shown.wheels?.[owner],shown.steering?.[owner]));
    crashEffects.update(live,shown.cars,sourceFrame,now,!!chase);
    const level=live[d+0x134],animationPaint=live[d+0x8b4+((v.getUint16(d+0x8c26,true)||v.getUint16(d+0xaa78,true))&15)];
    if(graphicsChanged){
@@ -287,7 +295,9 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
     const descriptor=v.getUint16(d+0x632+index*2,true),key=descriptor+'/'+index;
     let model=clouds.get(key);if(!model){model=trackModel(readUpgradedShape(live,descriptor),0);clouds.set(key,model);world.add(model);}
     const cloudCamera=chase?[position[0],position[1],-position[2]] as Vector:shown.camera.position;
-    const cloud=distantCloudPlacement(v.getInt16(d+0x622+index*2,true)+v.getInt16(d+0x73da,true),cloudCamera);
+    const cloudCameraKey=chase?`chase-${chaseLevel}/${chaseCar}`:sourceCamera;
+    if(cloudHeightCamera!==cloudCameraKey||backgroundSeek){cloudHeightCamera=cloudCameraKey;cloudHeight=cloudCamera[1];}
+    const cloud=distantCloudPlacement(v.getInt16(d+0x622+index*2,true)+v.getInt16(d+0x73da,true),cloudCamera,cloudHeight);
     model.visible=true;model.position.set(...cloud.position);model.rotation.set(0,cloud.heading,0);model.scale.setScalar(cloud.scale);
    }
    // Upgraded mode retains the full world, with camera-frustum culling.

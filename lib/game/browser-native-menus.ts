@@ -1,3 +1,4 @@
+/* oxlint-disable typescript/unbound-method, typescript/no-misused-spread -- Native menu services intentionally pass plain callback properties and split DOS-safe ASCII names. */
 import {bundledTrackReplays} from './bundled-track-replays.ts';
 import showroomMaterials from '../../public/game/track-materials.json';
 import {createUpgradedCarMenu} from './upgraded-car-menu';
@@ -81,7 +82,7 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
  ]);
 
  const mainMenuArt=await binary('main-menu-art.bin'),enhancedMainMenu=await enhancedMainMenuPromise;
- const original=bundledTrackReplays(options.assets.tracks,binary);
+ const original=bundledTrackReplays(options.assets.tracks,binary,options.assets.replays);
  for(const [name,entry] of Object.entries(scores))original.set(nativeFileKey('',name,'.hig'),()=>binary('high-scores/'+entry.file));
  const files=await createNativeFileStore(original,await openNativeFilePersistence());
  const drivingSettings={...(options.settings??{mouse:false,joystick:false,graphics:2})};
@@ -111,6 +112,25 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
   }else context.drawImage(surface,0,0,canvas.width,canvas.height);
  };
  const present=()=>paint();
+ const waitingBackdrop=document.createElement('canvas'),waitingBackdropContext=waitingBackdrop.getContext('2d')!;
+ const captureWaitingBackdrop=()=>{
+  if(!options.graphics?.enabled)return false;
+  waitingBackdrop.width=canvas.width;waitingBackdrop.height=canvas.height;
+  waitingBackdropContext.setTransform(1,0,0,1,0,0);waitingBackdropContext.drawImage(canvas,0,0);
+  return true;
+ };
+ const presentWaiting=(bounds:readonly number[],backdrop:boolean,presentSource:()=>void=present)=>{
+  const redraw=()=>{
+   presentSource();
+   if(options.graphics?.enabled&&backdrop){
+    context.setTransform(1,0,0,1,0,0);context.imageSmoothingEnabled=false;context.drawImage(waitingBackdrop,0,0);
+    const [left,right,top,bottom]=bounds,sx=canvas.width/320,sy=canvas.height/200;
+    context.drawImage(surface,left,top,right-left,bottom-top,left*sx,top*sy,(right-left)*sx,(bottom-top)*sy);
+   }
+   if(options.graphics)options.graphics.refresh=redraw;
+  };
+  redraw();
+ };
  const host={pixels,font,smallFont,resources:{...misc.resources,...mainText.resources},present,input:input.read,release:input.release,gameCounter:input.gameCounter,counter:input.counter,waitTicks:input.waitTicks,enumerate:async(path:string,extension:string)=>files.enumerate(path,extension),editPath:(path:string,length:number,timeout:number,field:{x:number;y:number})=>editNativePath({pixels,font,present,counters:input.counters,keyboard:input.keyboard},path,length,timeout,field)};
  const trackHost={...host,resources:{...host.resources,...trackText.resources}};
  // Normal source mouse polling writes DS:893A, not the adjacent editor row
@@ -177,7 +197,7 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
   await runNativeTrackMenu(menuHost,false,createNativeDisplayTrackPresentation(display,menuHost,dialogs.file));
  };
  const readSelectedReplay=async({path,name}:{path:string;name:string})=>{const bytes=await files.read(path,name,'.rpl');selectedReplay={bytes:bytes.slice(),name,path};replay=decodeOriginalReplayFile(bytes);configuration.splice(0,24,...replay.header);track.raw=Array.from(bytes.slice(24,0x722));track.name=String.fromCharCode(...configuration.slice(13,22)).split('\0')[0];};
- const settings:NativeOptionsHost={...host,settings:drivingSettings,get replayPath(){return track.path;},set replayPath(path:string){track.path=path;},audio:async operation=>music.control(operation),loadReplay:async({path,name})=>{const waiting=baseline.slice();new DataView(waiting.buffer).setUint16(0x2d1a0+0x8a10,150,true);drawOriginalRaceWaiting(pixels,font,host.resources.ewai,waiting,0x2d1a0);show('race');present();await readSelectedReplay({path,name});},calibrateJoystick:async()=>{
+ const settings:NativeOptionsHost={...host,settings:drivingSettings,get replayPath(){return track.path;},set replayPath(path:string){track.path=path;},audio:async operation=>music.control(operation),loadReplay:async({path,name})=>{const backdrop=captureWaitingBackdrop(),waiting=baseline.slice();new DataView(waiting.buffer).setUint16(0x2d1a0+0x8a10,150,true);const content=drawOriginalRaceWaiting(pixels,font,host.resources.ewai,waiting,0x2d1a0);show('race');presentWaiting(content.layout.bounds,backdrop);await readSelectedReplay({path,name});},calibrateJoystick:async()=>{
   const saved=pixels.slice();settings.settings.joystick=true;settings.settings.mouse=false;
   const content=drawOriginalDialog(pixels,font,host.resources.ejoy,0,{text:15,border:4,disabled:1},undefined,3),calibration=createOriginalJoystickCalibration(content.fields,r=>{for(let y=r.y;y<r.y+r.height;y++)for(let x=r.x;x<r.x+r.width;x++)pixels[(y*320+x)&65535]=r.color;},{grid:4,indicator:15});
   for(;;){const sample=await input.read();calibration.step(sample.joystickDirection);present();if(sample.key||sample.joystickButtons){settings.settings.joystick=calibration.finish();break;}}
@@ -192,7 +212,7 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
   show('options');focusBrowserGameCanvas(canvas);if(!options.displayMode)return runNativeOptions(settings);
   const display=await prepareBrowserNativeMenuDisplay({catalog:await loadBrowserOriginalResourceCatalog()},options.displayMode,options.hercules),{owner}=display,{d,mode,drawing}=owner,present=()=>{pixels.set(display.pixels());paint(display.palette,display);},word=(at:number)=>{const m=owner.memory();return m[d+at]|m[d+at+1]<<8;};
   const nativeDialogs=createNativeDisplayDialogRuntime({...settings,memory:owner.memory,d,mode,drawing,capture:retain=>captureNativeDisplayDialogBackground(owner,retain),present},0xe800,{enumerate:host.enumerate,editPath:(path,length,timeout,field)=>editNativeDisplayPath({memory:owner.memory,d,mode,drawing,present,counters:input.counters,keyboard:input.keyboard},path,length,timeout,field,0xe800)}),dialogs={file:nativeDialogs.file,dialog(resource:string,mode:number,selected=0,border=4,disabled?:ReadonlyArray<number>){return nativeDialogs.dialog(resource,mode,selected,border===4?word(0x4ec2):border===1?word(0x4ec0):border,disabled);}};
-  const nativeHost:NativeOptionsHost={...settings,present,get replayPath(){return track.path;},set replayPath(path:string){track.path=path;},loadReplay:async selection=>{const high={cga:0x5e0,tandy:0x620,ega:0x45c}[mode];new DataView(owner.memory().buffer).setUint16(d+0x8a10+high,150,true);drawOriginalRaceWaitingDisplay(owner.memory(),d,mode,drawing,host.resources.ewai,0xe800);present();await readSelectedReplay(selection);},calibrateJoystick:async()=>{
+  const nativeHost:NativeOptionsHost={...settings,present,get replayPath(){return track.path;},set replayPath(path:string){track.path=path;},loadReplay:async selection=>{const backdrop=captureWaitingBackdrop(),high={cga:0x5e0,tandy:0x620,ega:0x45c}[mode];new DataView(owner.memory().buffer).setUint16(d+0x8a10+high,150,true);const content=drawOriginalRaceWaitingDisplay(owner.memory(),d,mode,drawing,host.resources.ewai,0xe800);pixels.set(display.pixels());presentWaiting(content.layout.bounds,backdrop,()=>paint(display.palette,display));await readSelectedReplay(selection);},calibrateJoystick:async()=>{
    const restore=captureNativeDisplayDialogBackground(owner,false);drivingSettings.joystick=true;drivingSettings.mouse=false;
    try{const content=drawOriginalDialogDisplay(owner.memory(),d,mode,drawing,host.resources.ejoy,0,{text:word(0x4e8a),border:word(0x4ec2),disabled:word(0x4ec0)},0xe800,undefined,3),calibration=createOriginalJoystickCalibration(content.fields,r=>drawing.rectangle(r.x,r.y,r.width,r.height,r.color),{grid:word(0x4ec2),indicator:word(0x4e8a)});
     for(;;){const sample=await input.read();calibration.step(sample.joystickDirection);present();if(sample.key||sample.joystickButtons){drivingSettings.joystick=calibration.finish();break;}}
@@ -264,7 +284,7 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
    };
 
    focusBrowserGameCanvas(canvas);
-   const waiting=()=>{if(!alternate){drawOriginalRaceWaiting(pixels,font,host.resources.ewai,memory(),0x2d1a0);show('race');present();}else{const owner=alternate.owner,m=owner.memory(),v=new DataView(m.buffer),live=memory(),source=new DataView(live.buffer),at={cga:0x8ff0,tandy:0x9030,ega:0x8e6c}[owner.mode];v.setInt16(owner.d+at,source.getInt16(0x2d1a0+0x8a10,true),true);restoreOriginalDisplayWindow(m,owner.d,owner.mode);drawOriginalRaceWaitingDisplay(m,owner.d,owner.mode,owner.drawing,host.resources.ewai,0xe800);live[0x2d1a0+0x131]=0;display();}canvas.style.cursor='none';};
+   const waiting=()=>{const backdrop=captureWaitingBackdrop();if(!alternate){const content=drawOriginalRaceWaiting(pixels,font,host.resources.ewai,memory(),0x2d1a0);show('race');presentWaiting(content.layout.bounds,backdrop);}else{const owner=alternate.owner,m=owner.memory(),v=new DataView(m.buffer),live=memory(),source=new DataView(live.buffer),at={cga:0x8ff0,tandy:0x9030,ega:0x8e6c}[owner.mode];v.setInt16(owner.d+at,source.getInt16(0x2d1a0+0x8a10,true),true);restoreOriginalDisplayWindow(m,owner.d,owner.mode);const content=drawOriginalRaceWaitingDisplay(m,owner.d,owner.mode,owner.drawing,host.resources.ewai,0xe800);live[0x2d1a0+0x131]=0;pixels.set(alternate.display.pixels());show('race');presentWaiting(content.layout.bounds,backdrop,()=>paint(alternate.palette,undefined,alternate.owner));}canvas.style.cursor='none';};
    return {control,present:presentWorld,presentWorld,dialog,opponent,waiting,saveName,saveDialog:saveDialogs.dialog,file:setupDialogs.file,setupDialog:async(resource:string,mode:number,selected:number,border:number)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(resource,mode,selected,border);},read:()=>input.readMemory(memory,0x2d1a0,()=>originalElapsedInputTicks(memory(),0x2d1a0)),input:(delta:number)=>input.readMemory(memory,0x2d1a0,delta),ctrlHeld:input.ctrlHeld,waitTicks:input.waitTicks,
     changeGraphics:(writeAudio:(writes:number[][])=>void)=>selectAllocatedGraphicsLevel({memory,audio:operation=>writeAudio(runtime.dialogAudio(operation)),dialog:async(...args)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(...args);},hideCursor(){canvas.style.cursor='none';}},0x2d1a0),
     selectMouse:(writeAudio:(writes:number[][])=>void)=>selectAllocatedMouseControl({memory,audio:operation=>writeAudio(runtime.dialogAudio(operation)),dialog:async(...args)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(...args);},hideCursor(){canvas.style.cursor='none';}},0x2d1a0),
@@ -290,7 +310,7 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
    show('race');focusBrowserGameCanvas(canvas);
    await createNativeDialogRuntime(trackHost).dialog(resource,1,0,1);
   },
-  showRaceWaiting(memory:Uint8Array){show('race');canvas.style.cursor='none';if(lastNativeDisplay){const {owner}=lastNativeDisplay,high={cga:0x5e0,tandy:0x620,ega:0x45c}[owner.mode],y=new DataView(memory.buffer,memory.byteOffset,memory.byteLength).getUint16(0x2d1a0+0x8a10,true);new DataView(owner.memory().buffer).setUint16(owner.d+0x8a10+high,y,true);restoreOriginalDisplayWindow(owner.memory(),owner.d,owner.mode);drawOriginalRaceWaitingDisplay(owner.memory(),owner.d,owner.mode,owner.drawing,host.resources.ewai,0xe800);pixels.set(lastNativeDisplay.pixels());paint(lastNativeDisplay.palette);return;}drawOriginalRaceWaiting(pixels,font,host.resources.ewai,memory,0x2d1a0);present();},
+  showRaceWaiting(memory:Uint8Array){const backdrop=captureWaitingBackdrop();show('race');canvas.style.cursor='none';if(lastNativeDisplay){const {owner}=lastNativeDisplay,high={cga:0x5e0,tandy:0x620,ega:0x45c}[owner.mode],y=new DataView(memory.buffer,memory.byteOffset,memory.byteLength).getUint16(0x2d1a0+0x8a10,true);new DataView(owner.memory().buffer).setUint16(owner.d+0x8a10+high,y,true);restoreOriginalDisplayWindow(owner.memory(),owner.d,owner.mode);const content=drawOriginalRaceWaitingDisplay(owner.memory(),owner.d,owner.mode,owner.drawing,host.resources.ewai,0xe800);pixels.set(lastNativeDisplay.pixels());presentWaiting(content.layout.bounds,backdrop,()=>paint(lastNativeDisplay!.palette,undefined,owner));return;}const content=drawOriginalRaceWaiting(pixels,font,host.resources.ewai,memory,0x2d1a0);presentWaiting(content.layout.bounds,backdrop);},
   async loadAllocatedRaceReplay(data:NativeDemoData,runtime:Awaited<ReturnType<typeof createNativeManualRaceRuntime>>,services:Pick<AllocatedReplayLoadServices,'showWaiting'|'progress'|'writeAudio'>,displayOverride?:{file(path:string,extension:string,title:string,onPathChange?:(path:string)=>void):Promise<{path:string;name:string}|undefined>;present():void}){
    const d=0x2d1a0,dialogs=displayOverride??createNativeDialogRuntime(host);let selected:{path:string;name:string}|undefined;
    const readString=(memory:Uint8Array,at:number)=>{let value='';for(let i=0;i<65536;i++){const byte=memory[d+((at+i)&65535)];if(!byte)return value;value+=String.fromCharCode(byte);}throw Error('Unterminated original replay filename');};

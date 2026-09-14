@@ -7,7 +7,7 @@ import {CAR_STUDY_MATERIALS} from './car-study-materials.ts';
 import {originalPrimitiveMaterial} from './primitive-record-header.ts';
 import type {Shape} from './types';
 
-type OriginalPaint={paint:number;indices:readonly number[];palette:readonly number[];paletteMaterial?:number}&OriginalMaterialPatterns;
+export type OriginalPaint={paint:number;indices:readonly number[];palette:readonly number[];paletteMaterial?:number}&OriginalMaterialPatterns;
 
 function prioritizeCoplanarDetail(material:THREE.Material,layer:number){
  material.polygonOffset=true;material.polygonOffsetFactor=-layer;material.polygonOffsetUnits=-layer;
@@ -49,10 +49,61 @@ function closeOriginalNsxWindowSeam(group:THREE.Group,shape:Shape,points:THREE.V
  const filler=new THREE.Mesh(geometry,material);filler.userData.originalPresentationSeam='nsx-window';group.add(filler);
 }
 
+/** PMIN's detailed rear-wing end plates are authored as flat polygons. Give
+ * both plates shallow physical thickness so their complete silhouettes remain
+ * solid from oblique chase-camera angles instead of thickening selected edges. */
+function addOriginalIndyRearWingEndPlateThickness(group:THREE.Group,shape:Shape,points:THREE.Vector3[],paint:OriginalPaint,originalColor:(material:number)=>number){
+ // The full-detail Indy model is the only source car with a spherical driver
+ // helmet. The former six-line signature described car1 and silently skipped
+ // the car0 model now shared by the showroom and race renderer.
+ if(shape.primitives.filter(primitive=>primitive.type===11).length!==1)return;
+ const lateral=Math.max(...shape.vertices.map(vertex=>vertex[0]))-Math.min(...shape.vertices.map(vertex=>vertex[0]));
+ const rear=Math.min(...shape.vertices.map(vertex=>vertex[2]));
+ const wing=shape.primitives.find(primitive=>{
+  if(primitive.type!==4||!(primitive.flags&1))return false;
+  const vertices=primitive.indices.map(index=>shape.vertices[index]);
+  const x=Math.max(...vertices.map(vertex=>vertex[0]))-Math.min(...vertices.map(vertex=>vertex[0]));
+  const z=Math.max(...vertices.map(vertex=>vertex[2]));
+  return x>=lateral*.5&&z<=rear+lateral*.25;
+ });
+ if(!wing)return;
+ const wingVertices=new Set(wing.indices);
+ const surfaces=shape.primitives.filter(primitive=>primitive.type>=3&&primitive.type<=10&&(primitive.flags&1)!==0&&primitive.indices.some(index=>wingVertices.has(index)));
+ const endFins=surfaces.filter(primitive=>{
+  const x=primitive.indices.map(index=>shape.vertices[index][0]);
+  return Math.max(...x)===Math.min(...x);
+ });
+ // At the normal chase framing PMIN spans about 120 pixels in the original
+ // raster. This proportion makes the former one-pixel plate roughly 1.5
+ // pixels thick, adding the requested half pixel without changing its outline.
+ const halfThickness=lateral/160/400;
+ for(const primitive of endFins){
+  const plate=primitive.indices.map(index=>points[index]);
+  const positions:number[]=[];
+  const pushTriangle=(a:THREE.Vector3,b:THREE.Vector3,c:THREE.Vector3)=>positions.push(...a.toArray(),...b.toArray(),...c.toArray());
+  const negative=plate.map(point=>point.clone().add(new THREE.Vector3(-halfThickness,0,0)));
+  const positive=plate.map(point=>point.clone().add(new THREE.Vector3(halfThickness,0,0)));
+  for(let at=1;at<plate.length-1;at++){
+   pushTriangle(negative[0],negative[at+1],negative[at]);
+   pushTriangle(positive[0],positive[at],positive[at+1]);
+  }
+  for(let at=0;at<plate.length;at++){
+   const next=(at+1)%plate.length;
+   pushTriangle(negative[at],positive[at],positive[next]);
+   pushTriangle(negative[at],positive[next],negative[next]);
+  }
+  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.computeVertexNormals();
+  const primitiveIndex=shape.primitives.indexOf(primitive),sourceMaterial=primitive.materials[paint.paint];
+  const material=new THREE.MeshBasicMaterial({color:originalColor(sourceMaterial),side:THREE.DoubleSide,toneMapped:false});
+  const solidPlate=new THREE.Mesh(geometry,material);solidPlate.castShadow=true;solidPlate.receiveShadow=true;
+  solidPlate.userData.originalPrimitive=primitiveIndex;solidPlate.userData.originalIndyRearWingEndPlate=true;group.add(solidPlate);
+ }
+}
+
 /** Preserve source face sidedness: reverse-facing underbody panels must not cover the body.
  * Type 11 point separation is a diameter: the original circle raster halves it.
  * Use GPU facing at upgraded resolution; flag bit 0 retains genuinely two-sided panels. */
-export function createCarModel(shape:Shape,color:number,originalPaint?:OriginalPaint){
+export function createCarModel(shape:Shape,color:number,originalPaint?:OriginalPaint,presentationFixes=true){
  const group=new THREE.Group();
  const resolvedMaterial=(material:number)=>originalPaint?.paletteMaterial===undefined?material:originalPrimitiveMaterial(material,originalPaint.paletteMaterial);
  const originalColor=(material:number)=>{
@@ -99,11 +150,10 @@ export function createCarModel(shape:Shape,color:number,originalPaint?:OriginalP
    const a=points[p.indices[0]],b=points[p.indices[3]],radius=a.distanceTo(points[p.indices[1]]),depth=a.distanceTo(b);
    const wheelGeometry=new THREE.CylinderGeometry(radius,radius,depth,24);
    const wheelMaterial=originalPaint
-    ?[
-      new THREE.MeshBasicMaterial({color:originalColor(p.materials[originalPaint.paint]),toneMapped:false}),
-      new THREE.MeshBasicMaterial({color:originalColor(p.materials[originalPaint.paint]+1),toneMapped:false}),
-      new THREE.MeshBasicMaterial({color:originalColor(p.materials[originalPaint.paint]+1),toneMapped:false}),
-     ]
+    // Keep both tire walls black. The separate smaller hub cylinder supplies
+    // the grey centre; colouring the whole wheel caps grey produced a large
+    // patch whenever a steered front wheel faced the chase camera.
+    ?new THREE.MeshBasicMaterial({color:originalColor(p.materials[originalPaint.paint]),toneMapped:false})
     :new THREE.MeshStandardMaterial({color:0x101318,...CAR_STUDY_MATERIALS.tire});
    const wheel=new THREE.Mesh(wheelGeometry,wheelMaterial);
    wheel.position.copy(a).add(b).multiplyScalar(.5);
@@ -117,6 +167,33 @@ export function createCarModel(shape:Shape,color:number,originalPaint?:OriginalP
    hub.position.copy(wheel.position);hub.quaternion.copy(wheel.quaternion);hub.userData.originalWheelPart='hub';group.add(hub);
   }
  }
- closeOriginalNsxWindowSeam(group,shape,points);
+ if(presentationFixes){
+  if(originalPaint)addOriginalIndyRearWingEndPlateThickness(group,shape,points,originalPaint,originalColor);
+  closeOriginalNsxWindowSeam(group,shape,points);
+ }
  return group;
+}
+
+/** The showroom car0 meshes were authored for their fixed presentation angle;
+ * several omit parts of the lower shell that become visible after a rollover.
+ * Reuse the complete authored car1 underbody quilt (materials 8, 92 and 93)
+ * wherever its winding faces below the car. This includes the floor plus the
+ * sloped nose and tail closures the original rasterizer shows from low angles.
+ * Do not nest the complete coarse car, because its upper body would overlap the
+ * detailed car0 exterior. */
+export function createOriginalCarUnderbodyModel(shape:Shape,color:number,originalPaint:OriginalPaint){
+ const underbodyMaterials=new Set([8,92,93]);
+ const primitives=shape.primitives.filter(primitive=>{
+  if(primitive.type<3||primitive.type>10||primitive.indices.length<3)return false;
+  if(!primitive.materials.every(material=>underbodyMaterials.has(material)))return false;
+  const [a,b,c]=primitive.indices.slice(0,3).map(index=>shape.vertices[index]);
+  const ab=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],ac=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
+  return ab[2]*ac[0]-ab[0]*ac[2]<0;
+ });
+ if(!primitives.length)return;
+ const underbodyShape:Shape={...shape,primitives};
+ // This child must contain only the selected lower-shell faces. Presentation
+ // fillers (notably the NSX window seam) belong to the detailed exterior and
+ // would otherwise be duplicated from the coarse racing shape.
+ return {model:createCarModel(underbodyShape,color,originalPaint,false),shape:underbodyShape};
 }

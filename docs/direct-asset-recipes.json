@@ -464,7 +464,10 @@
   {
     "path": "game/original-resources/DEFAULT.TRK",
     "bytes": 1802,
-    "sha256": "4111e30379c39020d10f30eef15b7e46aca87a7716e499cde2e89c7c545388fd",
+    "sha256": "3ac9c268a3417933625eb144c18f844fe8d4c58beebf49cca480233486049b60",
+    "acceptedSha256": [
+      "4111e30379c39020d10f30eef15b7e46aca87a7716e499cde2e89c7c545388fd"
+    ],
     "source": "DEFAULT.TRK"
   },
   {
@@ -1441,8 +1444,11 @@
   },
   {
     "path": "game/setup-media/LOAD.EXE",
-    "bytes": 21776,
-    "sha256": "bcd542f438d17811287ce17a715b27228ff62e9e1f5287a180873ceb9d985027",
+    "bytes": 21765,
+    "sha256": "fff6ffc685cc2b3fd12053b7f3b6b9824e6f29e267e0e8d118873c2fdd6d3ad4",
+    "acceptedSha256": [
+      "bcd542f438d17811287ce17a715b27228ff62e9e1f5287a180873ceb9d985027"
+    ],
     "source": "LOAD.EXE"
   },
   {
@@ -1489,14 +1495,20 @@
   },
   {
     "path": "game/setup-media/ST.COM",
-    "bytes": 208,
-    "sha256": "6217aa82089c22a9589154a5de8281c8068b0d083e0dd24ed008f09143b6c536",
+    "bytes": 203,
+    "sha256": "f2bd75286d585237d1a3464f2246f090a2c0af230e462debec7624cd5942b387",
+    "acceptedSha256": [
+      "6217aa82089c22a9589154a5de8281c8068b0d083e0dd24ed008f09143b6c536"
+    ],
     "source": "ST.COM"
   },
   {
     "path": "game/setup-media/STUNTS.COM",
-    "bytes": 1248,
-    "sha256": "e34fae0c90b954bbf1bff5da91bada9dc926dca239aef0d12c12aa077ba6f373",
+    "bytes": 758,
+    "sha256": "15d4200c06459e263e2734d5715b067fa95a5bdaa3bab603582c728d6b12cb28",
+    "acceptedSha256": [
+      "e34fae0c90b954bbf1bff5da91bada9dc926dca239aef0d12c12aa077ba6f373"
+    ],
     "source": "STUNTS.COM"
   },
   {

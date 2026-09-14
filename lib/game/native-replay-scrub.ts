@@ -16,7 +16,7 @@ export async function scrubNativeReplay(host:NativeReplayScrubHost,d:number,dire
   const step=originalReplayScrubStep(accumulator,host.counter(),word(0x8fd8),word(0x73b2),direction);accumulator=step.accumulator;
   host.control(1,word(0x8c26),step.target);await host.input(step.delay);
  }
- const distance=s16(Math.trunc(accumulator/20));
+ const distance=Math.max(0,s16(Math.trunc(accumulator/20)));
  if(direction==='forward'){
   let target=(word(0x73b2)+distance)&65535;
   if(s16(word(0x8fd8))<s16(target))target=word(0x8fd8);
@@ -24,13 +24,18 @@ export async function scrubNativeReplay(host:NativeReplayScrubHost,d:number,dire
   while(word(0x8c26)!==word(0x73b2)){host.simulate(target);host.control(1,word(0x8c26),word(0x73b2));}
  }else{
   host.control(2,4,0);
-  if(distance!==0){
-   host.waitMessage();const target=(word(0x73b2)-distance)&65535;
+  // A quick click can leave the original one-frame accumulator intact even
+  // when the replay is already at frame zero. Clamp it to the available
+  // history so the beginning control is a harmless no-op, not a wrapped
+  // request for frame 65535.
+  const backwardDistance=Math.min(distance,word(0x73b2));
+  if(backwardDistance!==0){
+   host.waitMessage();const target=word(0x73b2)-backwardDistance;
    host.prepareSeek(target);write(0x73b2,target);
    const total=(target-word(0x8c26))&65535;let remaining=total;
    while(word(0x8c26)!==word(0x73b2)){
     host.simulate(remaining);remaining=(remaining-1)&65535;
-    const progress=Math.trunc(s16(remaining)*distance/s16(total));
+    const progress=Math.trunc(s16(remaining)*backwardDistance/s16(total));
     host.control(1,(progress+word(0x73b2))&65535,word(0x73b2));await host.input(1);
    }
   }

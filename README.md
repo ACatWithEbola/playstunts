@@ -7,12 +7,14 @@ You can build and run the game from this checkout using your own compatible DOS 
 ## What you need
 
 - **Node.js 24 or newer**, with npm.
-- **Python 3.11 or newer** and the packages in `tools/requirements.txt` (Pillow and Unicorn).
-- Your own **complete extracted PC installation of Mindscape's 4D Sports Driving 1.1, finalized 13 December 1990** (identified as **MS 1990** in the [Stunts community version table](https://wiki.stunts.hu/wiki/Game_versions)). This is not Brøderbund Stunts 1.0, Brøderbund Stunts 1.1, or the February 1991 Mindscape release; those versions are not automatically compatible. A ZIP, a single executable or a `.TRK` file is insufficient. Keep all installation files together. [Resource checksums](docs/original-file-checksums.json) and [direct-input checksums](docs/direct-asset-recipes.json) identify the supported files.
+- **Python 3.11 or newer** and Pillow from `tools/requirements.txt`.
+- Your own **complete extracted PC installation of Mindscape's 4D Sports Driving 1.1, finalized 13 December 1990** (identified as **MS 1990** in the [Stunts community version table](https://wiki.stunts.hu/wiki/Game_versions)). The `4D Sports Driving 1.1, Dec 13` archive linked by the community [download page](https://wiki.stunts.hu/wiki/Download) is a tested input. This is not Brøderbund Stunts 1.0, Brøderbund Stunts 1.1, or the February 1991 Mindscape release. A single executable or `.TRK` file is insufficient: extract the complete archive and keep its files together. [Direct-input checksums](docs/direct-asset-recipes.json) identify the accepted source files; the older [research inventory](docs/original-file-checksums.json) also lists private development fixtures and is not an extra download list.
 - For **Roland MT-32 sound**, your own compatible control and PCM ROMs, described below. Without them, select another sound device in Setup before starting the game.
 - A desktop browser with WebAssembly, Web Audio and WebGL support, and a keyboard. The preparation procedure has been verified on macOS.
 
 ## Install and run
+
+Run these commands from a terminal on macOS or Linux:
 
 ```sh
 git clone https://github.com/ACatWithEbola/playstunts.git
@@ -27,11 +29,25 @@ node tools/smoke_runtime.ts
 npm run dev -- --host 127.0.0.1 --port 3000
 ```
 
-Replace the quoted path with the directory containing your DOS files. Open **http://localhost:3000**. Click **Open Setup**, choose a sound device you have installed, and select **Exit** to save. Then click **PLAY STUNTS**. Saving changed settings restarts the main game automatically. Audio starts after a user click, as required by browsers.
+On Windows PowerShell, use the same commands except for virtual-environment activation:
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r tools/requirements.txt
+python tools/prepare_assets.py --original "C:\path\to\your\Stunts" --output public
+python tools/check_assets.py
+node tools/smoke_runtime.ts
+npm run dev -- --host 127.0.0.1 --port 3000
+```
+
+Replace the quoted path with the extracted directory that directly contains files such as `STUNTS.COM`, `GAME.PRE` and the `*.RES` resources—not the archive itself or a parent directory. Open **http://localhost:3000**. Click **Open Setup**, choose a sound device you have installed, and select **Exit** to save. Then click **PLAY STUNTS**. Saving changed settings restarts the main game automatically. Audio starts after a user click, as required by browsers.
 
 The tool reads your originals without modifying them. It refuses to overwrite an existing output directory. To regenerate, move your existing `public` directory aside first, or choose a new output directory, check it, and then move it to `public`. Do not merge partial outputs into a working installation. `preparation-report.json` records completion and installed options; `asset-inventory.json` records the generated file hashes.
 
 No game files or ROMs are downloaded by preparation. `npm ci` and pip download software dependencies. You do **not** need private development captures, an asset download from playstunts.com, a ChatGPT account, or a Sites account to run locally.
+
+The recognized `DEFAULT.TRK`, `LOAD.EXE`, `ST.COM` and `STUNTS.COM` variants in the tested community distribution are accepted. `DEFAULT.TRK` differs only in mutable track metadata. The web reconstruction does not execute `LOAD.EXE`, `ST.COM` or `STUNTS.COM`, so it bypasses the original copy-protection path and works with the supported original files. `ST.COM` is optional: preparation and reconstructed gameplay were also tested with it completely absent. The optional `/work/reference` DOS comparison uses `ST.COM` when it was supplied; without it, the DOS comparison starts `STUNTS.COM` and retains the original manual check.
 
 ### Roland MT-32
 
@@ -66,7 +82,7 @@ The front-page 3D box can additionally use six permitted scans in a `stunts-box`
 - `SDTITL-titl-title-v2.png`: 4-D Sports Driving title card.
 - `SDMSEL-scrn-menu-v1.png`: main menu background.
 
-These artwork subdirectories are copied when present but remain excluded from Git because they contain artwork rather than reconstruction source. If the enhanced title or menu images are absent, the game uses its decoded original artwork.
+These artwork subdirectories are copied by `--site-art` when present but remain excluded from Git because they contain artwork rather than reconstruction source. If the enhanced title or menu images are absent, the game uses its decoded original artwork.
 
 See `app/StuntsBrand.tsx` and the `.stunts-` rules in `app/globals.css` for the crop/layout. The generated favicon is a simple S fallback. Optional scans and ROMs remain local and ignored by Git.
 
@@ -83,7 +99,7 @@ npm run start
 
 `npm run start` serves the production build through Wrangler; use the address it prints. Build output is in `dist/`. A hosted installation needs the generated assets as well as the compiled application. The repository's build configuration targets Cloudflare Workers through Vinext; no private hosting credentials are included. Deploying original assets publicly is a separate distribution decision—this repository does not grant rights to them.
 
-The file checker verifies the required runtime files and your installation's hashes. The smoke check initializes a fresh Countach race and renders 30 frames. Browser checks cover Setup, the opening/menu and a normal race using generated assets. These checks establish an installable game, not perfect equivalence in every race. `--reference` on the file checker optionally compares the extended reference inventory, which includes unused research fixtures and therefore reports expected differences.
+The file checker verifies the required runtime files and your installation's hashes. The smoke check initializes a fresh Countach race and renders 180 frames while checking that no protected-startup crash occurs. Browser checks cover Setup, the opening/menu and a normal race using generated assets. These checks establish an installable game, not perfect equivalence in every race. `--reference` on the file checker optionally compares the extended reference inventory, which includes unused research fixtures and therefore reports expected differences.
 
 ## Playing and saves
 
@@ -104,7 +120,7 @@ The file checker verifies the required runtime files and your installation's has
 
 ## How it works
 
-The main game runs reconstructed TypeScript, not the DOS executable. Preparation decodes the original resources, unpacks the original display binaries to recover initialized tables, and runs bounded sound-initialization routines locally. Startup memory is built by the native initialization code, without importing a captured game session.
+The main game runs reconstructed TypeScript, not the DOS executable. Preparation decodes the original resources, deterministically unpacks the EXEPACK display binaries, and builds the sound states through the reconstructed resource loader. Startup memory is built by the native initialization code, without importing a captured game session or executing 16-bit setup code.
 
 [Reconstruction process](docs/RECONSTRUCTION.md) · [Setup and troubleshooting](docs/SETUP.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
@@ -114,7 +130,7 @@ The main game runs reconstructed TypeScript, not the DOS executable. Preparation
 - `vendor/`: redistributable synthesizer runtimes, corresponding source and font licenses.
 - `docs/`: input identification, setup and process documentation.
 
-The `NativeDrive` prototype and private original-data regression fixtures are reference material, not runtime requirements. Captured prototype seeds are deliberately not distributed. `/work/reference` provides the original DOS comparison using a bundle generated from your own installation.
+The `NativeDrive` prototype and private original-data regression fixtures are reference material, not runtime requirements. Captured prototype seeds are deliberately not distributed. `/work/reference` provides the original DOS comparison using a bundle generated from your own installation; it is separate from the reconstructed game.
 
 ## Issues and rights
 

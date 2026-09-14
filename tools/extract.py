@@ -98,7 +98,7 @@ def shape(b):
 
 def extract(root,out):
     out.mkdir(parents=True,exist_ok=True); decoded=out/'decoded';decoded.mkdir(exist_ok=True)
-    cars=[];tracks=[];shapes={};texts={};manifest=[]
+    cars=[];tracks=[];replays=[];shapes={};texts={};manifest=[]
     for f in sorted(root.iterdir()):
         if not f.is_file() or f.name.startswith('.'):continue
         b=f.read_bytes();ext=f.suffix.upper()
@@ -115,9 +115,10 @@ def extract(root,out):
         if ext=='.TRK':
             if len(b)!=1802:raise ValueError('Unexpected track length')
             tracks.append(dict(name=f.stem,raw=list(b),sha256=hashlib.sha256(b).hexdigest()))
-    data=dict(cars=cars,tracks=tracks,shapes=shapes,texts=texts,manifest=manifest)
+        if ext=='.RPL':replays.append(dict(name=f.stem,file=f.name,bytes=len(b),sha256=hashlib.sha256(b).hexdigest()))
+    data=dict(cars=cars,tracks=tracks,replays=replays,shapes=shapes,texts=texts,manifest=manifest)
     (out/'assets.json').write_text(json.dumps(data,separators=(',',':')))
-    print(f'Extracted {len(cars)} cars, {len(tracks)} tracks, {sum(len(v) for v in shapes.values())} shapes')
+    print(f'Extracted {len(cars)} cars, {len(tracks)} tracks, {len(replays)} replays, {sum(len(v) for v in shapes.values())} shapes')
     return data
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('input',type=Path);p.add_argument('output',type=Path);a=p.parse_args();extract(a.input,a.output)

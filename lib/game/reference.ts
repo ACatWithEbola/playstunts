@@ -13,9 +13,10 @@ export async function startReference(canvas:HTMLCanvasElement,audio:AudioContext
  await load();notice('Loading your original game…');window.emulators.pathPrefix='/emulator/';
  const r=await fetch('/game/stunts.jsdos');if(!r.ok)throw Error('The game files could not be loaded.');const bytes=new Uint8Array(await r.arrayBuffer());
  const config=await window.emulators.bundleConfig(bytes) as DosConfig;if(!config)throw Error('Missing game configuration.');
+ const launch=await fetch('/game/reference-launch.json').then(response=>response.ok?response.json() as Promise<{command:string}>:null);
 
  const disk=await stored().catch(()=>{notice('Browser storage is unavailable; saved files will last for this session only.');return null});
- const command='stunts.com';
+ const command=launch?.command==='st.com'?'st.com':'stunts.com';
  config.dosboxConf=config.dosboxConf.split('[autoexec]')[0]+'[autoexec]\n@echo off\nmount c .\nc:\n'+(setup?'setup.exe\necho Setup complete. Use Back in the browser to save your settings.\npause':command+'\necho Game closed. Use Back in the browser to save your files.\npause')+'\n';
  const configured=await window.emulators.bundleUpdateConfig(disk?.archive??bytes,config);
  const ci=await window.emulators.dosboxWorker(configured);

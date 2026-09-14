@@ -36,7 +36,8 @@ def copy_verified(files, recipes, output):
             missing.append(name)
             continue
         data = file.read_bytes()
-        if hashlib.sha256(data).hexdigest() != row['sha256']:
+        accepted = [row['sha256'], *row.get('acceptedSha256', [])]
+        if hashlib.sha256(data).hexdigest() not in accepted:
             raise ValueError(f'Unsupported reference file checksum: {name}')
         relative = Path(row['path'])
         if relative.is_absolute() or '..' in relative.parts:
@@ -97,11 +98,13 @@ def main():
         scene_catalogs(normalized, unpacked, game)
         editor_catalogs(normalized, unpacked, game)
         from extract_presentation import generate as presentation
-        from extract_music_seeds import generate as music_seeds
         presentation(normalized, game)
         from extract_setup import extract as setup_text
         (game/'setup-reference.json').write_text(json.dumps(setup_text((normalized/'SETUP.EXE').read_bytes()),indent=2)+'\n')
-        music_seeds(normalized, unpacked, game)
+        node = shutil.which('node')
+        if node is None:
+            raise ValueError('Node.js 24 or newer is required for native startup resource generation')
+        subprocess.run([node, str(ROOT/'tools/generate_music_seeds.ts'), str(normalized), str(game)], check=True)
         shutil.copytree(ROOT/'vendor/runtime', public, dirs_exist_ok=True)
         if args.roms:
             for name in ['ctrl_mt32_1_07.rom','pcm_mt32.rom']:
@@ -115,23 +118,29 @@ def main():
                 file=args.site_art/name
                 if not file.is_file():raise ValueError('Missing optional site artwork: '+name)
                 shutil.copyfile(file,public/'site'/name)
-            for directory in ['stunts-box','enhanced-backgrounds']:
+            for directory in ['stunts-box','enhanced-backgrounds','enhanced-artwork']:
                 source=args.site_art/directory
                 if source.is_dir():shutil.copytree(source,public/'site'/directory,dirs_exist_ok=True)
-        node = shutil.which('node')
-        if node is None:
-            raise ValueError('Node.js 24 or newer is required for native startup resource generation')
         subprocess.run([node, str(ROOT/'tools/generate_startup.ts'), str(game)], check=True)
         scores=game/'high-scores';scores.mkdir(exist_ok=True)
         for name,file in files.items():
             if name.endswith('.HIG'):shutil.copyfile(file,scores/file.name)
         (scores/'manifest.json').write_text(json.dumps({f.stem:{'file':f.name,'sha256':hashlib.sha256(f.read_bytes()).hexdigest()} for f in scores.glob('*.HIG')},separators=(',',':')))
+        replays=game/'replays';replays.mkdir(exist_ok=True)
+        resources=game/'original-resources';resources.mkdir(exist_ok=True)
+        for file in sorted(normalized.iterdir()):
+            if file.suffix.upper() in ['.TRK','.RPL']:
+                shutil.copyfile(file,resources/file.name)
+            if file.suffix.upper()=='.RPL':
+                shutil.copyfile(file,replays/file.name)
         media=game/'setup-media';media.mkdir(exist_ok=True)
         entries=[]
         for name,file in sorted(files.items()):
             data=file.read_bytes();(media/name).write_bytes(data)
             entries.append(dict(name=name,url='/game/setup-media/'+name,bytes=len(data),sha256=hashlib.sha256(data).hexdigest(),dosDateTime=[1990,12,13,0,0,0]))
         (media/'manifest.json').write_text(json.dumps({'files':entries},separators=(',',':')))
+        reference_command='st.com' if 'ST.COM' in files else 'stunts.com'
+        (game/'reference-launch.json').write_text(json.dumps({'command':reference_command,'usesBypassLauncher':reference_command=='st.com'},separators=(',',':')))
         emulator=public/'emulator';emulator.mkdir(exist_ok=True)
         for name in ['emulators.js','wdosbox.js','wdosbox.wasm','wlibzip.js','wlibzip.wasm']:
             shutil.copyfile(ROOT/'node_modules/emulators/dist'/name,emulator/name)
@@ -139,7 +148,6 @@ def main():
             for name,file in sorted(files.items()):bundle.write(file,name)
             bundle.writestr('.jsdos/dosbox.conf',(ROOT/'tools/dosbox.conf').read_text())
         # Generate the catalog from actual supplied resources, not reference-only tracks.
-        resources = game/'original-resources'
         manifest = {}
         for file in sorted(resources.iterdir()):
             if file.is_file():

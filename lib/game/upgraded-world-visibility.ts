@@ -11,9 +11,11 @@ export function upgradedWorldDetail(level:number,hasReducedModel:boolean,scenery
  * Fixed bearings remove source screen-space repositioning; following camera
  * horizontal translation removes parallax without preventing natural angular movement.
  */
-export function distantCloudPlacement(bearing:number,camera:readonly number[]){
+export function distantCloudPlacement(bearing:number,camera:readonly number[],elevationReference=camera[1]){
  const heading=bearing*Math.PI/512,scale=6,radius=15000*scale;
- // Original C315..C3EF uses 2790-cameraHeight. Scale that relative
- // elevation along with cloud geometry/distance, then restore the origin.
- return {position:[camera[0]+Math.sin(heading)*radius,camera[1]+(2790-camera[1])*scale,camera[2]+Math.cos(heading)*radius] as [number,number,number],heading,scale};
+ // Original C315..C3EF uses 2790-cameraHeight. Keep that initial relative
+ // elevation while translating the distant cloud bank with the live camera.
+ // Recomputing it from a chase camera's airborne height made clouds jump in
+ // the opposite direction during crashes and high jumps.
+ return {position:[camera[0]+Math.sin(heading)*radius,camera[1]+(2790-elevationReference)*scale,camera[2]+Math.cos(heading)*radius] as [number,number,number],heading,scale};
 }

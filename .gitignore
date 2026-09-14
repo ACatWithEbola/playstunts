@@ -12,7 +12,8 @@ local-assets/
 *.exe
 *.EXE
 .DS_Store
-public/
+/public
+/app/work/backgrounds/
 __pycache__/
 *.pyc
 .venv/
