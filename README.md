@@ -64,7 +64,7 @@ python tools/prepare_assets.py --original "/path/to/your/Stunts" --roms "/path/t
 
 Supply these legally yourself. Renaming a different ROM does not make it compatible. The Munt synthesizer and its corresponding source are included; the ROMs are not. PC speaker, AdLib/Sound Blaster and Tandy sound do not require Roland ROMs.
 
-The controls below the MT-32 provide power, reverb on/off, reverb amount, left/right channel swap, and master tuning. Reverb amount adjusts the synthesizer’s reverb output level. Tuning is shown in Hz. The controls scale together on smaller screens and remain on one row. Power cycling restores the device defaults; these adjustments are not saved across reloads.
+The controls below the MT-32 provide power, reverb on/off, reverb amount, left/right channel swap, and master tuning. Reverb amount adjusts the synthesizer’s reverb output level. Tuning is shown in Hz. Power cycling restores the device defaults; these adjustments are not saved across reloads.
 
 ### Optional website artwork
 
@@ -99,7 +99,7 @@ npm run start
 
 `npm run start` serves the production build through Wrangler; use the address it prints. Build output is in `dist/`. A hosted installation needs the generated assets as well as the compiled application. The repository's build configuration targets Cloudflare Workers through Vinext; no private hosting credentials are included. Deploying original assets publicly is a separate distribution decision—this repository does not grant rights to them.
 
-The file checker verifies the required runtime files and your installation's hashes. The smoke check initializes a fresh Countach race, completes the starting-truck sequence and drives beyond the original protection interval while checking that no startup crash occurs. Browser checks cover Setup, the opening/menu and a normal race using generated assets. These checks establish an installable game, not perfect equivalence in every race. `--reference` on the file checker optionally compares the extended reference inventory, which includes unused research fixtures and therefore reports expected differences.
+The file checker verifies the required runtime files and your installation's hashes. The smoke check initializes a fresh Countach race, completes the starting-truck sequence and drives beyond the original protection interval. Browser checks cover Setup, the opening/menu and a normal race using generated assets. These checks establish an installable game, not perfect equivalence in every race. `--reference` on the file checker optionally compares the extended reference inventory, which includes unused research fixtures and therefore reports expected differences.
 
 ## Playing and saves
 
@@ -115,10 +115,8 @@ The file checker verifies the required runtime files and your installation's has
 ## Updated graphics and audio
 
 - Enhanced graphics is the launch default and uses a separate website renderer with full colour, source signs and clouds, detailed vehicles, and live steering and suspension movement. Setup still selects MCGA, EGA, CGA, Tandy or Hercules for original graphics. Only the website graphics control switches between enhanced graphics and the selected original display mode; in-game menus preserve that selection.
-- Thin authored scenery lines and open net or fence patterns scale naturally with perspective, while connected solid structures retain their polygon geometry without artificial edge thickness.
 - With enhanced graphics enabled, **F** shows or hides the driving/replay performance display: current FPS, session average and 1% low. **V** cycles the current Stunts camera → close → standard → far → the current Stunts camera; C, F1–F4 or a replay camera-button selection returns immediately to the selected original camera. Both enhanced overlays are inactive outside driving and replay playback.
-- The close, standard and far chase views keep the camera above the car, preserve a stable distant horizon over jumps and uneven ground, hide the dashboard while driving, and retain the original replay camera as the authoritative view when leaving enhanced chase mode. Enhanced replay rendering also preserves the source crash, fireball and debris states.
-- Remixed opening/title, menu, victory and game-over music is enabled by default while the original engine and sound effects remain unchanged. The original and remixed score run from the same clock, so switching modes continues at the corresponding elapsed position without restarting the cue or changing the remix's natural speed or pitch. The in-game Options menu turns both versions on and off; turning music back on restarts whichever score is current.
+- Remixed opening/title, menu, victory and game-over music is enabled by default while the original engine and sound effects remain unchanged. The website control switches between remixed and original music, while the in-game Options menu turns music on or off.
 - Alpine, Tropical, Desert, City and Country panoramas are presentation-only replacements selected from the same terrain metadata as the original backgrounds. Enhanced track previews use the same panoramas.
 - Enhanced cars preserve their five source colours and original geometry while adding clear-coat lighting, palette-matched materials, inset lamp details and filtered grounding shadows.
 - **3D CARS** opens the interactive showroom in the front page’s game area. It uses the same decoded models and enhanced materials as the game for all eleven cars; drag to rotate, scroll to zoom and select each car’s available colours.
