@@ -56,7 +56,7 @@ function trackValidationExplanation(code:number){
 }
 /** Native opening, menus, demonstration and manual race integration. */
 export default function OpeningSequence({assets,onBack,backLabel="← Back",soundDevice,displayMode,initiallyMuted=false,hercules=false,directory="C:\\",initialTrack,onRolandDevice,onRolandPower,rolandPower,onRunningChange,embedded=false,autoStart=false}:{autoStart?:boolean;embedded?:boolean;assets:Assets;onBack:()=>void;backLabel?:string;soundDevice?:'pc-speaker'|'mt32'|'tandy';initiallyMuted?:boolean;hercules?:boolean;displayMode?:NativeBrowserDisplayMode;directory?:string;initialTrack?:number[];onRunningChange?:(running:boolean)=>void;rolandPower?:BrowserMt32Power;onRolandDevice?:(device:BrowserNativeMt32Device|undefined)=>void;onRolandPower?:(power:Awaited<ReturnType<typeof createBrowserNativeMt32Music>>['power']|undefined)=>void}){
- const graphics=useRef<BrowserGraphicsSwitch>({enabled:false,chaseCamera:0}),[upgraded,setUpgraded]=useState(false),[graphicsNotice,setGraphicsNotice]=useState('');
+ const graphics=useRef<BrowserGraphicsSwitch>({enabled:true,chaseCamera:0}),[upgraded,setUpgraded]=useState(true),[graphicsNotice,setGraphicsNotice]=useState('Upgraded graphics · experimental');
  const performanceCounter=useRef(createFramePerformanceCounter()),performanceUiAt=useRef(0),performanceFrameAt=useRef(0),performanceRunning=useRef(false),performancePaused=useRef(false),performanceActiveRef=useRef(false),[performanceStats,setPerformanceStats]=useState<FramePerformanceSnapshot>(),[performanceVisible,setPerformanceVisible]=useState(true),[performanceActive,setPerformanceActive]=useState(false);
  graphics.current.notice=setGraphicsNotice;
  graphics.current.selectOriginalCamera=()=>{if((graphics.current.chaseCamera??0)===0)return;graphics.current.chaseCamera=0;setGraphicsNotice('Original Stunts camera');graphics.current.refresh?.();};
@@ -64,8 +64,8 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
  graphics.current.resetPerformance=()=>{performanceCounter.current.reset();performanceUiAt.current=0;performanceFrameAt.current=0;performanceActiveRef.current=false;setPerformanceActive(false);setPerformanceStats(undefined);};
  graphics.current.setPerformancePaused=paused=>{performancePaused.current=paused;if(!paused)return;performanceCounter.current.pause();performanceFrameAt.current=0;performanceActiveRef.current=false;setPerformanceActive(false);};
  const toggleGraphics=()=>{const enabled=!graphics.current.enabled;graphics.current.enabled=enabled;if(!enabled)graphics.current.chaseCamera=0;graphics.current.resetPerformance?.();setUpgraded(enabled);setGraphicsNotice(enabled?'Upgraded graphics · experimental':'Original graphics');graphics.current.refresh?.();if(started)focusBrowserGameCanvas(canvas.current!);};
- const audioUpdate=useRef<{enabled:boolean;controller?:SynchronizedRemixedMusic}>({enabled:false});
- const [audioUpgraded,setAudioUpgraded]=useState(false),[audioNotice,setAudioNotice]=useState('Original music');
+ const audioUpdate=useRef<{enabled:boolean;controller?:SynchronizedRemixedMusic}>({enabled:true});
+ const [audioUpgraded,setAudioUpgraded]=useState(true),[audioNotice,setAudioNotice]=useState('Remixed music enabled');
  const toggleAudioUpdate=()=>{const enabled=!audioUpdate.current.enabled;audioUpdate.current.enabled=enabled;audioUpdate.current.controller?.setEnabled(enabled);setAudioUpgraded(enabled);setAudioNotice(enabled?'Remixed music enabled':'Original music');if(started)focusBrowserGameCanvas(canvas.current!);};
  const enhancedShortcut=(event:ReactKeyboardEvent<HTMLCanvasElement>)=>{
   if(event.repeat||event.ctrlKey||event.metaKey||event.altKey||event.shiftKey||!graphics.current.enabled)return;
