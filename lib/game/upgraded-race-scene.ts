@@ -6,7 +6,7 @@ import {distantCloudPlacement,upgradedWorldDetail} from './upgraded-world-visibi
 import {backgroundCamera,createNativeBackground} from './native-background';
 import * as THREE from 'three';
 import type {Assets} from './types';
-import {createTrackModelFactory} from './track-model';
+import {createTrackModelFactory,PERSPECTIVE_TRACK_LINE_WIDTH} from './track-model';
 import {addUpgradedCarStudyLights,setUpgradedCarBrakeLights,setUpgradedCarGroundContactPanels} from './upgraded-car-materials';
 import {createCompleteUpgradedCarModel} from './complete-upgraded-car-model';
 import {createUpgradedCarWheelMotion} from './upgraded-car-wheels';
@@ -25,6 +25,7 @@ import {createEnhancedChaseCamera,type EnhancedChaseCameraLevel} from './enhance
 import {createEnhancedCrashEffects} from './enhanced-crash-effects';
 import {upgradedTrackSeamShape} from './upgraded-track-seams';
 import {createEnhancedAlpineBackground,createEnhancedPanoramaBackground,enhancedPanoramaHorizon} from './enhanced-alpine-background';
+import {createEnhancedCloudModel,type EnhancedCloudType} from './enhanced-cloud-model';
 import {type Vector} from '../physics/math';
 import trackMaterials from '../../public/game/track-materials.json';
 import trackRenderModels from '../../public/game/track-render-models.json';
@@ -58,9 +59,9 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
  ground.renderOrder=-1;ground.userData.retroDistanceColour=false;
  ground.rotation.x=-Math.PI/2;ground.position.set(15360,-1,15360);world.add(ground);
       const sourceMaterials={...trackMaterials,...readOriginalMaterialPatterns(runtime.session.state.memory)};
-      // One native raster pixel maps to four pixels on this 4x presentation.
-      // Keep every source line primitive at that screen-space weight.
-      const trackModel=createTrackModelFactory(sourceMaterials,4);
+      // Authored cables and other line primitives have a physical diameter so
+      // their projected width recedes with the rest of the 3D scenery.
+      const trackModel=createTrackModelFactory(sourceMaterials,PERSPECTIVE_TRACK_LINE_WIDTH);
       const visibilityPlacements:{model:THREE.Group;key:string;detail?:number;tile?:number;terrain?:number;underlay?:boolean;castsShadow?:boolean;shadow?:RetroSceneryCaster;keepInWorld?:boolean;origin:number[];paint:number;visible:boolean[]}[]=[];
 
       for (let z = 0; z < 30; z++)
@@ -153,7 +154,9 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
  });
  const motion=createLiveGraphicsMotion(),chaseCamera=createEnhancedChaseCamera({raw:track,objects:cameraTrackObjects as TrackObject[],planes:cameraCollisionPlanes as CollisionPlane[]});let fpsAt=performance.now(),fpsFrames=0;
  const crashEffects=createEnhancedCrashEffects({assets,memory:m,materials:sourceMaterials,carIds,paints:carPaints,world,scene});
- const clouds=new Map<string,THREE.Group>();
+ const clouds=new Map<string,THREE.Object3D>();
+ const cloudTypesByDescriptor=new Map<number,EnhancedCloudType>();
+ const cloudTypes=['A','B','C'] as const;
  const truck=createStartTruckModel(resources,assets.shapes.GAME2.truk,sourceMaterials);world.add(truck.group);
  const signs=createUpgradedTrackSigns(runtime.session.state.memory,sourceMaterials);world.add(signs.group);
  const sceneryCasters:RetroSceneryCaster[]=[...visibilityPlacements.filter(placement=>placement.castsShadow).map(placement=>placement.shadow??placement.model),signs.group,truck.group];
@@ -293,7 +296,11 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    clouds.forEach(model=>{model.visible=false;});
    if(level===0)for(let index=0;index<8;index++){
     const descriptor=v.getUint16(d+0x632+index*2,true),key=descriptor+'/'+index;
-    let model=clouds.get(key);if(!model){model=trackModel(readUpgradedShape(live,descriptor),0);clouds.set(key,model);world.add(model);}
+    // The first three source records establish the game's three cloud types;
+    // later sky positions reuse those descriptors. If a variant is supplied
+    // outside that table, the model factory falls back to its source outline.
+    if(index<cloudTypes.length&&!cloudTypesByDescriptor.has(descriptor))cloudTypesByDescriptor.set(descriptor,cloudTypes[index]!);
+    let model=clouds.get(key);if(!model){model=createEnhancedCloudModel(readUpgradedShape(live,descriptor),cloudTypesByDescriptor.get(descriptor));clouds.set(key,model);world.add(model);}
     const cloudCamera=chase?[position[0],position[1],-position[2]] as Vector:shown.camera.position;
     const cloudCameraKey=chase?`chase-${chaseLevel}/${chaseCar}`:sourceCamera;
     if(cloudHeightCamera!==cloudCameraKey||backgroundSeek){cloudHeightCamera=cloudCameraKey;cloudHeight=cloudCamera[1];}

@@ -52,7 +52,7 @@ Roads, cars and scenery gain restrained atmospheric distance colouring beyond fi
 
 ## September 2026 upgraded-renderer refinement
 
-The upgraded renderer now uses the shared 3D car-study lighting and material response in races, the car-selection display and the opening animation. Authored paint hue and saturation, lamp colours, geometry, wheel placement, model topology and original-material patterns are retained. Attached Ferrari GTO lamps receive presentation-only host-panel depth so the complete source lens remains visible, while source line primitives use the scaled width of one original display pixel. Reused shader programs and temporary retention of the outgoing menu model avoid recompiling the same car materials during ordinary car changes.
+The upgraded renderer now uses the shared 3D car-study lighting and material response in races, the car-selection display and the opening animation. Authored paint hue and saturation, lamp colours, geometry, wheel placement, model topology and original-material patterns are retained. Attached Ferrari GTO lamps receive presentation-only host-panel depth so the complete source lens remains visible, while source line primitives use narrow world-space widths that follow camera perspective. Reused shader programs and temporary retention of the outgoing menu model avoid recompiling the same car materials during ordinary car changes.
 
 Road centre markings keep their authored footprint and are projected onto the actual source road triangles, including banked and sloped pieces, rather than being widened according to the camera angle. Presentation-only seam trimming removes raster-era road overhangs at tile joins without changing collision geometry. The original 2D renderer remains unchanged.
 

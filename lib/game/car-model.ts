@@ -9,6 +9,11 @@ import type {Shape} from './types';
 
 export type OriginalPaint={paint:number;indices:readonly number[];palette:readonly number[];paletteMaterial?:number}&OriginalMaterialPatterns;
 
+// Type-2 car primitives are authored rods and frame members. LineMaterial's
+// world-unit expansion happens after the model transform, so this value is in
+// final race-world units and remains consistent across car0/car1 source scales.
+const PERSPECTIVE_CAR_LINE_WIDTH=.5625;
+
 function prioritizeCoplanarDetail(material:THREE.Material,layer:number){
  material.polygonOffset=true;material.polygonOffsetFactor=-layer;material.polygonOffsetUnits=-layer;
  const compile=material.onBeforeCompile.bind(material),key=material.customProgramCacheKey.bind(material);
@@ -138,9 +143,9 @@ export function createCarModel(shape:Shape,color:number,originalPaint?:OriginalP
    node.castShadow=true;node.receiveShadow=true;node.userData.originalBodyFace=true;node.userData.originalPrimitive=shape.primitives.indexOf(p);node.userData.originalAttachedLayer=layer;group.add(node);
   }else if(originalPaint&&p.type===2){
    const geometry=new LineSegmentsGeometry();geometry.setPositions(p.indices.flatMap(i=>points[i].toArray()));
-   // One source line pixel at 320x200 is four pixels in the upgraded canvas.
-   // Screen-space width retains that footprint without moving its endpoints.
-   const line=new LineSegments2(geometry,new LineMaterial({color:originalColor(p.materials[originalPaint.paint]),linewidth:4,toneMapped:false,side:THREE.DoubleSide}));
+   // Give rods and frame members physical thickness. Their screen footprint
+   // now grows nearby and recedes with distance like the surrounding car.
+   const line=new LineSegments2(geometry,new LineMaterial({color:originalColor(p.materials[originalPaint.paint]),linewidth:PERSPECTIVE_CAR_LINE_WIDTH,worldUnits:true,toneMapped:false,side:THREE.DoubleSide}));
    line.userData.originalCarLine=true;line.userData.originalPrimitive=shape.primitives.indexOf(p);group.add(line);
   }else if(originalPaint&&p.type===11){
    const center=points[p.indices[0]],radius=center.distanceTo(points[p.indices[1]])/2;

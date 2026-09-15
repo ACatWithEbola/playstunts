@@ -361,7 +361,7 @@ export function createUpgradedRetroLighting() {
    renderer.autoClear = true;
    renderer.setClearColor(0x000000,0);
    receiverScene.updateMatrixWorld(true);
-   // Compatibility strips are screen-space presentation, not world surfaces.
+   // Compatibility lines are presentation geometry, not shadow surfaces.
    // Find and hide them once for the complete shadow batch instead of walking
    // the full scene again for every receiver pass.
    receiverScene.traverseVisible(node=>{if(presentationOnlyShadowGeometry(node))presentationHelpers.push(node);});

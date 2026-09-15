@@ -17,7 +17,11 @@ export type TrackMaterials={indices:number[];palette:number[]}&OriginalMaterialP
 const ROAD_SURFACE_MATERIALS=new Set([19,21,23,24,25,27,28,30]);
 const ROAD_MARKING_MATERIALS=new Set([21,24,27,30]);
 const TERRAIN_SURFACE_MATERIALS=new Set([101,102]);
-export function createTrackModel(shape: Shape,trackMaterials:TrackMaterials,paint=0,terrainUnderlay=false,lineWidth=1) {
+/** Physical diameter for authored scenery lines and retained edge traces.
+ * Unlike the former four-pixel strip, this is measured in track-world units
+ * and therefore grows nearby and recedes naturally with perspective. */
+export const PERSPECTIVE_TRACK_LINE_WIDTH=6;
+export function createTrackModel(shape: Shape,trackMaterials:TrackMaterials,paint=0,terrainUnderlay=false,worldLineWidth=0) {
   const patternMaterials:number[]=[],curbPriorities:number[]=[],roadSurfaces:number[]=[],terrainSurfaces:number[]=[],roadMarkings:number[]=[];
   const markingSurfaces=roadMarkingSurfaces(shape,paint);
   const vertices:number[]=[],colors:number[]=[],normals:number[]=[],layers:number[]=[],parentPlanes:number[]=[],lines:number[]=[],lineColors:number[]=[],edgeLines:number[]=[],edgeLineColors:number[]=[];
@@ -135,12 +139,12 @@ export function createTrackModel(shape: Shape,trackMaterials:TrackMaterials,pain
   applyOriginalMaterialPattern(material,geometry,patternMaterials,trackMaterials);
   group.add(new THREE.Mesh(geometry,material));
   if(lines.length){
-   if(lineWidth>1){
+   if(worldLineWidth>0){
     const geometry=new LineSegmentsGeometry();geometry.setPositions(lines);geometry.setColors(lineColors);
-    // Preserve the source line's one-pixel footprint on the 4x enhanced
-    // canvas. A screen-space strip keeps cables equally legible at every
-    // camera distance without changing their endpoints or bridge geometry.
-    const line=new LineSegments2(geometry,new LineMaterial({vertexColors:true,linewidth:lineWidth,side:THREE.DoubleSide,toneMapped:false}));
+    // Give cables and other authored line primitives physical thickness.
+    // World-unit expansion preserves their endpoints while allowing the
+    // perspective camera to make distant lines thinner than nearby ones.
+    const line=new LineSegments2(geometry,new LineMaterial({vertexColors:true,linewidth:worldLineWidth,worldUnits:true,side:THREE.DoubleSide,toneMapped:false}));
     line.userData.originalTrackLine=true;group.add(line);
    }else{
     const geometry=new THREE.BufferGeometry();geometry.userData.originalPrimitiveRanges=lineRanges;geometry.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));geometry.setAttribute('color',new THREE.Float32BufferAttribute(lineColors,3));group.add(new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({vertexColors:true,toneMapped:false})));
@@ -148,13 +152,11 @@ export function createTrackModel(shape: Shape,trackMaterials:TrackMaterials,pain
   }
   if(edgeLines.length){
    const geometry=new LineSegmentsGeometry();geometry.setPositions(edgeLines);geometry.setColors(edgeLineColors);
-   // The source canvas is 320 pixels wide and the upgraded canvas is 4x.
-   // Four output pixels therefore preserve one native pixel without adding
-   // any world-space thickness or becoming wider when the camera approaches.
-   // The upgraded world mirrors source Z. LineMaterial builds its strip in
-   // screen space, so its winding does not mirror with the object's matrix.
-   // Keep both sides or Three's mirrored front-face state culls the trace.
-   const edges=new LineSegments2(geometry,new LineMaterial({vertexColors:true,linewidth:4,side:THREE.DoubleSide,toneMapped:false}));edges.userData.originalEdgeVisibility=true;group.add(edges);
+   // These traces retain authored thin walls at edge-on angles. They share the
+   // physical width of source line primitives instead of a fixed pixel width,
+   // so rails and wall edges also obey perspective at every camera distance.
+   // Keep both sides because the upgraded world mirrors source Z.
+   const edges=new LineSegments2(geometry,new LineMaterial({vertexColors:true,linewidth:PERSPECTIVE_TRACK_LINE_WIDTH,worldUnits:true,side:THREE.DoubleSide,toneMapped:false}));edges.userData.originalEdgeVisibility=true;group.add(edges);
   }
   // The transporter uses the same native type-12 wheels as cars. Reuse their
   // tire/cap/hub presentation and undo the car adapter's 1/400 unit scale.
@@ -169,13 +171,13 @@ export function createTrackModel(shape: Shape,trackMaterials:TrackMaterials,pain
 /** Per-scene prototypes share immutable GPU resources between repeated tiles.
  * Each placement still owns its transform and visibility, including paint animation.
  */
-export function createTrackModelFactory(materials:TrackMaterials,sourceLineWidth=1){
+export function createTrackModelFactory(materials:TrackMaterials,sourceLineWorldWidth=0){
  const models=new Map<Shape,Map<string,THREE.Group>>();
- return (shape:Shape,paint=0,terrainUnderlay=false,lineWidth=sourceLineWidth)=>{
-  const key=paint+'/'+Number(terrainUnderlay)+'/'+lineWidth;
+ return (shape:Shape,paint=0,terrainUnderlay=false,worldLineWidth=sourceLineWorldWidth)=>{
+  const key=paint+'/'+Number(terrainUnderlay)+'/'+worldLineWidth;
   let paints=models.get(shape);if(!paints){paints=new Map();models.set(shape,paints);}
   let prototype=paints.get(key);
-  if(!prototype){prototype=createTrackModel(shape,materials,paint,terrainUnderlay,lineWidth);paints.set(key,prototype);}
+  if(!prototype){prototype=createTrackModel(shape,materials,paint,terrainUnderlay,worldLineWidth);paints.set(key,prototype);}
   return prototype.clone(true);
  };
 }

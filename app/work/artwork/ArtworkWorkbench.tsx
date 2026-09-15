@@ -3,6 +3,7 @@
 
 import {useEffect, useMemo, useState} from 'react';
 import Link from 'next/link';
+import CloudComparison from './CloudComparison';
 
 type ArtworkEntry = {
   file: string;
@@ -130,6 +131,8 @@ export default function ArtworkWorkbench() {
           <div><dt>Format</dt><dd>PNG</dd></div>
         </dl>
       </header>
+
+      <CloudComparison />
 
       <section className="artwork-toolbar" aria-label="Artwork filters">
         <label>
