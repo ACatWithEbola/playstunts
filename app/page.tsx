@@ -11,6 +11,7 @@ import StuntsBrand from './StuntsBrand';
 import SaveBackupPanel from './SaveBackupPanel';
 import Garage from './Garage';
 import StuntsBox from './StuntsBox';
+import StuntsNavigation from './StuntsNavigation';
 import type {Assets} from '@/lib/game/types';
 
 type SavedSetup=Awaited<ReturnType<typeof loadBrowserSetupSelection>>;
@@ -65,7 +66,7 @@ export default function Home(){
    <div className="stunts-masthead-art" aria-hidden="true"><Image unoptimized width={790} height={309} onError={event=>{event.currentTarget.style.display="none";}} src="/site/manual-red-car.png" alt=""/></div>
    <div className="stunts-masthead-copy"><span>WELCOME TO</span><strong>4D SPORTS<br/>DRIVING</strong><p>Choose your car. Build your track.<br/>Take it for a drive.</p></div>
   </header>
-  <nav className="stunts-navigation" aria-label="Main navigation"><a className={showroom?undefined:'nav-play'} href="#play" onClick={event=>{event.preventDefault();openHomeSection('play');}}>PLAY</a><a href="#setup" onClick={event=>{event.preventDefault();openHomeSection('setup');}}>SETUP</a><a href="#about" onClick={event=>{event.preventDefault();openHomeSection('about');}}>THE GAME</a><a className={showroom?'nav-play':undefined} href="/?view=cars" onClick={event=>{event.preventDefault();openShowroom();}}>3D CARS</a><a href="#roland" onClick={event=>{event.preventDefault();openHomeSection('roland');}}>MT-32</a><a href="https://pigsgrame.de/downloads/stunts.pdf" target="_blank" rel="noreferrer">MANUAL ↗</a><a href="#saves" onClick={event=>{event.preventDefault();openHomeSection('saves',true);}}>TRACKS &amp; REPLAYS</a><a href="https://github.com/ACatWithEbola/playstunts" target="_blank" rel="noreferrer">GITHUB ↗</a></nav>
+  <StuntsNavigation><a className={showroom?undefined:'nav-play'} href="#play" onClick={event=>{event.preventDefault();openHomeSection('play');}}>PLAY</a><a href="#setup" onClick={event=>{event.preventDefault();openHomeSection('setup');}}>SETUP</a><a href="#about" onClick={event=>{event.preventDefault();openHomeSection('about');}}>THE GAME</a><a className={showroom?'nav-play':undefined} href="/?view=cars" onClick={event=>{event.preventDefault();openShowroom();}}>3D CARS</a><a href="#roland" onClick={event=>{event.preventDefault();openHomeSection('roland');}}>MT-32</a><a href="https://pigsgrame.de/downloads/stunts.pdf" target="_blank" rel="noreferrer">MANUAL ↗</a><a href="#saves" onClick={event=>{event.preventDefault();openHomeSection('saves',true);}}>TRACKS &amp; REPLAYS</a><a href="/faq">FAQ</a><a href="https://github.com/ACatWithEbola/playstunts" target="_blank" rel="noreferrer">GITHUB ↗</a></StuntsNavigation>
   <div className="launcher-grid">
    <aside className="stunts-manual-rail" aria-label="Stunts game box and manual">
     <StuntsBox/>
