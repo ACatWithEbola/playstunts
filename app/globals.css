@@ -71,6 +71,7 @@
 
 /* Keep setup controls and its screen within narrow panel widths. */
 .stunts-universe .native-setup-panel .game-toolbar{height:auto;min-height:64px;flex-wrap:wrap}.stunts-universe .native-setup-panel .game-toolbar>output{min-width:0;flex:1 1 120px;max-width:none}.stunts-universe .native-setup-panel .game-toolbar>button{flex:0 0 auto}.stunts-universe .native-setup-panel{min-width:0}
+.stunts-universe .launcher-game-session>.game-mode-toolbar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(4px,1vw,10px);flex-wrap:nowrap}.stunts-universe .launcher-game-session>.game-mode-toolbar>button{min-width:0;width:100%;padding-inline:clamp(4px,1vw,12px);font-size:clamp(10px,1.35vw,14px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #saves>output,.saved-file-dialog>output{display:block;margin:1em 0}
 
 @media(max-width:800px){.stunts-masthead-brand .stunts-brand{max-width:none;margin-inline:auto}.stunts-masthead-brand h1{display:flex;justify-content:center}}

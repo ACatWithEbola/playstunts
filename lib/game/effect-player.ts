@@ -11,7 +11,13 @@ export function stepEffectSequence(before:EffectSequenceState,bytes:Uint8Array){
   if(c.opcode===0xdc)events.push({kind:'instrument',value:c.argument!});
   else if(c.opcode===0xde)events.push({kind:'volume',value:c.argument!});
   else if(c.opcode===0xd9){state.offset=null;events.push({kind:'end'});state.wait=0xffffffff;return {...state,events};}
-  else {if(c.opcode>=0xd9)throw Error('Unsupported effect control command');events.push({kind:'note',note:c.opcode&127,duration:c.duration!,...(c.opcode>0x80?{velocity:c.argument!}:{})});}
+  else if(c.opcode>=0xd9){
+   // Bundled driving effects use notes plus DC (instrument), DE (volume) and
+   // D9 (end). A replay can retain a timer pointer after an effect has already
+   // been replaced or released; interpreting the unrelated byte as a music
+   // control used to abort the whole game. End only that stale effect instead.
+   state.offset=null;events.push({kind:'end'});state.wait=0xffffffff;return {...state,events};
+  }else events.push({kind:'note',note:c.opcode&127,duration:c.duration!,...(c.opcode>0x80?{velocity:c.argument!}:{})});
   state.wait=readSoundCommand(bytes,state.offset).delay;
   if(state.wait){state.wait=(state.wait-1)>>>0;return {...state,events};}
  }

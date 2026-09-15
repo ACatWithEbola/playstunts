@@ -10,3 +10,4 @@ This acknowledgement is not a replacement for the licenses and source obligation
 
 - **Archivo / Archivo Narrow:** bundled website fonts, with their SIL Open Font License in `vendor/runtime/site/fonts`.
 - **DOSBox / js-dos emulators:** the Setup hardware text font carries the adjacent provenance and GPL notice. The optional DOS reference runtime is installed from the locked `emulators` npm dependency.
+- **Remixed music:** the four optional updated-music recordings are alternate arrangements supplied for PlayStunts and are separate from the GPL-licensed reconstruction source. See `vendor/runtime/audio/remixed/NOTICE.md`.

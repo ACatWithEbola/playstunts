@@ -9,10 +9,11 @@ import type {Shape} from './types';
 
 export type OriginalPaint={paint:number;indices:readonly number[];palette:readonly number[];paletteMaterial?:number}&OriginalMaterialPatterns;
 
-// Type-2 car primitives are authored rods and frame members. LineMaterial's
-// world-unit expansion happens after the model transform, so this value is in
-// final race-world units and remains consistent across car0/car1 source scales.
-const PERSPECTIVE_CAR_LINE_WIDTH=.5625;
+// Type-2 car primitives are authored rods and frame members. This is the
+// three-pixel reference calibration (75% of the former four-pixel treatment).
+// LineMaterial expands it in final race-world units, so it follows perspective
+// and remains consistent across car0/car1 source scales.
+const PERSPECTIVE_CAR_LINE_WIDTH=.421875;
 
 function prioritizeCoplanarDetail(material:THREE.Material,layer:number){
  material.polygonOffset=true;material.polygonOffsetFactor=-layer;material.polygonOffsetUnits=-layer;

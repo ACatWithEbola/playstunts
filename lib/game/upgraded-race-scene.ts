@@ -6,7 +6,7 @@ import {distantCloudPlacement,upgradedWorldDetail} from './upgraded-world-visibi
 import {backgroundCamera,createNativeBackground} from './native-background';
 import * as THREE from 'three';
 import type {Assets} from './types';
-import {createTrackModelFactory,PERSPECTIVE_TRACK_LINE_WIDTH} from './track-model';
+import {createTrackModelFactory,markTrackSceneryCasterPrimitives,PERSPECTIVE_TRACK_LINE_WIDTH} from './track-model';
 import {addUpgradedCarStudyLights,setUpgradedCarBrakeLights,setUpgradedCarGroundContactPanels} from './upgraded-car-materials';
 import {createCompleteUpgradedCarModel} from './complete-upgraded-car-model';
 import {createUpgradedCarWheelMotion} from './upgraded-car-wheels';
@@ -20,7 +20,7 @@ import {upgradedCameraBasis} from './upgraded-camera-basis';
 import {createUpgradedRetroLighting,RETRO_SUN,type RetroSceneryCaster} from './upgraded-retro-lighting';
 import {upgradedCarGroundingOffset,setUpgradedCarPresentationPose} from './upgraded-car-grounding';
 import {upgradedCompositeShadowShapes,upgradedSceneryCastsShadow,upgradedSceneryUsesPatternedShadow} from './upgraded-scenery-shadows';
-import {upgradedBackgroundView} from './upgraded-background-view';
+import {upgradedBackgroundHeight,upgradedBackgroundView} from './upgraded-background-view';
 import {createEnhancedChaseCamera,type EnhancedChaseCameraLevel} from './enhanced-chase-camera';
 import {createEnhancedCrashEffects} from './enhanced-crash-effects';
 import {upgradedTrackSeamShape} from './upgraded-track-seams';
@@ -108,6 +108,7 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
               road.userData.originalTrackTile=[x,29-z];
               road.position.set(...origin);road.rotation.y=trackRenderPlacement(part,x,z,0,0).rotation;
               const composite=upgradedCompositeShadowShapes(shape,shapeName),patternedShadow=upgradedSceneryUsesPatternedShadow(shapeName);
+              if(composite)markTrackSceneryCasterPrimitives(road,shape,composite.caster);
               road.userData.retroPatternedShadow=patternedShadow;
               road.traverse(node=>{if(node instanceof THREE.Mesh)node.userData.retroPatternedShadow=patternedShadow;});
               const shadow=composite?{source:road,caster:trackModel(composite.caster,paint),receiver:trackModel(composite.receiver,paint),patterned:patternedShadow}:undefined;
@@ -363,10 +364,10 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    }
    lastBackgroundSourceFrame=sourceFrame;
    const backgroundView=upgradedBackgroundView(backgroundAngles);
-   // The panorama represents scenery at effectively infinite distance. A TV
-   // cut may select a site at another elevation, but that translation must not
-   // move the far horizon; only its stabilized pitch determines the framing.
-   const effectiveBackgroundHeight=chase||cameraMode===3?0:backgroundHeightCamera===sourceCamera?backgroundHeight:shown.camera.position[1];
+   // Match the original TV-camera framing by feeding the panorama the fixed
+   // camera site's world height. Following views retain their held reference,
+   // while presentation-only chase rigs remain independent of native height.
+   const effectiveBackgroundHeight=upgradedBackgroundHeight(!!chase,cameraMode,shown.camera.position[1],backgroundHeightCamera===sourceCamera?backgroundHeight:undefined);
    const background=backdrop.render(backgroundView.angles,effectiveBackgroundHeight,4/3,camera.fov,frame.projection,live[d+0x134]);
    const enhancedBackgroundDrawn=enhancedBackground?.draw(context,{width:canvas.width,height:canvas.height,heading:backgroundView.angles[2],horizon:background.panoramaHorizon??enhancedPanoramaHorizon(background.pixels,background.ground,background.width),rotation:backgroundView.rotation,sky:paletteCss[background.sky],ground:paletteCss[background.ground]})??false;
    if(!enhancedBackgroundDrawn){

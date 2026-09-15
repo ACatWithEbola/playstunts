@@ -10,7 +10,7 @@ import {fadeOriginalMusic} from './fade-original-music.ts';
 export function createNativeMt32Music(context:AudioContext,output:Mt32StereoOutput,seeds:Record<NativeMusicScore,OriginalMt32MusicSeed>){
  let runtime:ReturnType<typeof createControlledOriginalMt32Music>|undefined;
  let audio:ReturnType<typeof createBrowserMt32RaceAudio>|undefined,timer:ReturnType<typeof setInterval>|undefined,closed=false;
- let musicEnabled=true,soundEnabled=true,paused=false,generation=0;
+ let musicEnabled=true,soundEnabled=true,paused=false,generation=0,outputMuted=false;
  const effect=(value:OriginalMenuAudioEffect)=>{if(runtime)output.write(runtime.runtime.control(value).writes);};
  const stop=()=>{generation++;clearInterval(timer);if(runtime)effect({type:'stop-tracks',first:0,last:runtime.runtime.state.tracks-1});audio?.close();audio=undefined;runtime=undefined;};
  const control=(operation:Parameters<typeof originalMenuAudioControl>[1])=>{
@@ -18,10 +18,11 @@ export function createNativeMt32Music(context:AudioContext,output:Mt32StereoOutp
   if(operation==='toggle-music')musicEnabled=!musicEnabled;else if(operation==='toggle-sound')soundEnabled=!soundEnabled;else paused=operation==='pause-audio';
   return operation==='toggle-music'?Number(musicEnabled):operation==='toggle-sound'?Number(soundEnabled):0;
  };
- return {control,get settings(){return {musicEnabled,soundEnabled,paused};},
+ const setOutputMuted=(muted:boolean,at=context.currentTime,fade=0)=>{outputMuted=muted;audio?.setVolume(muted?0:1,at,fade);};
+ return {control,setOutputMuted,fadeTicks:100,get settings(){return {musicEnabled,soundEnabled,paused};},
   play(name:NativeMusicScore){
    if(closed||!musicEnabled)return;const restorePaused=paused,restoreSound=soundEnabled;stop();runtime=createControlledOriginalMt32Music(seeds[name]);
-   audio=createBrowserMt32RaceAudio(context,output,seeds[name].initialWrites,()=>runtime?.tick().writes??[]);
+   audio=createBrowserMt32RaceAudio(context,output,seeds[name].initialWrites,()=>runtime?.tick().writes??[]);audio.setVolume(outputMuted?0:1);
    if(!restoreSound)control('toggle-sound');if(restorePaused)control('pause-audio');audio.pump();timer=setInterval(()=>audio?.pump(),25);
   },
   async fadeOut(waitTicks:(ticks:number)=>Promise<void>){

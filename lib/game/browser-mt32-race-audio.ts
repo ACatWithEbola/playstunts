@@ -16,7 +16,7 @@ export function createBrowserMt32RaceAudio(context:AudioContext,output:Mt32Stere
  const unsubscribe=output.onDeviceChange?.(()=>{for(const source of sources)release(source);});
  try{stream.write(initialWrites);}catch(error){unsubscribe?.();gain.disconnect();throw error;}
  return {
-  setVolume(value:number){if(!Number.isFinite(value)||value<0||value>1)throw Error('Invalid playback volume');if(!closed)gain.gain.setValueAtTime(value,context.currentTime);},
+  setVolume(value:number,at=context.currentTime,fade=0){if(!Number.isFinite(value)||value<0||value>1||!Number.isFinite(at)||!Number.isFinite(fade)||fade<0)throw Error('Invalid playback volume');if(!closed){const parameter=gain.gain;parameter.cancelAndHoldAtTime(at);if(fade>0)parameter.linearRampToValueAtTime(value,at+fade);else parameter.setValueAtTime(value,at);}},
   prepare(writes:number[][]){if(!closed){if(output.prepare)output.prepare(writes);else stream.write(writes);}},
   write(writes:number[][]){if(!closed)stream.write(writes);},
   // Results music temporarily owns the shared device. Retain this stream's

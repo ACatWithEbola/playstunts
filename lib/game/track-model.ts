@@ -7,7 +7,6 @@ import {LineSegments2} from 'three/examples/jsm/lines/LineSegments2.js';
 import {LineSegmentsGeometry} from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import {LineMaterial} from 'three/examples/jsm/lines/LineMaterial.js';
 import {originalPolygonNeedsDepthSort} from './polygon-order.ts';
-import {upgradedOriginalEdgeSegments} from './upgraded-original-edge-visibility.ts';
 import type {Shape} from './types.ts';
 export type TrackMaterials={indices:number[];palette:number[]}&OriginalMaterialPatterns;
 // The native material table already contains the intended road colours. These
@@ -17,16 +16,32 @@ export type TrackMaterials={indices:number[];palette:number[]}&OriginalMaterialP
 const ROAD_SURFACE_MATERIALS=new Set([19,21,23,24,25,27,28,30]);
 const ROAD_MARKING_MATERIALS=new Set([21,24,27,30]);
 const TERRAIN_SURFACE_MATERIALS=new Set([101,102]);
-/** Physical diameter for authored scenery lines and retained edge traces.
- * Unlike the former four-pixel strip, this is measured in track-world units
- * and therefore grows nearby and recedes naturally with perspective. */
-export const PERSPECTIVE_TRACK_LINE_WIDTH=6;
+/** Physical diameter for genuine authored line primitives.
+ * This is calibrated to the requested three-pixel footprint at the reference
+ * race view. Unlike the former fixed four-pixel strip, it is measured in
+ * track-world units and therefore grows nearby and recedes with perspective. */
+export const PERSPECTIVE_TRACK_LINE_WIDTH=4.5;
+
+/** Mark source primitives which cast the shared scenery shadow but must not
+ * receive it themselves. Composite tiles still leave their road/median faces
+ * unmarked, so the same tree silhouette continues to land on the ground. */
+export function markTrackSceneryCasterPrimitives(group:THREE.Group,shape:Shape,caster:Shape){
+ const casterPrimitives=new Set(caster.primitives),marked=new Set(shape.primitives.flatMap((primitive,index)=>casterPrimitives.has(primitive)?[index]:[]));
+ if(!marked.size)return;
+ group.traverse(object=>{
+  if(!(object instanceof THREE.Mesh))return;
+  const geometry=object.geometry,ranges=geometry.userData.originalPrimitiveRanges as {primitive:number;start:number;count:number}[]|undefined;
+  if(!ranges||geometry.hasAttribute('originalSceneryCaster'))return;
+  const values=new Float32Array(geometry.getAttribute('position').count);
+  for(const range of ranges)if(marked.has(range.primitive))values.fill(1,range.start,range.start+range.count);
+  geometry.setAttribute('originalSceneryCaster',new THREE.Float32BufferAttribute(values,1));
+ });
+}
+
 export function createTrackModel(shape: Shape,trackMaterials:TrackMaterials,paint=0,terrainUnderlay=false,worldLineWidth=0) {
   const patternMaterials:number[]=[],curbPriorities:number[]=[],roadSurfaces:number[]=[],terrainSurfaces:number[]=[],roadMarkings:number[]=[];
   const markingSurfaces=roadMarkingSurfaces(shape,paint);
-  const vertices:number[]=[],colors:number[]=[],normals:number[]=[],layers:number[]=[],parentPlanes:number[]=[],lines:number[]=[],lineColors:number[]=[],edgeLines:number[]=[],edgeLineColors:number[]=[];
-  const originalEdgeSegments=upgradedOriginalEdgeSegments(shape),edgeSegmentsByPrimitive=new Map<number,typeof originalEdgeSegments>();
-  for(const segment of originalEdgeSegments){const segments=edgeSegmentsByPrimitive.get(segment.primitive);if(segments)segments.push(segment);else edgeSegmentsByPrimitive.set(segment.primitive,[segment]);}
+  const vertices:number[]=[],colors:number[]=[],normals:number[]=[],layers:number[]=[],parentPlanes:number[]=[],lines:number[]=[],lineColors:number[]=[];
   let parentPoints:Point3[]=[];
   let parentPlane:number[]=[0,0,0,0],attachedLayer=0;
   const lineRanges:{primitive:number;start:number;count:number}[]=[];
@@ -43,7 +58,6 @@ export function createTrackModel(shape: Shape,trackMaterials:TrackMaterials,pain
     };
     if(primitive.type===2){const start=lines.length/3;for(const index of primitive.indices)append(index,lines,lineColors);lineRanges.push({primitive:primitiveIndex,start,count:lines.length/3-start});continue;}
     if(primitive.type<3||primitive.type>10)continue;
-    for(const edge of edgeSegmentsByPrimitive.get(primitiveIndex)??[]){append(edge.start,edgeLines,edgeLineColors);append(edge.end,edgeLines,edgeLineColors);}
     const points=primitive.indices.map(index=>new THREE.Vector3(...shape.vertices[index]));
     const normal=new THREE.Vector3();
     for(let i=1;i<points.length-1&&!normal.lengthSq();i++)normal.crossVectors(points[i].clone().sub(points[0]),points[i+1].clone().sub(points[0]));
@@ -149,14 +163,6 @@ export function createTrackModel(shape: Shape,trackMaterials:TrackMaterials,pain
    }else{
     const geometry=new THREE.BufferGeometry();geometry.userData.originalPrimitiveRanges=lineRanges;geometry.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));geometry.setAttribute('color',new THREE.Float32BufferAttribute(lineColors,3));group.add(new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({vertexColors:true,toneMapped:false})));
    }
-  }
-  if(edgeLines.length){
-   const geometry=new LineSegmentsGeometry();geometry.setPositions(edgeLines);geometry.setColors(edgeLineColors);
-   // These traces retain authored thin walls at edge-on angles. They share the
-   // physical width of source line primitives instead of a fixed pixel width,
-   // so rails and wall edges also obey perspective at every camera distance.
-   // Keep both sides because the upgraded world mirrors source Z.
-   const edges=new LineSegments2(geometry,new LineMaterial({vertexColors:true,linewidth:PERSPECTIVE_TRACK_LINE_WIDTH,worldUnits:true,side:THREE.DoubleSide,toneMapped:false}));edges.userData.originalEdgeVisibility=true;group.add(edges);
   }
   // The transporter uses the same native type-12 wheels as cars. Reuse their
   // tire/cap/hub presentation and undo the car adapter's 1/400 unit scale.

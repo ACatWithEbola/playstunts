@@ -43,6 +43,7 @@ import type {Vector} from '@/lib/physics/math';
 import {createFramePerformanceCounter,type FramePerformanceSnapshot} from '@/lib/game/frame-performance';
 import {ENHANCED_CHASE_CAMERA_LABELS,nextEnhancedChaseCameraLevel,type EnhancedChaseCameraLevel} from '@/lib/game/enhanced-chase-camera';
 import {ENHANCED_STATIC_ARTWORK,loadEnhancedStaticArtwork} from '@/lib/game/enhanced-static-artwork';
+import {createSynchronizedRemixedMusic,decodeRemixedMusic,preloadRemixedMusicFiles,type SynchronizedRemixedMusic} from '@/lib/game/remixed-music';
 function originalTrackValidationCode(reason:unknown){
  if(!(reason instanceof Error))return null;
  const match=/^Original (?:track route|terrain) error (\d+)$/.exec(reason.message);
@@ -63,6 +64,9 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
  graphics.current.resetPerformance=()=>{performanceCounter.current.reset();performanceUiAt.current=0;performanceFrameAt.current=0;performanceActiveRef.current=false;setPerformanceActive(false);setPerformanceStats(undefined);};
  graphics.current.setPerformancePaused=paused=>{performancePaused.current=paused;if(!paused)return;performanceCounter.current.pause();performanceFrameAt.current=0;performanceActiveRef.current=false;setPerformanceActive(false);};
  const toggleGraphics=()=>{const enabled=!graphics.current.enabled;graphics.current.enabled=enabled;if(!enabled)graphics.current.chaseCamera=0;graphics.current.resetPerformance?.();setUpgraded(enabled);setGraphicsNotice(enabled?'Upgraded graphics · experimental':'Original graphics');graphics.current.refresh?.();if(started)focusBrowserGameCanvas(canvas.current!);};
+ const audioUpdate=useRef<{enabled:boolean;controller?:SynchronizedRemixedMusic}>({enabled:false});
+ const [audioUpgraded,setAudioUpgraded]=useState(false),[audioNotice,setAudioNotice]=useState('Original music');
+ const toggleAudioUpdate=()=>{const enabled=!audioUpdate.current.enabled;audioUpdate.current.enabled=enabled;audioUpdate.current.controller?.setEnabled(enabled);setAudioUpgraded(enabled);setAudioNotice(enabled?'Remixed music enabled':'Original music');if(started)focusBrowserGameCanvas(canvas.current!);};
  const enhancedShortcut=(event:ReactKeyboardEvent<HTMLCanvasElement>)=>{
   if(event.repeat||event.ctrlKey||event.metaKey||event.altKey||event.shiftKey||!graphics.current.enabled)return;
   if(event.code==='KeyF'){
@@ -78,6 +82,7 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
  const surface=useRef<HTMLElement>(null),[fullscreen,setFullscreen]=useState(false),[fullscreenError,setFullscreenError]=useState('');
  const canvas=useRef<HTMLCanvasElement>(null),[status,setStatus]=useState('Ready to play Stunts'),[error,setError]=useState('');
  const [trackExplanation,setTrackExplanation]=useState('');
+ useEffect(()=>{void preloadRemixedMusicFiles().catch(()=>{});},[]);
  useEffect(()=>{const visibility=()=>{if(document.hidden)performanceCounter.current.pause();};document.addEventListener('visibilitychange',visibility);return()=>document.removeEventListener('visibilitychange',visibility);},[]);
  useEffect(()=>{const timer=window.setInterval(()=>{if(performanceActiveRef.current&&performance.now()-performanceFrameAt.current>400){performanceActiveRef.current=false;setPerformanceActive(false);}},200);return()=>window.clearInterval(timer);},[]);
  useEffect(()=>{const changed=()=>setFullscreen(document.fullscreenElement===surface.current);document.addEventListener('fullscreenchange',changed);return()=>document.removeEventListener('fullscreenchange',changed);},[]);
@@ -88,8 +93,9 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
   // Each opening run owns its audio clock. A development refresh can restart the
   // effect after cleanup while React retains the started state and ref.
   const runAudio=audioContext.current&&audioContext.current.state!=='closed'?audioContext.current:new AudioContext();
+  const audioUpdateState=audioUpdate.current;
   audioContext.current=runAudio;void runAudio.resume();setError('');
-  let music:Awaited<ReturnType<typeof createNativeMusic>>|undefined;
+  let music:SynchronizedRemixedMusic|undefined;
   let roland:Awaited<ReturnType<typeof createBrowserNativeMt32Music>>|undefined,unsubscribeRoland:(()=>void)|undefined;
   let menus:Awaited<ReturnType<typeof createBrowserNativeMenus>>|undefined;
   const demoAbort=new AbortController();
@@ -110,6 +116,7 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
   const frame=()=>new Promise<void>(resolve=>{wake=resolve;animation=requestAnimationFrame(()=>{wake=undefined;resolve();});});
   async function run(){
    setStatus('Loading original opening assets…');
+   const remixedMusicPromise=decodeRemixedMusic(runAudio);
    const json=async<T,>(name:string):Promise<T>=>{const r=await fetch('/game/'+name+'.json');if(!r.ok)throw Error('Original opening asset failed to load: '+name);return r.json() as Promise<T>;};
    const binary=async(name:string)=>{const r=await fetch('/game/'+name);if(!r.ok)throw Error('Original opening asset failed to load: '+name);return new Uint8Array(await r.arrayBuffer());};
    const enhancedTitlesPromise=Promise.all([loadEnhancedStaticArtwork(ENHANCED_STATIC_ARTWORK.prod),loadEnhancedStaticArtwork(ENHANCED_STATIC_ARTWORK.titl)]);
@@ -117,7 +124,9 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
    const [enhancedProd,enhancedTitl]=await enhancedTitlesPromise;
    retainedSession=readRetainedMenuSession(startup,0x2d1a0);menuClockAt=openingInput.counter();
    if(disposed)return;
-   if(soundDevice==='mt32'){roland=await createBrowserNativeMt32Music(runAudio,demoAbort.signal,rolandPower);music=roland.music;}else music=await (soundDevice==='tandy'?createNativeTandyMusic(runAudio):soundDevice==='pc-speaker'?createNativePcSpeakerMusic(runAudio):createNativeMusic(runAudio));if(disposed){music.close();roland?.output.close();return;}
+   const originalMusic=soundDevice==='mt32'?(roland=await createBrowserNativeMt32Music(runAudio,demoAbort.signal,rolandPower)).music:await (soundDevice==='tandy'?createNativeTandyMusic(runAudio):soundDevice==='pc-speaker'?createNativePcSpeakerMusic(runAudio):createNativeMusic(runAudio));
+   music=createSynchronizedRemixedMusic(runAudio,originalMusic,await remixedMusicPromise,audioUpdateState.enabled);audioUpdateState.controller=music;
+   if(disposed){audioUpdateState.controller=undefined;music.close();roland?.output.close();return;}
    if(roland&&onRolandDevice)unsubscribeRoland=roland.power.subscribe(onRolandDevice);onRolandPower?.(roland?.power);
    applyNativeStartupAudio(initiallyMuted,music.control);
    const context=element.getContext('2d')!;context.imageSmoothingEnabled=false;
@@ -230,8 +239,8 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
     }
    }
   }
-  void run().catch(e=>{openingInput.close();if(!disposed)onRunningChange?.(false);unsubscribeRoland?.();onRolandDevice?.(undefined);onRolandPower?.(undefined);menus?.close();music?.close();roland?.output.close();void runAudio.close().catch(()=>{});if(!disposed)setError(e instanceof Error?e.message:String(e));});
-  return()=>{graphics.current.refresh=undefined;disposed=true;onRunningChange?.(false);demoAbort.abort();unsubscribeRoland?.();onRolandDevice?.(undefined);onRolandPower?.(undefined);menus?.close();music?.close();roland?.output.close();void runAudio.close().catch(()=>{});cancelAnimationFrame(animation);wake?.();openingInput.close();};
+  void run().catch(e=>{openingInput.close();if(!disposed)onRunningChange?.(false);unsubscribeRoland?.();onRolandDevice?.(undefined);onRolandPower?.(undefined);menus?.close();if(audioUpdateState.controller===music)audioUpdateState.controller=undefined;music?.close();roland?.output.close();void runAudio.close().catch(()=>{});if(!disposed)setError(e instanceof Error?e.message:String(e));});
+  return()=>{graphics.current.refresh=undefined;disposed=true;onRunningChange?.(false);demoAbort.abort();unsubscribeRoland?.();onRolandDevice?.(undefined);onRolandPower?.(undefined);menus?.close();if(audioUpdateState.controller===music)audioUpdateState.controller=undefined;music?.close();roland?.output.close();void runAudio.close().catch(()=>{});cancelAnimationFrame(animation);wake?.();openingInput.close();};
  },[assets,started,soundDevice,displayMode,initiallyMuted,hercules,directory,initialTrack,onRolandDevice,onRolandPower,rolandPower,onRunningChange]);
- return <section ref={surface} className={embedded?"launcher-game-session":undefined}><div className="game-toolbar"><button onClick={onBack}>{backLabel}</button><button aria-pressed={upgraded} onClick={toggleGraphics}>{upgraded?"Use original graphics":"Enable graphics update"}</button><span className="sr-only" role="status">{status}</span>{embedded&&<button onClick={()=>void toggleFullscreen()}>{fullscreen?"Exit full screen":"Full screen"}</button>}{!started&&!embedded&&<button onClick={()=>{audioContext.current=new AudioContext();void audioContext.current.resume();setTrackExplanation('');setStarted(true);}}>PLAY STUNTS</button>}</div><output className="sr-only">{graphicsNotice||"Original graphics"}</output><div className={embedded?"launcher-screen":undefined}><canvas ref={canvas} width={1280} height={800} tabIndex={0} aria-label="Native Stunts opening, menus, races and track editor" onKeyDownCapture={enhancedShortcut} style={{width:embedded?'100%':'min(100%, calc((100dvh - 220px) * 4 / 3))',height:'auto',aspectRatio:'4 / 3',margin:'0 auto',display:'block',background:'#000',imageRendering:'auto'}}/>{upgraded&&performanceVisible&&performanceActive&&performanceStats&&<output className="enhanced-performance" aria-label={`Current ${Math.round(performanceStats.currentFps)} FPS, average ${Math.round(performanceStats.averageFps)} FPS, 1% low ${Math.round(performanceStats.low1Fps)} FPS`}><span><small>FPS</small><strong>{Math.round(performanceStats.currentFps)}</strong></span><span><small>AVG</small><strong>{Math.round(performanceStats.averageFps)}</strong></span><span><small>1% LOW</small><strong>{Math.round(performanceStats.low1Fps)}</strong></span></output>}{embedded&&!started&&<div className="launcher-screen-idle stunts-game-idle"><img className="stunts-idle-art" src={ENHANCED_STATIC_ARTWORK.mainMenu} alt="" onError={event=>{if(!event.currentTarget.src.endsWith('/game/menu.png'))event.currentTarget.src='/game/menu.png';}}/><div className="stunts-idle-shade"/><button className="launcher-play" onClick={()=>{audioContext.current=new AudioContext();void audioContext.current.resume();setTrackExplanation('');setStarted(true);}}>PLAY STUNTS</button></div>}</div>{fullscreenError&&<p role="status">{fullscreenError}</p>}{trackExplanation&&<output className="original-track-explanation"><strong>Why Stunts showed this:</strong> {trackExplanation}</output>}{error&&<p role="alert">{error}</p>}</section>;
+ return <section ref={surface} className={embedded?"launcher-game-session":undefined}><div className="game-toolbar game-mode-toolbar"><button onClick={onBack}>{backLabel}</button><button aria-pressed={upgraded} onClick={toggleGraphics}>{upgraded?"Use original graphics":"Enable graphics update"}</button><button aria-pressed={audioUpgraded} onClick={toggleAudioUpdate}>{audioUpgraded?"Use original music":"Enable audio update"}</button><span className="sr-only" role="status">{status}</span>{embedded&&<button onClick={()=>void toggleFullscreen()}>{fullscreen?"Exit full screen":"Full screen"}</button>}{!started&&!embedded&&<button onClick={()=>{audioContext.current=new AudioContext();void audioContext.current.resume();setTrackExplanation('');setStarted(true);}}>PLAY STUNTS</button>}</div><output className="sr-only">{graphicsNotice||"Original graphics"}</output><output className="sr-only">{audioNotice}</output><div className={embedded?"launcher-screen":undefined}><canvas ref={canvas} width={1280} height={800} tabIndex={0} aria-label="Native Stunts opening, menus, races and track editor" onKeyDownCapture={enhancedShortcut} style={{width:embedded?'100%':'min(100%, calc((100dvh - 220px) * 4 / 3))',height:'auto',aspectRatio:'4 / 3',margin:'0 auto',display:'block',background:'#000',imageRendering:'auto'}}/>{upgraded&&performanceVisible&&performanceActive&&performanceStats&&<output className="enhanced-performance" aria-label={`Current ${Math.round(performanceStats.currentFps)} FPS, average ${Math.round(performanceStats.averageFps)} FPS, 1% low ${Math.round(performanceStats.low1Fps)} FPS`}><span><small>FPS</small><strong>{Math.round(performanceStats.currentFps)}</strong></span><span><small>AVG</small><strong>{Math.round(performanceStats.averageFps)}</strong></span><span><small>1% LOW</small><strong>{Math.round(performanceStats.low1Fps)}</strong></span></output>}{embedded&&!started&&<div className="launcher-screen-idle stunts-game-idle"><img className="stunts-idle-art" src={ENHANCED_STATIC_ARTWORK.mainMenu} alt="" onError={event=>{if(!event.currentTarget.src.endsWith('/game/menu.png'))event.currentTarget.src='/game/menu.png';}}/><div className="stunts-idle-shade"/><button className="launcher-play" onClick={()=>{audioContext.current=new AudioContext();void audioContext.current.resume();setTrackExplanation('');setStarted(true);}}>PLAY STUNTS</button></div>}</div>{fullscreenError&&<p role="status">{fullscreenError}</p>}{trackExplanation&&<output className="original-track-explanation"><strong>Why Stunts showed this:</strong> {trackExplanation}</output>}{error&&<p role="alert">{error}</p>}</section>;
 }

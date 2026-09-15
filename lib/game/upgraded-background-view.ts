@@ -14,3 +14,14 @@ export function upgradedBackgroundView([roll,pitch,heading]:Vector){
   rotation:roll===0?0:-roll*Math.PI/512,
  };
 }
+
+// The native panorama projects an effectively distant backdrop, but its
+// vertical framing still includes the active camera's world height. Following
+// cameras deliberately hold that height to avoid car-motion bob. Trackside TV
+// cameras are already fixed in the world, so using their live height preserves
+// native framing without introducing motion.
+export function upgradedBackgroundHeight(chase:boolean,cameraMode:number,liveHeight:number,heldHeight?:number){
+ if(chase)return 0;
+ if(cameraMode===3)return liveHeight;
+ return heldHeight??liveHeight;
+}

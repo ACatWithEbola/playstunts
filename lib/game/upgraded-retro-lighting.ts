@@ -234,6 +234,7 @@ export function createUpgradedRetroLighting() {
    if(!(Array.isArray(node.material)?node.material:[node.material]).some(material=>material instanceof THREE.MeshBasicMaterial))return;
    const geometry = node.geometry;
    const keepsWorldSurfaceColour=geometry.hasAttribute('originalRoadSurface')&&geometry.hasAttribute('originalTerrainSurface');
+   const excludesSceneryCasterFaces=geometry.hasAttribute('originalSceneryCaster');
    if (!geometry.hasAttribute('normal')) geometry.computeVertexNormals();
    // A source car polygon may be warped. One normal for the complete source
    // polygon avoids a visible diagonal between its triangulated halves.
@@ -261,13 +262,14 @@ export function createUpgradedRetroLighting() {
       shader.uniforms['retroShadowActive'+i] = shadow.active;
       shader.uniforms['retroShadowTexel'+i] = shadow.texel;
      });
-     shader.vertexShader = `varying vec3 vRetroNormal; varying vec3 vRetroWorld; varying float vRetroViewDistance;
+     shader.vertexShader = `${excludesSceneryCasterFaces?'attribute float originalSceneryCaster; varying float vOriginalSceneryCaster; ':''}varying vec3 vRetroNormal; varying vec3 vRetroWorld; varying float vRetroViewDistance;
       ${shader.vertexShader}`;
      shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      ${excludesSceneryCasterFaces?'vOriginalSceneryCaster = originalSceneryCaster;':''}
       vRetroNormal = normalize(mat3(modelMatrix) * normal);
       vRetroWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;
       vRetroViewDistance = length((modelViewMatrix * vec4(transformed, 1.0)).xyz);`);
-     shader.fragmentShader = `uniform vec3 retroSun; uniform vec3 retroDistanceTint; varying vec3 vRetroNormal; varying vec3 vRetroWorld; varying float vRetroViewDistance;
+     shader.fragmentShader = `${excludesSceneryCasterFaces?'varying float vOriginalSceneryCaster; ':''}uniform vec3 retroSun; uniform vec3 retroDistanceTint; varying vec3 vRetroNormal; varying vec3 vRetroWorld; varying float vRetroViewDistance;
       uniform mat4 retroShadowMatrix0; uniform sampler2D retroShadowMap0; uniform sampler2D retroShadowReceiverMap0; uniform float retroShadowActive0; uniform vec2 retroShadowTexel0;
       uniform mat4 retroShadowMatrix1; uniform sampler2D retroShadowMap1; uniform sampler2D retroShadowReceiverMap1; uniform float retroShadowActive1; uniform vec2 retroShadowTexel1;
       uniform mat4 retroShadowMatrix2; uniform sampler2D retroShadowMap2; uniform sampler2D retroShadowReceiverMap2; uniform float retroShadowActive2; uniform vec2 retroShadowTexel2;
@@ -323,13 +325,14 @@ export function createUpgradedRetroLighting() {
        float retroDetailedSceneryShadow=retroShadow(retroCoverageMap2,retroShadowMap2,retroShadowReceiverMap2,retroShadowMatrix2,retroShadowTexel2,retroShadowActive2,${SCENERY_RECEIVER_TOLERANCE.toFixed(12)});
        float retroDistantSceneryShadow=retroShadow(retroCoverageMap3,retroShadowMap3,retroShadowReceiverMap3,retroShadowMatrix3,retroShadowTexel3,retroShadowActive3,${DISTANT_SCENERY_RECEIVER_TOLERANCE.toFixed(12)});
        float retroDetailedSceneryWeight=retroSceneryCascadeWeight(retroShadowMatrix2,retroShadowTexel2,retroShadowActive2);
-       retroShadowAmount=max(retroShadowAmount,mix(retroDistantSceneryShadow,retroDetailedSceneryShadow,retroDetailedSceneryWeight));` : ''}
+       float retroSceneryReceiver=${excludesSceneryCasterFaces?'1.0-step(.5,vOriginalSceneryCaster)':'1.0'};
+       retroShadowAmount=max(retroShadowAmount,mix(retroDistantSceneryShadow,retroDetailedSceneryShadow,retroDetailedSceneryWeight)*retroSceneryReceiver);` : ''}
       outgoingLight *= 1.0-retroShadowAmount*${(1-UPGRADED_SHADOW_AMBIENT).toFixed(3)};
       ${node.userData.retroDistanceColour===false?'':`float retroDistanceAmount = smoothstep(${RETRO_DISTANCE_COLOUR.start.toFixed(1)},${RETRO_DISTANCE_COLOUR.end.toFixed(1)},vRetroViewDistance)*${RETRO_DISTANCE_COLOUR.strength.toFixed(3)}*(1.0-retroSourceSurface);
       outgoingLight = mix(outgoingLight,retroDistanceTint,retroDistanceAmount);`}
       #include <opaque_fragment>`);
     };
-    material.customProgramCacheKey = () => key + '/retro-light-v22/' + Number(receiveCarShadows) + '/' + Number(receiveSceneryShadows) + '/' + Number(!!node.userData.originalBodyFace) + '/' + Number(node.userData.retroDistanceColour!==false) + '/' + Number(keepsWorldSurfaceColour);
+    material.customProgramCacheKey = () => key + '/retro-light-v23/' + Number(receiveCarShadows) + '/' + Number(receiveSceneryShadows) + '/' + Number(!!node.userData.originalBodyFace) + '/' + Number(node.userData.retroDistanceColour!==false) + '/' + Number(keepsWorldSurfaceColour) + '/' + Number(excludesSceneryCasterFaces);
     material.needsUpdate = true;
    }
   });
