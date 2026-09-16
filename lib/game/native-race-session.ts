@@ -35,6 +35,7 @@ import {readRecordedTwoCarRace,stepRecordedTwoCarRace} from './recorded-two-car-
 import {playerRouteMemory,recordedPlayerRouteStackFrame} from '../physics/player-route-memory.ts';
 import {trackRoutePoint,trackOpponentRoutePoint} from '../physics/track-route-point.ts';
 import type {RecordedRaceResources} from './recorded-single-player-race.ts';
+import type {TrackGeometry} from '../physics/track-contact.ts';
 import type {Vector} from '../physics/math.ts';
 
 type Analysis=Parameters<typeof analyzeRoute>;
@@ -44,6 +45,19 @@ export interface NativeRaceData {
  tuning:RecordedRaceResources['tuning'];raw:Analysis[0];records:Analysis[1];vectors:Analysis[2];samples:Analysis[3];objects:RecordedRaceResources['track']['objects'];
  points:Parameters<typeof trackRoutePoint>[5];indices:Parameters<typeof trackOpponentRoutePoint>[7];
  planes:RecordedRaceResources['track']['planes'];walls:RecordedRaceResources['track']['walls'];
+}
+export function originalStartFinishPosts(memory:Uint8Array,d:number,simulation:DataView,start:{column:number;row:number;angle:number;hill:0|1}){
+ const view=new DataView(memory.buffer,memory.byteOffset,memory.byteLength);
+ return {
+  column:start.column,terrainRow:start.row,
+  height:view.getInt16(d+0x122+start.hill*2,true),heading:start.angle,
+  dimensions:[0,1,2].map(a=>simulation.getInt16(200+a*2,true)) as Vector,
+  radius:simulation.getInt16(206,true),
+ };
+}
+export function originalRaceTrackGeometry(memory:Uint8Array,d:number,simulation:DataView,start:{column:number;row:number;angle:number;hill:0|1},base:Pick<TrackGeometry,'raw'|'objects'|'planes'|'walls'>):TrackGeometry{
+ const view=new DataView(memory.buffer,memory.byteOffset,memory.byteLength);
+ return {...base,landmarks:{dimensions:[0,1,2].map(a=>simulation.getInt16(200+a*2,true)) as Vector,radius:simulation.getInt16(206,true),hillHeight:view.getInt16(d+0x124,true)},posts:originalStartFinishPosts(memory,d,simulation,start)};
 }
 /** Browser-owned native race state. The startup data retains original uninitialized
  * bytes; execution is entirely TypeScript, with no DOS runtime or trace playback.
@@ -86,10 +100,11 @@ export function createNativeRaceSession(data:NativeRaceData,options:{transporter
  let state=readRecordedTwoCarRace(memory,d),replaySeeking=false;
  const initial=memory.slice(),v=new DataView(memory.buffer),sim=new DataView(data.simulation.buffer,data.simulation.byteOffset,data.simulation.byteLength);
  const wheels=Array.from({length:4},(_,i)=>[0,1,2].map(a=>sim.getInt16(210+i*6+a*2,true)) as Vector);
- const track={raw,objects,planes:data.planes,walls:data.walls,landmarks:{dimensions:[0,1,2].map(a=>sim.getInt16(200+a*2,true)) as Vector,radius:sim.getInt16(206,true),hillHeight:v.getInt16(d+0x124,true)}};
+ // Original 8DF4..8F21 checks both start/finish supports using the current car's bounds.
+ const track=originalRaceTrackGeometry(memory,d,sim,prepared.start,{raw,objects,planes:data.planes,walls:data.walls});
  const opponentSimulation=new DataView(opponentData.simulation.buffer,opponentData.simulation.byteOffset,opponentData.simulation.byteLength);
  const opponentWheels=Array.from({length:4},(_,i)=>[0,1,2].map(a=>opponentSimulation.getInt16(210+i*6+a*2,true)) as Vector);
- const opponentTrack={...track,landmarks:{dimensions:[0,1,2].map(a=>opponentSimulation.getInt16(200+a*2,true)) as Vector,radius:opponentSimulation.getInt16(206,true),hillHeight:v.getInt16(d+0x124,true)}};
+ const opponentTrack=originalRaceTrackGeometry(memory,d,opponentSimulation,prepared.start,{raw,objects,planes:data.planes,walls:data.walls});
  const start={x:v.getInt16(d+0xa3e2+prepared.start.column*2,true),z:v.getInt16(d+0xa796+prepared.start.row*2,true),angle:prepared.start.angle};
  let recording:Uint8Array|undefined=options.replayInputs?memory.slice():undefined,recordedFrames=options.replayInputs?.length??0;
  const resources=(m:Uint8Array,sp=0xff00,incomingSI=0):Parameters<typeof stepRecordedTwoCarRace> extends [unknown,...infer R]?R:never=>{
