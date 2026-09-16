@@ -1,6 +1,6 @@
 'use client';
 import Image from 'next/image';
-import {useCallback,useEffect,useRef,useState} from 'react';
+import {lazy,Suspense,useCallback,useEffect,useRef,useState} from 'react';
 import {loadBrowserSetupSelection} from '@/lib/game/browser-setup-selection';
 import {nativeLaunchProfile} from '@/lib/game/native-launch-profile';
 import OpeningSequence from './OpeningSequence';
@@ -9,10 +9,11 @@ import {useRolandDevice} from './use-roland-device';
 import {RolandDevicePanel} from './RolandDevicePanel';
 import StuntsBrand from './StuntsBrand';
 import SaveBackupPanel from './SaveBackupPanel';
-import Garage from './Garage';
 import StuntsBox from './StuntsBox';
 import StuntsNavigation from './StuntsNavigation';
 import type {Assets} from '@/lib/game/types';
+
+const Garage=lazy(()=>import('./Garage'));
 
 type SavedSetup=Awaited<ReturnType<typeof loadBrowserSetupSelection>>;
 const setupKey=(saved:SavedSetup)=>JSON.stringify([saved.directory,saved.selection]);
@@ -75,7 +76,7 @@ export default function Home(){
    </aside>
    <div className="stunts-setup-column"><section className="launcher-station stunts-setup-station" id="setup" aria-labelledby="setup-heading"><h2 id="setup-heading">GAME SETUP</h2><NativeSetupPanel onClosed={setupClosed}/><div className="launcher-settings-state"><p role="status">{settingsNotice||'Saving changed settings restarts the game automatically.'}</p></div></section><section className="launcher-station stunts-shortcuts" aria-labelledby="shortcuts-heading"><h2 id="shortcuts-heading">KEYBOARD SHORTCUTS</h2><dl><dt><kbd>↑</kbd> / <kbd>↓</kbd></dt><dd>Accelerate / brake</dd><dt><kbd>←</kbd> / <kbd>→</kbd></dt><dd>Steer left / right</dd><dt><kbd>A</kbd> / <kbd>Z</kbd></dt><dd>Shift up / down</dd><dt><kbd>Space</kbd> / <kbd>Enter</kbd></dt><dd>Alternate shift keys</dd><dt><kbd>Esc</kbd></dt><dd>Open game menu</dd><dt><kbd>C</kbd></dt><dd>Cycle camera views</dd><dt><kbd>F1</kbd> – <kbd>F4</kbd></dt><dd>Choose camera</dd><dt><kbd>T</kbd></dt><dd>Follow opponent</dd><dt><kbd>D</kbd></dt><dd>Toggle dashboard</dd><dt><kbd>F</kbd></dt><dd>Toggle FPS (Enhanced)</dd><dt><kbd>V</kbd></dt><dd>Cycle chase distance (Enhanced)</dd><dt><kbd>Ctrl</kbd> + <kbd>Arrows</kbd></dt><dd>Move replay camera</dd><dt><kbd>+</kbd> / <kbd>−</kbd></dt><dd>Zoom replay camera</dd><dt><kbd>Arrow keys</kbd></dt><dd>Choose replay control</dd><dt><kbd>Enter</kbd> / <kbd>Space</kbd></dt><dd>Activate replay control</dd><dt><kbd>Shift</kbd> + <kbd>F1</kbd></dt><dd>Open terrain editor</dd></dl></section></div>
    <section className="launcher-station stunts-play-station" id="play" aria-labelledby="game-heading"><h2 id="game-heading">{showroom?'3D CAR SHOWROOM':'PLAY STUNTS IN YOUR BROWSER'}</h2>
-    {showroom?<div className="stunts-showroom-inline">{assets?<Garage assets={assets}/>:<div className="launcher-loading"><p role={error?'alert':'status'}>{error||'Loading cars…'}</p></div>}</div>:<><OpeningSequence embedded autoStart={autoStart} key={session} assets={assets} ready={!!assets&&!!setup&&(selectedSound!=='mt32'||!!roland.power)} soundDevice={selectedSound} rolandPower={selectedSound==='mt32'?roland.power:undefined} onRunningChange={gameRunningChanged} displayMode={setup?.displayMode} initiallyMuted={setup?.initiallyMuted} hercules={setup?.hercules} directory={setup?.directory} initialTrack={setup?.track} onBack={()=>setSession(value=>value+1)} backLabel="Restart"/>{error&&<p role="alert">{error}</p>}</>}
+    {showroom?<div className="stunts-showroom-inline">{assets?<Suspense fallback={<div className="launcher-loading"><p role="status">Loading cars…</p></div>}><Garage assets={assets}/></Suspense>:<div className="launcher-loading"><p role={error?'alert':'status'}>{error||'Loading cars…'}</p></div>}</div>:<><OpeningSequence embedded autoStart={autoStart} key={session} assets={assets} ready={!!assets&&!!setup&&(selectedSound!=='mt32'||!!roland.power)} soundDevice={selectedSound} rolandPower={selectedSound==='mt32'?roland.power:undefined} onRunningChange={gameRunningChanged} displayMode={setup?.displayMode} initiallyMuted={setup?.initiallyMuted} hercules={setup?.hercules} directory={setup?.directory} initialTrack={setup?.track} onBack={()=>setSession(value=>value+1)} backLabel="Restart"/>{error&&<p role="alert">{error}</p>}</>}
     <section className="launcher-roland" id="roland" aria-label="Roland MT-32 sound module"><RolandDevicePanel roland={roland}/></section>
    </section>
   </div>

@@ -1,16 +1,13 @@
 'use client';
-import {createUpgradedIntro} from '@/lib/game/upgraded-intro';
 import introMaterials from '@/public/game/track-materials.json';
 import {applyNativeStartupAudio} from '@/lib/game/native-launch-profile';
 import {useEffect,useRef,useState,type KeyboardEvent as ReactKeyboardEvent} from 'react';
-import {rasterOriginalDrawCall} from '@/lib/game/raster-original-draw-call';
 import {createBrowserNativeMt32Music,type BrowserNativeMt32Device,type BrowserMt32Power} from '@/lib/game/browser-native-mt32-music';
 import {createNativeTandyMusic} from '@/lib/game/native-tandy-music';
 import {serviceSuppliedTandySilentRequests} from '@/lib/game/supplied-tandy-bios';
 import {executeReadyMt32Program} from '@/lib/game/ready-mt32-program';
 import {executeCooperativeReadyMt32Program} from '@/lib/game/cooperative-ready-mt32-program';
 import {createNativeMusic} from '@/lib/game/native-music';
-import {runBrowserNativeOpening} from '@/lib/game/browser-native-opening';
 import {readRetainedMenuSession,type RetainedMenuSession} from '@/lib/game/retained-menu-session';
 import {focusBrowserGameCanvas} from '@/lib/game/browser-game-focus';
 import {advanceRetainedMenuClock} from '@/lib/game/retained-menu-clock';
@@ -19,9 +16,8 @@ import {originalOpeningExitDecision,originalAnimatedOpeningSkip} from '@/lib/gam
 import {confirmBrowserOpeningExit,type BrowserOpeningDisplay} from '@/lib/game/browser-opening-exit';
 import type {NativeBrowserDisplayMode} from '@/lib/game/browser-native-display-race';
 import {createNativePcSpeakerMusic} from '@/lib/game/native-pc-speaker-music';
-import {runBrowserNativeManualRace} from '@/lib/game/browser-native-manual-race';
-import {createBrowserNativeMenus,type BrowserGraphicsSwitch} from '@/lib/game/browser-native-menus';
-import {loadBrowserNativeDemoData,runBrowserNativeDemo,type BrowserNativeDemoData} from '@/lib/game/browser-native-demo';
+import type {createBrowserNativeMenus,BrowserGraphicsSwitch} from '@/lib/game/browser-native-menus';
+import type {BrowserNativeDemoData} from '@/lib/game/browser-native-demo';
 import type {Assets} from '@/lib/game/types';
 import {originalTitleCards} from '@/lib/game/title-cards';
 import {originalSpritePresentation} from '@/lib/game/sprite-presentation';
@@ -31,19 +27,31 @@ import {originalIntroCredits} from '@/lib/game/intro-credits';
 import {drawOriginalFont} from '@/lib/game/font-raster';
 import {expandEditorArt} from '@/lib/game/editor-art-expand';
 import {drawEditorClippedRaster} from '@/lib/game/editor-clipped-raster';
-import {initializeOriginalCarSimulation} from '@/lib/game/initialize-car-simulation';
 import {initializeOriginalIntroScene,originalIntroRoute} from '@/lib/game/initialize-intro-scene';
-import {createOriginalIntroDriving,type IntroDrivingData} from '@/lib/game/intro-driving';
+import type {IntroDrivingData} from '@/lib/game/intro-driving';
 import {advanceOriginalIntroCamera,initialOriginalIntroCamera} from '@/lib/game/intro-camera';
-import {createOriginalIntroRenderer} from '@/lib/game/intro-renderer';
-import {createOriginalCanvasRaster} from '@/lib/game/original-canvas-raster';
 import {trackOpponentRoutePoint} from '@/lib/physics/track-route-point';
 import {PC_PIT_INPUT_HZ,ORIGINAL_PIT_DIVISOR} from '@/lib/game/timer-interrupt';
 import type {Vector} from '@/lib/physics/math';
 import {createFramePerformanceCounter,type FramePerformanceSnapshot} from '@/lib/game/frame-performance';
-import {ENHANCED_CHASE_CAMERA_LABELS,nextEnhancedChaseCameraLevel,type EnhancedChaseCameraLevel} from '@/lib/game/enhanced-chase-camera';
 import {ENHANCED_STATIC_ARTWORK,loadEnhancedStaticArtwork} from '@/lib/game/enhanced-static-artwork';
 import {createSynchronizedRemixedMusic,decodeRemixedMusic,preloadRemixedMusicFiles,type SynchronizedRemixedMusic} from '@/lib/game/remixed-music';
+
+type EnhancedChaseCameraLevel=0|1|2|3;
+const ENHANCED_CHASE_CAMERA_LABELS=['Original','Close','Standard','Far'] as const;
+const nextEnhancedChaseCameraLevel=(level:EnhancedChaseCameraLevel)=>(level===3?0:level+1) as EnhancedChaseCameraLevel;
+const loadOpeningRuntime=()=>Promise.all([
+ import('@/lib/game/browser-native-menus'),
+ import('@/lib/game/browser-native-demo'),
+ import('@/lib/game/browser-native-opening'),
+ import('@/lib/game/browser-native-manual-race'),
+ import('@/lib/game/upgraded-intro'),
+ import('@/lib/game/raster-original-draw-call'),
+ import('@/lib/game/initialize-car-simulation'),
+ import('@/lib/game/intro-driving'),
+ import('@/lib/game/intro-renderer'),
+ import('@/lib/game/original-canvas-raster'),
+]);
 function originalTrackValidationCode(reason:unknown){
  if(!(reason instanceof Error))return null;
  const match=/^Original (?:track route|terrain) error (\d+)$/.exec(reason.message);
@@ -83,12 +91,6 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
  const surface=useRef<HTMLElement>(null),[fullscreen,setFullscreen]=useState(false),[fullscreenError,setFullscreenError]=useState('');
  const canvas=useRef<HTMLCanvasElement>(null),[status,setStatus]=useState('Ready to play Stunts'),[error,setError]=useState('');
  const [trackExplanation,setTrackExplanation]=useState('');
- useEffect(()=>{
-  const preload=()=>{void preloadRemixedMusicFiles(['titl']).catch(()=>{});};
-  const idleWindow=window as Window&{requestIdleCallback?:(callback:()=>void,options?:{timeout:number})=>number;cancelIdleCallback?:(id:number)=>void};
-  if(idleWindow.requestIdleCallback){const id=idleWindow.requestIdleCallback(preload,{timeout:1500});return()=>idleWindow.cancelIdleCallback?.(id);}
-  const id=window.setTimeout(preload,500);return()=>window.clearTimeout(id);
- },[]);
  useEffect(()=>{const visibility=()=>{if(document.hidden)performanceCounter.current.pause();};document.addEventListener('visibilitychange',visibility);return()=>document.removeEventListener('visibilitychange',visibility);},[]);
  useEffect(()=>{const timer=window.setInterval(()=>{if(performanceActiveRef.current&&performance.now()-performanceFrameAt.current>400){performanceActiveRef.current=false;setPerformanceActive(false);}},200);return()=>window.clearInterval(timer);},[]);
  useEffect(()=>{const changed=()=>setFullscreen(document.fullscreenElement===surface.current);document.addEventListener('fullscreenchange',changed);return()=>document.removeEventListener('fullscreenchange',changed);},[]);
@@ -123,6 +125,8 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
   };
   const frame=()=>new Promise<void>(resolve=>{wake=resolve;animation=requestAnimationFrame(()=>{wake=undefined;resolve();});});
   async function run(){
+   const [{createBrowserNativeMenus},{loadBrowserNativeDemoData,runBrowserNativeDemo},{runBrowserNativeOpening},{runBrowserNativeManualRace},{createUpgradedIntro},{rasterOriginalDrawCall},{initializeOriginalCarSimulation},{createOriginalIntroDriving},{createOriginalIntroRenderer},{createOriginalCanvasRaster}]=await loadOpeningRuntime();
+   if(disposed)return;
    setStatus('Loading original opening assets…');
    const remixedTitlePromise=decodeRemixedMusic(runAudio,['titl']).catch(()=>({}));
    const json=async<T,>(name:string):Promise<T>=>{const r=await fetch('/game/'+name+'.json');if(!r.ok)throw Error('Original opening asset failed to load: '+name);return r.json() as Promise<T>;};
@@ -252,5 +256,6 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
   void run().catch(e=>{openingInput.close();if(!disposed)onRunningChange?.(false);unsubscribeRoland?.();onRolandDevice?.(undefined);onRolandPower?.(undefined);menus?.close();if(audioUpdateState.controller===music)audioUpdateState.controller=undefined;music?.close();roland?.output.close();void runAudio.close().catch(()=>{});if(!disposed)setError(e instanceof Error?e.message:String(e));});
   return()=>{graphicsState.refresh=undefined;disposed=true;onRunningChange?.(false);demoAbort.abort();unsubscribeRoland?.();onRolandDevice?.(undefined);onRolandPower?.(undefined);menus?.close();if(audioUpdateState.controller===music)audioUpdateState.controller=undefined;music?.close();roland?.output.close();void runAudio.close().catch(()=>{});cancelAnimationFrame(animation);wake?.();openingInput.close();};
  },[assets,started,ready,soundDevice,displayMode,initiallyMuted,hercules,directory,initialTrack,onRolandDevice,onRolandPower,rolandPower,onRunningChange]);
- return <section ref={surface} className={embedded?"launcher-game-session":undefined}><div className="game-toolbar game-mode-toolbar"><button onClick={onBack}>{backLabel}</button><button aria-pressed={upgraded} onClick={toggleGraphics}>{upgraded?"Use original graphics":"Enable graphics update"}</button><button aria-pressed={audioUpgraded} onClick={toggleAudioUpdate}>{audioUpgraded?"Use original music":"Enable audio update"}</button><span className="sr-only" role="status">{status}</span>{embedded&&<button onClick={()=>void toggleFullscreen()}>{fullscreen?"Exit full screen":"Full screen"}</button>}{!started&&!embedded&&<button onClick={()=>{audioContext.current=new AudioContext();void audioContext.current.resume();setTrackExplanation('');setStarted(true);}}>PLAY STUNTS</button>}</div><output className="sr-only">{graphicsNotice||"Original graphics"}</output><output className="sr-only">{audioNotice}</output><div className={embedded?"launcher-screen":undefined}><canvas ref={canvas} width={1280} height={800} tabIndex={0} aria-label="Native Stunts opening, menus, races and track editor" onKeyDownCapture={enhancedShortcut} style={{width:embedded?'100%':'min(100%, calc((100dvh - 220px) * 4 / 3))',height:'auto',aspectRatio:'4 / 3',margin:'0 auto',display:'block',background:'#000',imageRendering:'auto'}}/>{upgraded&&performanceVisible&&performanceActive&&performanceStats&&<output className="enhanced-performance" aria-label={`Current ${Math.round(performanceStats.currentFps)} FPS, average ${Math.round(performanceStats.averageFps)} FPS, 1% low ${Math.round(performanceStats.low1Fps)} FPS`}><span><small>FPS</small><strong>{Math.round(performanceStats.currentFps)}</strong></span><span><small>AVG</small><strong>{Math.round(performanceStats.averageFps)}</strong></span><span><small>1% LOW</small><strong>{Math.round(performanceStats.low1Fps)}</strong></span></output>}{embedded&&!started&&<div className="launcher-screen-idle stunts-game-idle"><img className="stunts-idle-art" src={ENHANCED_STATIC_ARTWORK.mainMenu} srcSet={`${ENHANCED_STATIC_ARTWORK.mainMenuMobile} 640w, ${ENHANCED_STATIC_ARTWORK.mainMenu} 1280w`} sizes="(max-width: 700px) calc(100vw - 54px), 960px" width={1280} height={960} alt="" onError={event=>{if(!event.currentTarget.src.endsWith('/game/menu.png'))event.currentTarget.src='/game/menu.png';}}/><div className="stunts-idle-shade"/><button className="launcher-play" disabled={!ready} onClick={()=>{if(!ready)return;audioContext.current=new AudioContext();void audioContext.current.resume();setTrackExplanation('');setStarted(true);}}>{ready?'PLAY STUNTS':'LOADING STUNTS…'}</button></div>}</div>{fullscreenError&&<p role="status">{fullscreenError}</p>}{trackExplanation&&<output className="original-track-explanation"><strong>Why Stunts showed this:</strong> {trackExplanation}</output>}{error&&<p role="alert">{error}</p>}</section>;
+ const startGame=()=>{if(!ready)return;void preloadRemixedMusicFiles(['titl']).catch(()=>{});void rolandPower?.powerOn().catch(()=>{});audioContext.current=new AudioContext();void audioContext.current.resume();setTrackExplanation('');setStarted(true);};
+ return <section ref={surface} className={embedded?"launcher-game-session":undefined}><div className="game-toolbar game-mode-toolbar"><button onClick={onBack}>{backLabel}</button><button aria-pressed={upgraded} onClick={toggleGraphics}>{upgraded?"Use original graphics":"Enable graphics update"}</button><button aria-pressed={audioUpgraded} onClick={toggleAudioUpdate}>{audioUpgraded?"Use original music":"Enable audio update"}</button><span className="sr-only" role="status">{status}</span>{embedded&&<button onClick={()=>void toggleFullscreen()}>{fullscreen?"Exit full screen":"Full screen"}</button>}{!started&&!embedded&&<button onClick={startGame}>PLAY STUNTS</button>}</div><output className="sr-only">{graphicsNotice||"Original graphics"}</output><output className="sr-only">{audioNotice}</output><div className={embedded?"launcher-screen":undefined}><canvas ref={canvas} width={1280} height={800} tabIndex={0} aria-label="Native Stunts opening, menus, races and track editor" onKeyDownCapture={enhancedShortcut} style={{width:embedded?'100%':'min(100%, calc((100dvh - 220px) * 4 / 3))',height:'auto',aspectRatio:'4 / 3',margin:'0 auto',display:'block',background:'#000',imageRendering:'auto'}}/>{upgraded&&performanceVisible&&performanceActive&&performanceStats&&<output className="enhanced-performance" aria-label={`Current ${Math.round(performanceStats.currentFps)} FPS, average ${Math.round(performanceStats.averageFps)} FPS, 1% low ${Math.round(performanceStats.low1Fps)} FPS`}><span><small>FPS</small><strong>{Math.round(performanceStats.currentFps)}</strong></span><span><small>AVG</small><strong>{Math.round(performanceStats.averageFps)}</strong></span><span><small>1% LOW</small><strong>{Math.round(performanceStats.low1Fps)}</strong></span></output>}{embedded&&!started&&<div className="launcher-screen-idle stunts-game-idle"><img className="stunts-idle-art" src={ENHANCED_STATIC_ARTWORK.mainMenu} srcSet={`${ENHANCED_STATIC_ARTWORK.mainMenuMobile} 640w, ${ENHANCED_STATIC_ARTWORK.mainMenu} 1280w`} sizes="(max-width: 700px) calc(100vw - 54px), 960px" width={1280} height={960} alt="" onError={event=>{if(!event.currentTarget.src.endsWith('/game/menu.png'))event.currentTarget.src='/game/menu.png';}}/><div className="stunts-idle-shade"/><button className="launcher-play" disabled={!ready} onPointerDown={()=>{void loadOpeningRuntime().catch(()=>{});void preloadRemixedMusicFiles(['titl']).catch(()=>{});void rolandPower?.powerOn().catch(()=>{});}} onClick={startGame}>{ready?'PLAY STUNTS':'LOADING STUNTS…'}</button></div>}</div>{fullscreenError&&<p role="status">{fullscreenError}</p>}{trackExplanation&&<output className="original-track-explanation"><strong>Why Stunts showed this:</strong> {trackExplanation}</output>}{error&&<p role="alert">{error}</p>}</section>;
 }

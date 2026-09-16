@@ -10,7 +10,7 @@ export function enhancedPanoramaHorizon(pixels:Uint8Array,ground:number,width=NA
 }
 
 /** Original DF2A positions the first of four panorama sections at this offset. */
-export function enhancedPanoramaLeft(heading:number){return ((heading+512)&1023)-1024;}
+export function enhancedPanoramaLeft(heading:number){return ((heading+512)%1024+1024)%1024-1024;}
 
 type EnhancedPanoramaOptions={width:number;height:number;heading:number;horizon:number;rotation:number;sky:string;ground:string};
 

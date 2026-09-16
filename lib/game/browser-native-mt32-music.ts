@@ -16,7 +16,7 @@ export async function createBrowserNativeMt32Music(context:AudioContext,signal:A
  const abort=()=>release();signal.addEventListener('abort',abort,{once:true});
  try{
   if(signal.aborted)throw new DOMException('Roland startup cancelled','AbortError');
-  if(!externalPower&&!await power.powerOn())throw new DOMException('Roland startup cancelled','AbortError');
+  if(!power.device&&!await power.powerOn())throw new DOMException('Roland startup cancelled','AbortError');
   const read=async(path:string)=>{const response=await fetch('/game/'+path,{signal});if(!response.ok)throw Error('Original Roland resource failed to load: '+path);return response;};
   const [titl,slct,vict,over,patch]=await Promise.all([
    read('mt32-music-titl-seed.json').then(r=>r.json() as Promise<OriginalMt32MusicSeed>),

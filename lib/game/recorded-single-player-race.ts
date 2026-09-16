@@ -2,7 +2,7 @@ import {crashFrameSounds,type RaceFrameSound} from './race-frame-sounds.ts';
 import {originalMovementAudioCall} from './movement-audio-call.ts';
 import {readRaceContactScratch,writeRaceContactScratch,writeRaceContactNeighbors,writeContactFrameOrigins} from '../physics/race-contact-scratch.ts';
 import {raceDrivingCaller} from '../physics/race-driving-caller.ts';
-import {produceRaceAudio,type RaceAudioRequest} from './produce-race-audio.ts';
+import {produceRaceAudioInPlace,type RaceAudioRequest} from './produce-race-audio.ts';
 import {restoreReplayCheckpoint} from './restore-replay-checkpoint.ts';
 import {readPlayerDrivingState} from './initialized-player-driving.ts';
 import type {Vector} from '../physics/math.ts';
@@ -29,7 +29,7 @@ export interface RecordedRaceCaller {stackSegment:number;entryStackPointer:numbe
 export interface RecordedRaceResources {caller?:RecordedRaceCaller;produceAudio?:boolean;trackside:Parameters<typeof stepSinglePlayerRaceTick>[1];tuning:Parameters<typeof stepPlayerDriving>[1];wheels:Parameters<typeof stepPlayerDriving>[2];track:Parameters<typeof stepPlayerDriving>[4];navigation:Parameters<typeof stepPlayerDriving> extends [unknown,unknown,unknown,unknown,unknown,unknown,...infer Rest]?Rest:never}
 /** Original single-player caller order, with audio execution returned to its driver. */
 export function stepRecordedSinglePlayerRace(before:RecordedPlayerRace,resources:RecordedRaceResources){
- const prefix=beginReplayFrame(before.memory,before.dataSegment);let {memory}=prefix;
+ const prefix=beginReplayFrame(before.memory,before.dataSegment);const {memory}=prefix;
  // Contact physics reads DS8eab, not the replay-control mode at DSa3c2.
  const track={...resources.track,mode:prefix.active};
  let player=before.player,camera=before.camera,done=before.done,carUpdated=false;
@@ -42,7 +42,7 @@ export function stepRecordedSinglePlayerRace(before:RecordedPlayerRace,resources
  }
  const audioRequests:RaceAudioRequest[]=[];
  const produce=()=>{
-  const result=produceRaceAudio(memory,before.dataSegment);memory=result.memory;audioRequests.push(...result.requests);
+  const result=produceRaceAudioInPlace(memory,before.dataSegment);audioRequests.push(...result.requests);
   player={...player,driving:{...player.driving,race:{...player.driving.race,audioEnabled:memory[before.dataSegment+0x9fea]!==0}}};
  };
  let audio:'before-player'|'after-effects'|null=null,effects:ReturnType<typeof stepPlayerDriving>['effects']=[];

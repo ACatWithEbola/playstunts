@@ -4,7 +4,7 @@ import {readOriginalTandyRaceState,writeOriginalTandyRaceState} from './tandy-ra
 import {readOriginalCarSoundResources} from './read-car-sound-resources.ts';
 import {stepOriginalTandyEffects} from './tandy-effect-runtime.ts';
 import {stepOriginalTandyCarRecords} from './tandy-engine-interrupt.ts';
-import {produceRaceAudio,type RaceAudioRequest} from './produce-race-audio.ts';
+import {produceRaceAudioInPlace,type RaceAudioRequest} from './produce-race-audio.ts';
 import {stopOriginalTandyEffect} from './tandy-effect-stop.ts';
 import type {Vector} from '../physics/math.ts';
 /** One allocated race's regular TD15 resources and live memory state.
@@ -33,7 +33,7 @@ export function createAllocatedTandyRaceAudio(memory:()=>Uint8Array,d:number,dri
   crash(handle:number){return operate(race=>race.crash(handle));},
   update(handle:number,rpm:number,previous:Vector,current:Vector,interval:number){operate(race=>race.update(handle,rpm,previous,current,interval));},
   dispatchRequests:dispatch,
-  produce(){const result=produceRaceAudio(memory(),d);memory().set(result.memory);return dispatch(result.requests);},
+  produce(){return dispatch(produceRaceAudioInPlace(memory(),d).requests);},
   stopEffect(handle:number){
    // Original292F8 releases ownership before stopping the driver's voice.
    // Calling29466 alone leaves a timer busy across a race resource reload.

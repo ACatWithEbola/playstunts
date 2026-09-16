@@ -7,15 +7,20 @@ export type RaceAudioRequest={kind:DrivingSoundRequest|'reset';handle?:number};
  * this does not synthesize audio or run the independent interrupt clock.
  */
 export function produceRaceAudio(before:Uint8Array,dataSegment:number){
- if(!Number.isInteger(dataSegment)||dataSegment<0||dataSegment+65536>before.length)throw Error('Original data segment is outside memory');
- const memory=before.slice(),v=new DataView(memory.buffer),d=dataSegment;
+ const memory=before.slice();
+ return {memory,...produceRaceAudioInPlace(memory,dataSegment)};
+}
+/** Identical producer for a memory image the caller already owns. */
+export function produceRaceAudioInPlace(memory:Uint8Array,dataSegment:number){
+ if(!Number.isInteger(dataSegment)||dataSegment<0||dataSegment+65536>memory.length)throw Error('Original data segment is outside memory');
+ const v=new DataView(memory.buffer,memory.byteOffset,memory.byteLength),d=dataSegment;
  const byte=(off:number)=>memory[d+off],word=(off:number)=>v.getUint16(d+off,true);
  const requests:RaceAudioRequest[]=[];
  const enabled=byte(0x8fc8)!==0;
  if(byte(0x9aca)){
   const result=drivingAudioExit({active:byte(0x9fea),read:word(0x9332),write:word(0x8ffc),playerFlags:byte(0x73d8),opponentFlags:byte(0x73dc),opponentEnabled:byte(0x8fc8),playerHandle:word(0x8016),opponentHandle:word(0x86de)});
   v.setUint16(d+0x9332,result.state.read,true);memory[d+0x9fea]=result.state.active;memory[d+0x73d8]=result.state.playerFlags;memory[d+0x73dc]=result.state.opponentFlags;
-  return {memory,requests:result.calls as RaceAudioRequest[],record:null};
+  return {requests:result.calls as RaceAudioRequest[],record:null};
  }
  const car=(base:number)=>({current:[0,1,2].map(a=>v.getInt32(d+base+a*4,true)) as Vector,previous:[0,1,2].map(a=>v.getInt32(d+base+12+a*4,true)) as Vector,rpm:word(base+34)});
  const mode=byte(0x12f),focus=byte(0xa9f0)!==0;
@@ -40,5 +45,5 @@ export function produceRaceAudio(before:Uint8Array,dataSegment:number){
   memory[d+flags]=transition.flags;
  }
  memory[d+0x9fea]=1;v.setUint16(d+0x8ffc,index===39?0:index+1,true);
- return {memory,requests,record};
+ return {requests,record};
 }

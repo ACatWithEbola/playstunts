@@ -7,7 +7,7 @@ import {beginReplayFrame} from './begin-replay-frame.ts';
 import {advanceRaceClock} from './race-clock.ts';
 import {raceDrivingCaller} from '../physics/race-driving-caller.ts';
 import {readContactFrameScratch,writeContactFrameScratch,writeContactFrameNeighbors,writeContactFrameOrigins} from '../physics/race-contact-scratch.ts';
-import {produceRaceAudio} from './produce-race-audio.ts';
+import {produceRaceAudioInPlace} from './produce-race-audio.ts';
 import type {RaceCameraState} from '../physics/race-cameras.ts';
 import type {Vector} from '../physics/math.ts';
 export interface RecordedTwoCarRace extends RecordedPlayerRace {opponent:ReturnType<typeof readOpponentRaceState>;opponentCamera:RaceCameraState}
@@ -20,7 +20,7 @@ export function readRecordedTwoCarRace(memory:Uint8Array,dataSegment:number):Rec
 /** Shared recorded caller with ordered cross-car contact effects. */
 export function stepRecordedTwoCarRace(before:RecordedTwoCarRace,playerResources:RecordedRaceResources,opponentResources:TwoCarRaceResources['opponent']){
  const caller=playerResources.caller;if(!caller)throw Error('Shared race requires original caller stack context');
- const prefix=beginReplayFrame(before.memory,before.dataSegment);let memory=prefix.memory;
+ const prefix=beginReplayFrame(before.memory,before.dataSegment);const memory=prefix.memory;
  if(!prefix.active||memory[before.dataSegment+0x8fc8]===0){const result=stepRecordedSinglePlayerRace(before,playerResources);return {...result,state:{...before,...result.state}};}
  const d=before.dataSegment,v=new DataView(memory.buffer),race=before.player.driving.race,car=before.player.driving.car,sp=caller.entryStackPointer;
  const registers=raceDrivingCaller(race.stats[2],caller.incomingSI,v.getUint16(d+0x9c40,true),v.getUint16(d+0xa030,true));
@@ -38,7 +38,7 @@ export function stepRecordedTwoCarRace(before:RecordedTwoCarRace,playerResources
   if(current.contactWheelAngles)writeContactFrameScratch(memory,caller.stackSegment,bp,current.contactWheelAngles);
   if(current.contactFrontAngle!==undefined)writeContactFrameNeighbors(memory,caller.stackSegment,bp,current.contactFrontAngle,(index?opponentResources.track:playerResources.track).landmarks?current.contactLandmarkMisses:undefined);
  }
- const audio=playerResources.produceAudio?produceRaceAudio(memory,d):null;if(audio)memory=audio.memory;
+ const audio=playerResources.produceAudio?produceRaceAudioInPlace(memory,d):null;
  const state:RecordedTwoCarRace={...before,memory,player:result.player,opponent:result.opponent,camera:result.cameras[0],opponentCamera:result.cameras[1],done:clock.done};
  if(audio)state.player={...state.player,driving:{...state.player.driving,race:{...state.player.driving.race,audioEnabled:memory[d+0x9fea]!==0}}};
  return {state,audio:'after-effects' as const,audioRequests:audio?.requests??[],effects:result.effects,soundEvents:result.soundEvents,checkpoint:prefix.checkpoint};

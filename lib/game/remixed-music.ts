@@ -31,9 +31,9 @@ export type SynchronizedRemixedMusic=ReturnType<typeof createSynchronizedRemixed
 
 const encodedMusic=new Map<NativeMusicScore,Promise<ArrayBuffer>>();
 
-/** Begin the network transfer while the launcher is idle. Decoding waits for
- * the game-owned AudioContext, but switching never performs network or decode
- * work on the click path. */
+/** Begin the network transfer from an explicit play gesture. Decoding waits
+ * for the game-owned AudioContext; score position still comes from the shared
+ * original-music clock. */
 export function preloadRemixedMusicFiles(names:readonly NativeMusicScore[]=nativeMusicScores){
  return Promise.all(names.map(async name=>{
   let transfer=encodedMusic.get(name);

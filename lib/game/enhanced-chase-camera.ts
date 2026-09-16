@@ -1,6 +1,7 @@
 import {Vector3} from 'three';
 import {originalExternalCameraClearance} from './external-camera-clearance.ts';
 import {upgradedCameraBasis} from './upgraded-camera-basis.ts';
+import {createChaseTurnOffset} from './chase-turn-offset.ts';
 import type {RenderPose} from './render-pose.ts';
 import type {TrackObject} from '../physics/track.ts';
 import type {CollisionPlane} from '../physics/plane.ts';
@@ -41,15 +42,19 @@ export function nextEnhancedChaseCameraLevel(level:EnhancedChaseCameraLevel):Enh
 export function createEnhancedChaseCamera(track:{raw:number[];objects:TrackObject[];planes:CollisionPlane[]}){
  const position=new Vector3(),target=new Vector3(),forward=new Vector3(),up=new Vector3(),lastCar=new Vector3();
  const desiredPosition=new Vector3(),desiredTarget=new Vector3(),desiredForward=new Vector3();
+ const turn=createChaseTurnOffset(),turnAxis=new Vector3(0,1,0);
  let initialized=false,lastAt=0,lastCarIndex=-1,lastFrame=-1,rigLevel:Exclude<EnhancedChaseCameraLevel,0>=1;
  let rig:ChaseRig=copyRig(PRESETS[1]),transitionFrom:ChaseRig=copyRig(PRESETS[1]),transitionTo:ChaseRig=copyRig(PRESETS[1]),transitionAt=0;
  const clear=(point:Vector,mode:number):Vector=>{
   const source=[Math.round(point[0]),Math.round(point[1]),Math.round(-point[2])] as Vector;
   const result=originalExternalCameraClearance(source,track.raw,track.objects,track.planes,mode);
-  return [result[0],result[1],-result[2]];
+  // The integer query decides clearance, not display position. Returning its
+  // rounded eye made the fractional car slide back and forth within every
+  // world unit, especially at low speed. Apply only the clearance correction.
+  return [point[0]+result[0]-source[0],point[1]+result[1]-source[1],point[2]-result[2]+source[2]];
  };
  return {
-  sample(pose:RenderPose,level:Exclude<EnhancedChaseCameraLevel,0>,carIndex:number,now:number,frame:number,raceMode:number){
+  sample(pose:RenderPose,level:Exclude<EnhancedChaseCameraLevel,0>,carIndex:number,now:number,frame:number,raceMode:number,steering=0){
    const preset=PRESETS[level],car=new Vector3(pose.position[0],pose.position[1],-pose.position[2]);
    const interrupted=!initialized||carIndex!==lastCarIndex||now-lastAt>250||frame<lastFrame||car.distanceToSquared(lastCar)>1024*1024;
    const basis=upgradedCameraBasis([pose.rotation[2],pose.rotation[1],pose.rotation[0]]);
@@ -71,11 +76,11 @@ export function createEnhancedChaseCamera(track:{raw:number[];objects:TrackObjec
     }
     rig=mixRig(transitionFrom,transitionTo,transitionFraction(now,transitionAt));
    }
-   const dt=interrupted?0:Math.min(.05,Math.max(0,(now-lastAt)/1000));
-   if(interrupted)forward.copy(desiredForward);
-   else{
-    forward.lerp(desiredForward,1-Math.exp(-dt*9)).normalize();
-   }
+   // Follow the interpolated heading directly, adding only an explicit
+   // steering-driven reveal. Unlike a second body-yaw follower this settles
+   // to one offset during a held turn, independent of native yaw quantization.
+   const turnOffset=turn.sample(frame===0?0:steering,now,interrupted||frame===0);
+   forward.copy(desiredForward).applyAxisAngle(turnAxis,turnOffset);
    up.set(0,1,0);
    desiredTarget.copy(car).addScaledVector(forward,rig.lookAhead).addScaledVector(up,rig.targetHeight);
    desiredPosition.copy(car).addScaledVector(forward,-rig.distance).addScaledVector(up,rig.height);
@@ -96,7 +101,7 @@ export function createEnhancedChaseCamera(track:{raw:number[];objects:TrackObjec
    // correction returned by terrain clearance. Keeping it explicit prevents
    // one-angle-unit horizon hops while the car crosses banked curb pieces.
    const backgroundPitch=Math.round(Math.atan2(rig.targetHeight-rig.height,rig.distance+rig.lookAhead)*512/Math.PI)&1023;
-   return {position:position.toArray() as Vector,target:target.toArray() as Vector,up:up.toArray() as Vector,fov:rig.fov,backgroundPitch};
+   return {position:position.toArray() as Vector,target:target.toArray() as Vector,up:up.toArray() as Vector,fov:rig.fov,backgroundPitch,turnOffset};
   },
   reset(){initialized=false;lastAt=0;lastCarIndex=-1;lastFrame=-1;},
  };

@@ -7,12 +7,12 @@ const CAMERA_CUT_DISTANCE=256;
 export function createLiveGraphicsMotion(){
  let previous:GraphicsMotionFrame|undefined,current:GraphicsMotionFrame|undefined,at=0,lastAt=0,lastFrame=-1,lastMode='';
  const copy=(value:GraphicsMotionFrame)=>structuredClone(value);
- return {sample(value:GraphicsMotionFrame,frame:number,mode:string,paused:boolean,now:number,fixedCamera=false){
+ return {sample(value:GraphicsMotionFrame,frame:number,mode:string,paused:boolean,now:number,fixedCamera=false,independentCamera=false){
   // Trackside/TV cameras jump between fixed camera sites. The original makes
   // that an immediate cut; interpolating the jump creates a brief panorama
   // sweep that is not present in the source game.
   const cameraMoved=!!current&&current.camera.position.some((n,i)=>value.camera.position[i]!==n);
-  const cameraCut=cameraMoved&&(fixedCamera||current!.camera.position.some((n,i)=>Math.abs(value.camera.position[i]-n)>CAMERA_CUT_DISTANCE));
+  const cameraCut=!independentCamera&&cameraMoved&&(fixedCamera||current!.camera.position.some((n,i)=>Math.abs(value.camera.position[i]-n)>CAMERA_CUT_DISTANCE));
   const reset=!current||paused||mode!==lastMode||cameraCut||now-lastAt>200||frame<lastFrame||frame-lastFrame>1;
   if(reset){previous=copy(value);current=copy(value);at=now;}
   else if(frame!==lastFrame){previous=current;current=copy(value);at=now;}

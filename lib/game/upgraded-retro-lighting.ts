@@ -87,12 +87,12 @@ export function retroDistanceStrength(distance:number){
 
 /** A tight, fixed-scale light view follows each car. Shadow pixels stay small
  * during high jumps; the receiving mesh determines the height and slope. */
-export function placeRetroShadowCamera(camera: THREE.OrthographicCamera, center: THREE.Vector3, extent: number, mapSize=CAR_SHADOW_SIZE, depth=16384) {
+export function placeRetroShadowCamera(camera: THREE.OrthographicCamera, center: THREE.Vector3, extent: number, mapSize=CAR_SHADOW_SIZE, depth=16384, sunDirection=RETRO_SUN, near=1) {
  camera.left = camera.bottom = -extent / 2;
  camera.right = camera.top = extent / 2;
- camera.near = 1;
+ camera.near = near;
  camera.far = depth;
- camera.position.copy(center).addScaledVector(RETRO_SUN, depth/2);
+ camera.position.copy(center).addScaledVector(sunDirection, depth/2);
  camera.up.set(0,1,0);
  camera.lookAt(center);
  camera.updateMatrixWorld(true);
@@ -127,7 +127,9 @@ type Shadow = {
 
 /** This layer is installed only by the upgraded race renderer. It composes
  * with original palette/stipple/depth shaders; it never changes game memory. */
-export function createUpgradedRetroLighting() {
+export function createUpgradedRetroLighting(options:{sunDirection?:THREE.Vector3;worldScale?:number}={}) {
+ const sunDirection=(options.sunDirection??RETRO_SUN).clone().normalize(),worldScale=options.worldScale??1;
+ if(!Number.isFinite(worldScale)||worldScale<=0)throw Error('Shadow world scale must be positive');
  // RGB stores depth and alpha explicitly identifies a rasterized caster.
  // Uncovered pixels must never be treated as the shadow-camera footprint.
  const depthMaterial = new THREE.MeshDepthMaterial({depthPacking: THREE.RGBDepthPacking, side: THREE.DoubleSide, blending: THREE.NoBlending, toneMapped: false});
@@ -251,7 +253,7 @@ export function createUpgradedRetroLighting() {
     const compile = material.onBeforeCompile.bind(material), key = material.customProgramCacheKey();
     material.onBeforeCompile = (shader, renderer) => {
      compile(shader, renderer);
-     shader.uniforms.retroSun = {value: RETRO_FACE_LIGHT};
+     shader.uniforms.retroSun = {value: sunDirection};
      shader.uniforms.retroDistanceTint = {value: retroDistanceTint};
      shader.uniforms.retroFilteredCoverage=filteredCoverage;
      shadows.forEach((shadow,i) => {
@@ -392,8 +394,11 @@ export function createUpgradedRetroLighting() {
     source.updateWorldMatrix(true,true);
     for (const proxy of shadow.proxies){proxy.mesh.matrix.copy(proxy.source.matrixWorld);proxy.mesh.matrixWorld.copy(proxy.source.matrixWorld);}
     const bounds = new THREE.Box3().setFromObject(source), center = bounds.getCenter(new THREE.Vector3());
-    const extent = Math.max(128, Math.ceil(bounds.getSize(new THREE.Vector3()).length()/64)*64);
-    shadow.matrix.value.copy(placeRetroShadowCamera(shadow.camera,center,extent));
+    // Showroom coordinates are 1/20 racing-world units. Scale the complete
+    // light volume so texel density, contact bias and receiver tolerance keep
+    // the same proportions; the geometry and soft coverage filter are shared.
+    const extent = Math.max(128*worldScale, Math.ceil(bounds.getSize(new THREE.Vector3()).length()/(64*worldScale))*64*worldScale);
+    shadow.matrix.value.copy(placeRetroShadowCamera(shadow.camera,center,extent,CAR_SHADOW_SIZE,16384*worldScale,sunDirection,worldScale));
     renderer.setRenderTarget(shadow.target);
     renderer.render(shadow.scene,shadow.camera);
     // A caster map alone shadows every surface farther down the same sun ray.
@@ -453,7 +458,7 @@ export function createUpgradedRetroLighting() {
     // changing filtering, or dropping any shadow-casting geometry.
     const threshold=extent/8;
     if(shadow.renderedRevision===sceneryRevision&&shadow.renderedCenter&&shadow.renderedCenter.distanceToSquared(center)<=threshold*threshold)return;
-    shadow.matrix.value.copy(placeRetroShadowCamera(shadow.camera,center,extent,size,depth));
+    shadow.matrix.value.copy(placeRetroShadowCamera(shadow.camera,center,extent,size,depth,sunDirection));
     renderer.setRenderTarget(shadow.target);
     renderer.render(shadow.scene,shadow.camera);
     // Hiding only the registered raised/volumetric objects lets their common

@@ -16,8 +16,13 @@ export function readOriginalRaceAudioTargets(memory:Uint8Array,d:number,record:n
  * 14318 is outside this consumer. Stack equality is explicit caller state.
  */
 export function consumeRaceAudio(before:Uint8Array,dataSegment:number,stackMatches:boolean){
- if(!Number.isInteger(dataSegment)||dataSegment<0||dataSegment+65536>before.length)throw Error('Original data segment is outside memory');
- const memory=before.slice(),d=dataSegment,v=new DataView(memory.buffer);
+ const memory=before.slice();
+ return {memory,targets:consumeRaceAudioInPlace(memory,dataSegment,stackMatches)};
+}
+/** Identical queue consumer for a memory image the caller already owns. */
+export function consumeRaceAudioInPlace(memory:Uint8Array,dataSegment:number,stackMatches:boolean){
+ if(!Number.isInteger(dataSegment)||dataSegment<0||dataSegment+65536>memory.length)throw Error('Original data segment is outside memory');
+ const d=dataSegment,v=new DataView(memory.buffer,memory.byteOffset,memory.byteLength);
  const word=(offset:number)=>v.getUint16(d+(offset&65535),true);
  const next=stepAudioSampleQueue({counter:word(0x8a46),read:word(0x9332),write:word(0x8ffc),busy:memory[d+0x8936],stackMatches});
  const targets:RaceAudioTarget[]=[];
@@ -26,14 +31,14 @@ export function consumeRaceAudio(before:Uint8Array,dataSegment:number,stackMatch
   targets.push(...readOriginalRaceAudioTargets(memory,d,record,event.interval));
  }
  v.setUint16(d+0x8a46,next.counter,true);v.setUint16(d+0x9332,next.read,true);
- return {memory,targets};
+ return targets;
 }
 
 /** Registered order: hardware/effects and car audio, then queued race samples.
  * The host retains the returned memory alongside its recorded race state.
  */
 export function tickRaceAudioMemory(memory:Uint8Array,dataSegment:number,stackMatches:boolean,audio:{tick:()=>number[][];update:(handle:number,rpm:number,previous:Vector,current:Vector,interval:number)=>void}){
- const writes=audio.tick(),result=consumeRaceAudio(memory,dataSegment,stackMatches);
- for(const target of result.targets)audio.update(target.handle,target.rpm,target.previous,target.current,target.interval);
- return {...result,writes};
+ const writes=audio.tick(),targets=consumeRaceAudioInPlace(memory,dataSegment,stackMatches);
+ for(const target of targets)audio.update(target.handle,target.rpm,target.previous,target.current,target.interval);
+ return {memory,targets,writes};
 }

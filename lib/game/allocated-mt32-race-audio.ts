@@ -3,7 +3,7 @@ import {readOriginalMt32RaceState,writeOriginalMt32RaceState} from './mt32-race-
 import {readOriginalCarSoundResources} from './read-car-sound-resources.ts';
 import {stepOriginalMt32Effects} from './mt32-effect-runtime.ts';
 import {stepOriginalMt32CarRecords} from './mt32-engine-interrupt.ts';
-import {produceRaceAudio,type RaceAudioRequest} from './produce-race-audio.ts';
+import {produceRaceAudioInPlace,type RaceAudioRequest} from './produce-race-audio.ts';
 import {stopOriginalMt32Effect} from './mt32-effect-stop.ts';
 import type {Vector} from '../physics/math.ts';
 /** One allocated race's alternate MT15 resources and live memory state.
@@ -31,7 +31,7 @@ export function createAllocatedMt32RaceAudio(memory:()=>Uint8Array,d:number,driv
   crash(handle:number){return operate(race=>race.crash(handle));},
   update(handle:number,rpm:number,previous:Vector,current:Vector,interval:number){operate(race=>race.update(handle,rpm,previous,current,interval));},
   dispatchRequests:dispatch,
-  produce(){const result=produceRaceAudio(memory(),d);memory().set(result.memory);return dispatch(result.requests);},
+  produce(){return dispatch(produceRaceAudioInPlace(memory(),d).requests);},
   stopEffect(handle:number){
    // Original292F8 releases ownership before stopping the driver's voice.
    // Calling29466 alone leaves a timer busy across a race resource reload.
