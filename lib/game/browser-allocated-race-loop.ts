@@ -18,7 +18,7 @@ export async function runBrowserAllocatedRaceLoop(runtime:Runtime,menus:Pick<Men
   const read=(at:number,limit:number)=>{const bytes=memory();let value='';for(let i=0;i<limit&&bytes[d+at+i];i++)value+=String.fromCharCode(bytes[d+at+i]);return value;};
   const state={name:read(0xea,8),path:read(0x98,81)};
   try{await menus.saveReplay(runtime.session,state,pauseAudio,presentation);}
-  finally{for(const [at,value] of [[0x98,state.path],[0xea,state.name]] as const)memory().set(Uint8Array.from([...value].map(char=>char.charCodeAt(0)&255).concat(0)),d+at);}
+  finally{for(const [at,value] of [[0x98,state.path],[0xea,state.name]] as const)memory().set(Uint8Array.from(Array.from(value).map(char=>char.charCodeAt(0)&255).concat(0)),d+at);}
  };
  const replayMenu=()=>menus.replayMenu(runtime.session,{pauseAudio,resetCounter:()=>presentation.releaseInput(),resetMouse:presentation.resetMouse,selectControl:presentation.control,loadReplay:async()=>{const replacement=await services.loadReplay(runtime,presentation);if(replacement){const previous=presentation;runtime=replacement.runtime;presentation=replacement.presentation;previous.close();}},saveReplay,changeGraphics:()=>presentation.changeGraphics(audio.write)},runtime.pixels,{dialog:presentation.dialog,present:presentation.present});
  const replayControls=()=>runtime.replayControls({...presentation,pauseAudio,selectMouse,resetMouse:presentation.resetMouse,menu:replayMenu,waitMessage(){runtime.drawReplayWait();presentation.present();}});

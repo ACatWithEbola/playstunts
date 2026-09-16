@@ -1,6 +1,6 @@
 /** Original 0x1cd00..0x1ce2d, including action-row cursor adjustments. */
 export function editorPaletteCursor(pages:number[][],page:number,cursor:number[],previousTile:number){
- let [column,row]=cursor;let x=220+column*16,y=36+row*16,width=16,height=16,tile=previousTile;
+ let column=cursor[0];const row=cursor[1];let x=220+column*16,y=36+row*16,width=16,height=16,tile=previousTile;
  if(row===6){x=220;width=96;height=8;}
  else if(row===7){y-=8;column=0;x=220;width=96;tile=0;}
  else if(row>7){y-=8;column=column<3?0:3;x=220+column*16;width=48;tile=0;}

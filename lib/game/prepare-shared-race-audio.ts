@@ -15,7 +15,7 @@ export function prepareSharedRaceAudio(
  if(descriptor[6])throw Error('Shared startup requires the original unresolved descriptor');
  for(const offset of [16,20,24,28,32,36,40,44]){
   const bytes=nameAt({offset:view.getUint16(offset,true),segment:view.getUint16(offset+2,true)});
-  names.push(String.fromCharCode(...bytes.slice(0,4)).replace(/\0/g,' '));
+  names.push(String.fromCharCode(...bytes.slice(0,4)).replaceAll('\0',' '));
  }
  const allocated=allocateRawCarAudio(before,descriptor,nameAt,sounds);
  const loaded=loadCarSoundResources(allocated.bank,sounds.voices,names,sounds.bankAddress,sounds.voiceAddress,allocated.percussion);

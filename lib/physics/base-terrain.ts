@@ -4,7 +4,7 @@ import {i16,intSin,intCos} from './math.ts';
  */
 export function baseTerrain(terrain:number,x:number,z:number,raisedHeight:number){
  if(!Number.isInteger(terrain)||terrain<0||terrain>6)throw Error(`Terrain ${terrain} requires slope reconstruction`);
- let surface=4,height=terrain===6?i16(raisedHeight):0;
+ let surface=4;const height=terrain===6?i16(raisedHeight):0;
  if(terrain===1)surface=5;
  else if(terrain>=2&&terrain<=5){
   const angle=[128,-640,-384,-128][terrain-2];

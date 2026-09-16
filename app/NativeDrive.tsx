@@ -679,7 +679,7 @@ export default function NativeDrive({
       disposed = true;
       cleanup();
     };
-  }, [assets, course]);
+  }, [assets, course, gaugeMemory, originalTrackName]);
   return (
     <section className="native-drive">
       <div className="game-toolbar">
@@ -748,6 +748,7 @@ export default function NativeDrive({
       <div
         className={`native-screen native-${drivingView}`}
         ref={host}
+        role="application"
         tabIndex={0}
         aria-label="Native driving test. Arrow keys accelerate, brake and steer; space pauses; R resets; V changes view."
       >

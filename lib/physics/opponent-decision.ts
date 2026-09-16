@@ -18,7 +18,7 @@ export function opponentDecision(state:OpponentDecisionState,playerPosition:Vect
  let targetAlternate=state.targetAlternate;
  const retainAlternate=()=>{if(targetAlternate!==undefined&&routeTarget.alternate!==undefined)targetAlternate=routeTarget.alternate;};
  let avoidance=0,steering=state.steering;
- let contactEntryRegisters: [number,number]|undefined=state.contactCaller?[state.contactCaller.incomingSI&65535,state.contactCaller.incomingDI&65535]:undefined;
+ const contactEntryRegisters: [number,number]|undefined=state.contactCaller?[state.contactCaller.incomingSI&65535,state.contactCaller.incomingDI&65535]:undefined;
  // Historical result name: car+b7 is the initial engine-sound flag, not a physics gate.
  const active=(state.crash&255)&&!(state.roadSpeed&65535)?0:1;
  if(!(state.crash&255)){

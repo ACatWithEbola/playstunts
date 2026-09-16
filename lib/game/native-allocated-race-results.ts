@@ -25,7 +25,7 @@ export async function runAllocatedRaceResults(data:NativeDemoData,runtime:Alloca
  const view=()=>{const m=memory();return new DataView(m.buffer,m.byteOffset,m.byteLength);};
  const word=(at:number)=>view().getUint16(d+(at&65535),true),set=(at:number,n:number)=>view().setUint16(d+(at&65535),n&65535,true);
  const string=(at:number)=>{let text='';for(let i=0;i<65536;i++){const byte=memory()[d+((at+i)&65535)];if(!byte)return text;text+=String.fromCharCode(byte);}throw Error('Unterminated original results string');};
- const writeString=(at:number,text:string)=>memory().set(Uint8Array.from([...text].map(char=>char.charCodeAt(0)&255).concat(0)),d+at);
+ const writeString=(at:number,text:string)=>memory().set(Uint8Array.from(Array.from(text).map(char=>char.charCodeAt(0)&255).concat(0)),d+at);
  const smallFontAddress=()=>word(0x9336)+word(0x9338)*16;
  const scoreAddress=()=>word(0x92fc)+word(0x92fe)*16;
  const choices=()=>({current:[word(0x53fa),word(0x53fc),word(0x53fe)] as [number,number,number],previous:[word(0x53f4),word(0x53f6),word(0x53f8)] as [number,number,number]});

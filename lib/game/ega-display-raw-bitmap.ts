@@ -4,7 +4,7 @@ const u=(n:number)=>n&65535,s=(n:number)=>n<<16>>16;
 /** Software-plane branch of original EGA26C2D/26C5F raw bitmap copy.
  * Retains the original plane work list and reverse drawing order. */
 export function drawOriginalSoftwareEgaRawBitmap(memory:Uint8Array,offset:number,segment:number,position?:{x:number;y:number},operation:'copy'|'and'|'or'='copy',clipped=true){
- const c=0x209e0,source=u(segment)*16,read=(at:number)=>memory[source+u(at)],word=(at:number)=>read(at)|(read(at+1)<<8),cw=(at:number)=>memory[c+u(at)]|(memory[c+u(at+1)]<<8),put=(at:number,value:number)=>{memory[c+u(at)]=value&255;memory[c+u(at+1)]=(value>>>8)&255;};
+ const c=0x209e0,source=u(segment)*16,read=(at:number)=>memory[source+u(at)],cw=(at:number)=>memory[c+u(at)]|(memory[c+u(at+1)]<<8),put=(at:number,value:number)=>{memory[c+u(at)]=value&255;memory[c+u(at+1)]=(value>>>8)&255;};
  const layout=originalEgaRawBitmapLayout(memory,offset,segment,position,clipped);if(!layout)return;
  if(cw(0x9114)===0xa000)throw Error('EGA raw hardware copy requires its planar hardware path');
  const {height,visible,gap,edges,bits,start,rowGap,planeSize}=layout;let {cursor}=layout;

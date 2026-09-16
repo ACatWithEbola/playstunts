@@ -3,7 +3,7 @@ import {originalMenuAudioControl,type OriginalMenuAudioState} from './menu-audio
 /** Original menu controls use Roland system-volume messages for pause/resume. */
 export function createControlledOriginalMt32Music(seed:OriginalMt32MusicSeed){
  const runtime=createOriginalMt32MusicRuntime(seed);
- let state:OriginalMenuAudioState={paused:0,guard:0,musicEnabled:1,soundEnabled:1,alternate:1,alternateVolume:100,trackCount:runtime.state.tracks,volumes:runtime.timers.map(t=>t[40]),pausedVolumes:new Array(24).fill(0),soundVolumes:new Array(24).fill(0)};
+ let state:OriginalMenuAudioState={paused:0,guard:0,musicEnabled:1,soundEnabled:1,alternate:1,alternateVolume:100,trackCount:runtime.state.tracks,volumes:runtime.timers.map(t=>t[40]),pausedVolumes:Array.from({length:24},()=>0),soundVolumes:Array.from({length:24},()=>0)};
  return {
   runtime,get state(){return {...state,volumes:runtime.timers.map(t=>t[40])};},
   control(operation:Parameters<typeof originalMenuAudioControl>[1]){

@@ -21,7 +21,7 @@ export function initializeSameCarRenderBank(memory:Uint8Array,d:number,destinati
 /** Original descriptor and wheel setup, shared by equal and distinct cars. */
 export function initializeCarRenderBank(memory:Uint8Array,d:number,offset:number,segment:number,opponent:boolean,layout:OriginalTrackDisplayLayout=WORLD_DISPLAY_LAYOUTS.mcga){
  const v=new DataView(memory.buffer,memory.byteOffset,memory.byteLength);
- const word=(o:number)=>v.getUint16(d+layout.address(o),true),set=(o:number,n:number)=>v.setUint16(d+layout.address(o),n&65535,true);
+ const word=(o:number)=>v.getUint16(d+layout.address(o),true);
   const base=segment*16+offset,count=v.getUint16(base+4,true),payload=6+count*8;
   const descriptors=opponent?[0x7f2c,0x7f58,0x7f84,0x7ebe,0x7ed4,0x7eea,0x7f00]:[0x7f16,0x7f42,0x7f6e,0x7e66,0x7e7c,0x7e92,0x7ea8];
   const names=['car0','car1','car2','exp0','exp1','exp2','exp3'];

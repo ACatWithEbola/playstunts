@@ -52,7 +52,7 @@ export function createOriginalMusicRuntime(seed:OriginalMusicSeed){
    else if(op===0xe2){const depth=timer[0x32];v.setUint32(0x33+4*depth,v.getUint32(0,true),true);timer[0x43+depth]=(arg-1)&255;timer[0x32]++;}
    else if(op===0xe3){const depth=timer[0x32];if(depth){v.setUint32(0,v.getUint32(0x2f+depth*4,true),true);const remaining=timer[0x42+depth];timer[0x42+depth]--;if(!remaining)timer[0x32]--;}}
    else if(op===0xe4)timer[0x22]=arg;
-   else if(op===0xe5){let value=c.duration??0;let low=value&255;if(value&256)low|=128;v.setInt16(0x26,((value&0xff00)>>>1)+(low<<24>>24)-8192,true);}
+   else if(op===0xe5){const value=c.duration??0;let low=value&255;if(value&256)low|=128;v.setInt16(0x26,((value&0xff00)>>>1)+(low<<24>>24)-8192,true);}
    else if(op===0xea)markers[owner]=arg;
    else throw Error('Music command not yet integrated: '+op.toString(16));
    if(v.getUint32(0,true))v.setUint32(0x18,readSoundCommand(bank,v.getUint16(0,true)).delay,true);

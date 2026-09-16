@@ -28,7 +28,7 @@ export async function createNativeFileStore(original:ReadonlyMap<string,()=>Prom
    // The game's save-name editor accepts punctuation that its DOS create
    // service rejects. Do not persist a multi-dot name the chooser cannot reopen.
    const filename=key.slice(prefix.length);
-   if(/[<>|"=:,;\/\[\]]/.test(filename)||filename.indexOf('.')!==filename.lastIndexOf('.'))throw Error('Invalid DOS filename');
+   if(Array.from(filename).some(character=>'<>|"=:,;/[]'.includes(character))||filename.indexOf('.')!==filename.lastIndexOf('.'))throw Error('Invalid DOS filename');
    const file={key,bytes:bytes.slice(),order:orders.get(key)??nextOrder++};await persistence.put(file);saved.set(key,file.bytes);orders.set(key,file.order);},
  };
 }

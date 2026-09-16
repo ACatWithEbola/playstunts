@@ -12,6 +12,6 @@ export async function loadBrowserMt32Output(signal?:AbortSignal){
  }
  aborted();if(!host.stuntsCreateMunt||host.stuntsMuntVersion!==bridgeVersion)throw Error('Roland synthesizer is unavailable');
  const roms=await Promise.all(['ctrl_mt32_1_07.rom','pcm_mt32.rom'].map(async name=>{const response=await fetch('/game/mt32-local/'+name,{signal});if(!response.ok)throw Error('Roland ROM failed to load: '+name);return new Uint8Array(await response.arrayBuffer());}));
- aborted();const module=await host.stuntsCreateMunt();
- try{aborted();return createMt32WasmOutput(module,roms[0],roms[1]);}catch(error){module._stunts_mt32_close();throw error;}
+ aborted();const munt=await host.stuntsCreateMunt();
+ try{aborted();return createMt32WasmOutput(munt,roms[0],roms[1]);}catch(error){munt._stunts_mt32_close();throw error;}
 }

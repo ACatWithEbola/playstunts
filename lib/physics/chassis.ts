@@ -31,7 +31,7 @@ export function reconstructPose(centres:Vector[]):{position:Vector;rotation:Vect
  const difference=(axis:number,a:number,b:number,c:number,d:number)=>i16(relative[a][axis]+relative[b][axis]-relative[c][axis]-relative[d][axis]);
  const yaw=intAtan2(difference(0,3,2,0,1),i16(-difference(2,3,2,0,1)))&1023;
  relative=relative.map(v=>vecTransform(v,rotateY(yaw)));
- let dz=difference(2,3,2,0,1),dy=difference(1,3,2,0,1);
+ const dz=difference(2,3,2,0,1);let dy=difference(1,3,2,0,1);
  let pitch=dy===0&&dz<0?0:i16(intAtan2(i16(-dz),dy)-256);
  if(Math.abs(pitch)<2)pitch=0;
  if(pitch)relative=relative.map(v=>vecTransform(v,rotateX(pitch)));

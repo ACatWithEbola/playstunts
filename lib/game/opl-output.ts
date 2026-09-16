@@ -5,7 +5,7 @@ import type {PlayerAudioChip} from './player-audio-stream.ts';
  * one-frame output span without advancing the chip past a pending write.
  */
 export function createOplOutput(chip:PlayerAudioChip):PlayerAudioChip {
- let output=new Int16Array(1024);
+ const output=new Int16Array(1024);
  return {
   write(register,value){chip.write(register,value);},
   generate(samples){

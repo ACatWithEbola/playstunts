@@ -8,7 +8,7 @@ import { stepSteering } from './steering.ts';
 import { stepGrip, type GripState, type GripTuning } from './grip.ts';
 import { reconstructPose } from './chassis.ts';
 import { trackContact, type CrashImpact, type TrackGeometry } from './track-contact.ts';
-import { i16, vecTransform, type Vector } from './math.ts';
+import { vecTransform, type Vector } from './math.ts';
 import { rotateZXY } from './rotation.ts';
 import type { LevelState } from './level-step.ts';
 export function stepTrack(
@@ -28,7 +28,7 @@ export function stepTrack(
   if (before.grip.crash) input = 2;
   let contactScratch:number[]|undefined;
   const retainContactScratch=(words:[number,number])=>{if(before.contactEntryRegisters)contactScratch=[...words,...before.contactEntryRegisters];};
-  let engine = stepEngine(before.engine, tuning, input, 20,undefined,retainContactScratch);
+  const engine = stepEngine(before.engine, tuning, input, 20,undefined,retainContactScratch);
   const engineRoadSpeed = engine.roadSpeed;
   const steeringAngle = stepSteering(
     before.grip.steeringAngle,

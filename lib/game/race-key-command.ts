@@ -1,5 +1,5 @@
 import {requestOriginalRaceReplay} from './request-race-replay.ts';
-export interface OriginalRaceKeyServices {selectMouse():void;resetMouse(mode:number):void;initialize(mode:number):void}
+export interface OriginalRaceKeyServices {selectMouse():void|Promise<void>;resetMouse(mode:number):void;initialize(mode:number):void}
 /** Supplied14188..142b2. Raw flag addresses retain their original meaning;
  * notably only lowercase t toggles the opponent view, and R is a flag toggle
  * rather than a race reset. Unrecognized keys skip the transporter only. */
@@ -8,7 +8,7 @@ export function originalRaceKeyCommand(memory:Uint8Array,d:number,key:number,hos
  if(key===27){if(memory[d+0xa3c2]===0)requestOriginalRaceReplay(memory,d);memory[d+0x8ff4]=1;}
  else if(key===68||key===100)memory[d+0x8002]^=1;
  else if(key===72||key===104)memory[d+0x12e]^=1;
- else if(key===77||key===109){host.selectMouse();host.resetMouse(memory[d+0x12c]<<24>>24);}
+ else if(key===77||key===109){void host.selectMouse();host.resetMouse(memory[d+0x12c]<<24>>24);}
  else if(key===82||key===114)memory[d+0xa77f]^=1;
  else if(key===67||key===99){if(memory[d+0xa3c2]!==1){memory[d+0x12f]=(memory[d+0x12f]+1)&255;if(memory[d+0x12f]===4)memory[d+0x12f]=0;}}
  else if(key===116){if(memory[d+0x8fc8])memory[d+0xa9f0]^=1;}

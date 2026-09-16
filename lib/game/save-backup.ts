@@ -6,7 +6,7 @@ export function encodeSaveBackup(files:NativeStoredFile[],directory:string){
 export function decodeSaveBackup(text:string):{files:NativeStoredFile[];directory:string}{
  if(text.length>limit)throw Error('Backup is too large (maximum 32 MB).');
  const value=JSON.parse(text);if(value?.format!=='playstunts-backup'||value.version!==1||!Array.isArray(value.files)||value.files.length>10000)throw Error('This is not a supported Stunts backup.');
- const validPath=(key:unknown):key is string=>typeof key==='string'&&/^[A-Z]:\\/.test(key)&&key.length<=260&&!key.split('\\').some(p=>p==='..'||p==='.')&&!/[\x00-\x1f]/.test(key);
+ const validPath=(key:unknown):key is string=>typeof key==='string'&&/^[A-Z]:\\/.test(key)&&key.length<=260&&!key.split('\\').some(p=>p==='..'||p==='.')&&!Array.from(key).some(character=>character.charCodeAt(0)<=0x1f);
  if(!validPath(value.directory))throw Error('Invalid backup directory.');
  const seen=new Set<string>();
  const files=value.files.map((file:NativeStoredFile&{bytes:string;timestamp?:number})=>{

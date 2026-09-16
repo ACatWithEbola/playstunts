@@ -23,7 +23,7 @@ export interface NativeSelectedReplay {bytes:Uint8Array;name:string;path:string}
 /** Shared native resource entry for an unattended demo or a fresh manual race.
  * Simulation and browser input remain owned by the surrounding race runner. */
 export async function prepareNativeAllocatedRace(data:NativeDemoData,menu:NativeDemoMenuState,demo:boolean,progress:(stage:number)=>void=()=>{},recording?:NativeSelectedReplay){
- const d=0x2d1a0,c=0x209e0,bp=0xeefe,driver=0x39e1;
+ const d=0x2d1a0,bp=0xeefe,driver=0x39e1;
  if(data.base.length!==0x100000||menu.configuration.length!==24||menu.track.length!==1802)throw Error('Incomplete original race startup data');
  let memory:Uint8Array=data.base.slice();
  if(menu.retainedSession)writeRetainedMenuSession(memory,d,menu.retainedSession);
@@ -85,7 +85,7 @@ export async function prepareNativeAllocatedRaceReentry(data:NativeDemoData,befo
  return {...await enterAllocatedRaceResources(data,memory,progress,false),initialWrites:[] as number[][]};
 }
 async function enterAllocatedRaceResources(data:NativeDemoData,before:Uint8Array,progress:(stage:number)=>void,analyzeBeforeEntry:boolean):Promise<{memory:Uint8Array;raw:number[];trackAddress:number;opponentPath:number[]|null}>{
- let memory=before;const d=0x2d1a0,c=0x209e0,bp=0xeefe,demo=!!memory[d+0x90f8];
+ let memory=before;const d=0x2d1a0,c=0x209e0,bp=0xeefe;
  const view=new DataView(memory.buffer,memory.byteOffset,memory.byteLength),trackAddress=view.getUint16(d+0x9356,true)+view.getUint16(d+0x9358,true)*16;
  let raw:number[]=Array.from(memory.slice(trackAddress,trackAddress+1802)),opponentPath:number[]|null=null;
  const filename=(at:number)=>{let name='';for(let i=0;i<65536;i++){const byte=memory[d+((at+i)&65535)];if(!byte)return name;name+=String.fromCharCode(byte);}throw Error('Unterminated original resource filename');};

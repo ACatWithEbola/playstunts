@@ -27,7 +27,7 @@ export function sampleOriginalRouteMemory(memory:Uint8Array,d:number,bp:number,m
   const records=word(0x2018+tile*14),record=records+recordIndex*14;putWord(bp-0x3ae,records);
   let vectors=word(record+8);if(packed&16){const alternate=word(record+10);putWord(bp-0xaea,alternate);if(alternate)vectors=alternate;}
   putWord(bp-0xade,vectors);putWord(bp-0xadc,d>>>4);putWord(bp-0xaf0,record);
-  const vector=vectors+byte(record+5)*12,rotation=word(record+6);let x=signed(vector),y=signed(vector+2),z=signed(vector+4);
+  const vector=vectors+byte(record+5)*12,rotation=word(record+6),y=signed(vector+2);let x=signed(vector),z=signed(vector+4);
   if(rotation===256)[x,z]=[z,s16(-x)];else if(rotation===512){x=s16(-x);z=s16(-z);}else if(rotation===768)[x,z]=[s16(-z),x];
   putWord(bp-0xada,x);putWord(bp-0xad8,y);putWord(bp-0xad6,z);putWord(bp-8,rotation);
   const height=readFar(0x9ad0,cell)===6?450:0,size=byte(0x2023+tile*14);

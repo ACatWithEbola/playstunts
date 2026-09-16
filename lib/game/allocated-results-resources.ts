@@ -41,7 +41,7 @@ export async function loadAllocatedEvaluationResources(host:NativeResourceFileHo
 }
 /** Original6B69..6BC4 after the audio/presentation restoration boundary. */
 export function releaseAllocatedResultsResources(host:Pick<AllocatedResultsHost,'memory'|'writeMemory'>,d:number,resources:Awaited<ReturnType<typeof enterAllocatedResultsResources>>,evaluation?:Pointer){
- const accept=(result:{memory:Uint8Array;error:unknown})=>{if(result.error)throw Error('Original results release failed: '+result.error);host.writeMemory(result.memory);};
+ const accept=(result:{memory:Uint8Array;error:unknown})=>{if(result.error)throw Error('Original results release failed: '+(result.error instanceof Error?result.error.message:JSON.stringify(result.error)));host.writeMemory(result.memory);};
  if(evaluation)accept(releaseResourcePages(host.memory(),d,evaluation.segment));
  if(resources.alternate)accept(freeOriginalSpriteWindow(host.memory(),d,0x209e0,resources.alternate.offset,resources.alternate.segment));
  accept(freeOriginalSpriteWindow(host.memory(),d,0x209e0,resources.surface.offset,resources.surface.segment));

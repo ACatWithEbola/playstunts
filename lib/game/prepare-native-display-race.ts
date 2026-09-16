@@ -15,7 +15,7 @@ export async function prepareNativeDisplayRace(data:Pick<NativeDemoData,'catalog
  const owner=await createNativeDisplayCommonState(mode,source,data.catalog),d=owner.d,liveD=0x2d1a0,high={cga:0x5e0,tandy:0x620,ega:0x45c}[mode],middle=mode==='ega'?0x460:high;
  const checkpoints=allocateOriginalReplayCheckpoints(owner.memory(),d,mode);
  if(checkpoints.error)throw Error('Original display replay allocation failed: '+checkpoints.error);owner.writeMemory(checkpoints.memory);
- let memory=owner.memory();const v=new DataView(memory.buffer);
+ const memory=owner.memory();const v=new DataView(memory.buffer);
  memory.set(live.subarray(liveD+0x8fc2,liveD+0x8fda),d+0x8fc2+high);
  memory[d+0x90f8+high]=live[liveD+0x90f8];memory[d+0xaa6e+high]=live[liveD+0xaa6e];
  memory.set(live.subarray(liveD+0x7460,liveD+0x7463),d+0x7460+middle);

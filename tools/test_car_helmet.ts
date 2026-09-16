@@ -5,7 +5,7 @@ import {createCarModel} from '../lib/game/car-model.ts';
 import {projectOriginalCircle} from '../lib/game/project-original-circle.ts';
 import {originalCirclePlan} from '../lib/game/original-circle-plan.ts';
 
-test('upgraded helmet diameter matches the original projected circle size',()=>{
+await test('upgraded helmet diameter matches the original projected circle size',()=>{
  const group=createCarModel({paintCount:1,vertices:[[0,0,0],[80,0,0]],primitives:[{type:11,flags:0,indices:[0,1],materials:[0]}]},0xffffff,{paint:0,indices:[0],palette:[255,255,255]});
  const helmet=group.children[0] as THREE.Mesh<THREE.SphereGeometry>;
  const diameter=helmet.geometry.parameters.radius*2*400;
