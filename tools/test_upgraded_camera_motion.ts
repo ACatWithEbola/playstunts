@@ -98,7 +98,9 @@ await test('TV background follows native camera projection with no held pitch, h
   assert.equal(shown.panoramaHorizon,nativeHorizon);assert.notEqual(nativeHorizon,previousHorizon);previousHorizon=nativeHorizon;
  }
  for(const source of fixtures){
-  assert.deepEqual(upgradedBackgroundView(source.rotation).angles,source.rotation,'no pitch clamp or independent roll transform');
+  const background=upgradedBackgroundView(source.rotation);
+  assert.deepEqual(background.angles,[0,source.rotation[1],source.rotation[2]],'panorama projection keeps source pitch and heading');
+  near(background.rotation,source.rotation[0]===0?0:-source.rotation[0]*Math.PI/512);
   assert.equal(upgradedBackgroundHeight(false,0,source.position[1]),source.position[1]);
  }
  const before:Vector=[0,997,1018],after:Vector=[0,998,1019];
@@ -107,6 +109,13 @@ await test('TV background follows native camera projection with no held pitch, h
   near(nativePanoramaHorizon([0,997+fraction,1018+fraction],270,projection)!,a+(b-a)*fraction);
   near(enhancedPanoramaLeft(1018+fraction),enhancedPanoramaLeft(1018)+fraction);
  }
+});
+
+await test('banked source view keeps the enhanced panorama eligible and rolls it with the camera',()=>{
+ const source:Vector=[24,7,1010],view=upgradedBackgroundView(source);
+ assert.equal(view.angles[0],0);
+ assert.notEqual(nativePanoramaHorizon(view.angles,270,[160,100,200,160]),undefined);
+ near(view.rotation,-source[0]*Math.PI/512);
 });
 
 await test('native TV site cuts and paused replay remain immediate',()=>{

@@ -1,7 +1,8 @@
 import type {Vector} from '../physics/math.ts';
 
-/** Background and world use one camera. Do not clamp pitch, hold a previous
- * height, or rotate a separately levelled panorama: those reinterpret source
- * framing. Native banked/vertical views retain their original raster branch. */
-export function upgradedBackgroundView(angles:Vector){return {angles:[...angles] as Vector,rotation:0};}
+/** The enhanced panorama is cylindrical artwork: project its horizon with the
+ * source pitch and heading, then apply the source roll to the completed image.
+ * This keeps the upgraded sky present on banked roads without clamping pitch,
+ * holding camera height, or adding any independent background motion. */
+export function upgradedBackgroundView([roll,pitch,heading]:Vector){return {angles:[0,pitch,heading] as Vector,rotation:roll===0?0:-roll*Math.PI/512};}
 export function upgradedBackgroundHeight(_chase:boolean,_cameraMode:number,liveHeight:number){return liveHeight;}

@@ -328,8 +328,8 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    const backgroundView=upgradedBackgroundView(backgroundAngles);
    const effectiveBackgroundHeight=upgradedBackgroundHeight(!!chase,cameraMode,position[1]);
    const background=backdrop.render(backgroundView.angles,effectiveBackgroundHeight,4/3,camera.fov,chase?[cx,cy,chaseFx,chaseFy]:frame.projection,live[d+0x134],chase?undefined:frame.rectangle);
-   // Banked and vertical native views use their exact native raster branch;
-   // imposing a level panorama there would change the original composition.
+   // The cylindrical enhanced artwork is level-projected and then rolled with
+   // the source camera, so a bank no longer switches back to pixel artwork.
    const enhancedBackgroundDrawn=background.panoramaHorizon!==undefined&&(enhancedBackground?.draw(context,{width:canvas.width,height:canvas.height,heading:backgroundView.angles[2],horizon:background.panoramaHorizon,rotation:backgroundView.rotation,sky:paletteCss[background.sky],ground:paletteCss[background.ground]})??false);
    if(!enhancedBackgroundDrawn){
     for(let i=0;i<64000;i++)skyPixels[i]=opaquePalette[background.pixels[i]];
