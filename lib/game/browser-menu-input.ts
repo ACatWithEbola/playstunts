@@ -4,6 +4,7 @@ import {PC_PIT_INPUT_HZ,ORIGINAL_PIT_DIVISOR,ORIGINAL_GAME_TIMER_DIVIDER} from '
 import {originalJoystickSteering} from './joystick-steering.ts';
 import {originalDrivingKeyControls} from './driving-key-controls.ts';
 import {originalKeyboardScanWord} from './keyboard-scan-word.ts';
+import {replayKeyboardHoldButtons} from './replay-keyboard-hold.ts';
 /** Browser hardware boundary for the native original polling routine. */
 export function originalBrowserKey(key:string,shift=false){
  const functionKey=/^F([1-9]|10)$/.exec(key);if(functionKey)return ((shift?0x54:0x3b)+Number(functionKey[1])-1)<<8;
@@ -21,6 +22,7 @@ export function createBrowserMenuInput(element:HTMLCanvasElement,options:{joysti
  // The original IRQ9 handler shares a scan bit between aliases and retains
  // only the latest unread key (DS:43d6 is two bytes in the supplied game).
  const scanHeld=(scan:number)=>active&&held.has(scan);
+ const replayActivationButtons=()=>replayKeyboardHoldButtons(scanHeld(57),scanHeld(28));
  const takeKey=()=>{const key=pendingKey;pendingKey=0;return key;};
  const page=element.ownerDocument??(typeof document==='undefined'?undefined:document);
  const counter=()=>Math.floor((performance.now()-epoch)*PC_PIT_INPUT_HZ/(ORIGINAL_PIT_DIVISOR*1000));
@@ -56,7 +58,7 @@ export function createBrowserMenuInput(element:HTMLCanvasElement,options:{joysti
  };
  const read=async(deltaOverride?:number|(()=>number))=>{await wait();return readImmediate(deltaOverride);};
  return {
-  read,readImmediate,counter,elapsedSinceInputPoll:()=>counter()-lastPoll,nextFrame:wait,ctrlHeld:()=>active&&controlHeld,takeKey,
+  read,readImmediate,counter,elapsedSinceInputPoll:()=>counter()-lastPoll,nextFrame:wait,ctrlHeld:()=>active&&controlHeld,takeKey,replayActivationButtons,
   keyDown:(scan:number)=>Number(scanHeld(scan&255)),
   mouse:()=>({x,y,buttons:active?buttons:0}),
   joystickButtons:()=>gamepad().mask&48,

@@ -90,6 +90,11 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
  const presentHercules=options.hercules?createBrowserHerculesPresenter(options.canvas):undefined;
  const {canvas,music}=options,context=canvas.getContext('2d')!,surface=document.createElement('canvas');surface.width=320;surface.height=200;
  const drawing=surface.getContext('2d')!,image=drawing.createImageData(320,200),pixels=new Uint8Array(65536),input=createBrowserMenuInput(canvas,{joystickEnabled:()=>activeRace?!!activeRace.session.state.memory[0x2d1a0+0x4602]:drivingSettings.joystick,drivingBindings:()=>activeRace?activeRace.session.state.memory.subarray(0x2d1a0+0x430a,0x2d1a0+0x4314):[57,28,71,72,73,77,81,80,79,75],onPoll:()=>{if(options.signal?.aborted)throw new DOMException('Native menu closed','AbortError');return racePoll?.();}}),palette=materials.palette;
+ const readReplayInput=async(memory:()=>Uint8Array,delta?:number|(()=>number))=>{
+  const key=await input.readMemory(memory,0x2d1a0,delta),m=memory(),view=new DataView(m.buffer,m.byteOffset,m.byteLength),at=0x2d1a0+0x9ad4;
+  view.setUint16(at,view.getUint16(at,true)|input.replayActivationButtons(),true);
+  return key;
+ };
  const configuration=options.configuration??[67,79,85,78,0,1,0,255,0,0,0,0,0,68,69,70,65,85,76,84,0,0,1,0];
  const track=options.track??{name:'DEFAULT',path:'',raw:[...options.assets.tracks.find(t=>t.name==='DEFAULT')!.raw]};
  let entryPolls=0,selectedReplay:{bytes:Uint8Array;name:string;path:string}|undefined;
@@ -285,7 +290,7 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
 
    focusBrowserGameCanvas(canvas);
    const waiting=()=>{const backdrop=captureWaitingBackdrop();if(!alternate){const content=drawOriginalRaceWaiting(pixels,font,host.resources.ewai,memory(),0x2d1a0);show('race');presentWaiting(content.layout.bounds,backdrop);}else{const owner=alternate.owner,m=owner.memory(),v=new DataView(m.buffer),live=memory(),source=new DataView(live.buffer),at={cga:0x8ff0,tandy:0x9030,ega:0x8e6c}[owner.mode];v.setInt16(owner.d+at,source.getInt16(0x2d1a0+0x8a10,true),true);restoreOriginalDisplayWindow(m,owner.d,owner.mode);const content=drawOriginalRaceWaitingDisplay(m,owner.d,owner.mode,owner.drawing,host.resources.ewai,0xe800);live[0x2d1a0+0x131]=0;pixels.set(alternate.display.pixels());show('race');presentWaiting(content.layout.bounds,backdrop,()=>paint(alternate.palette,undefined,alternate.owner));}canvas.style.cursor='none';};
-   return {control,present:presentWorld,presentWorld,dialog,opponent,waiting,saveName,saveDialog:saveDialogs.dialog,file:setupDialogs.file,setupDialog:async(resource:string,mode:number,selected:number,border:number)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(resource,mode,selected,border);},read:()=>input.readMemory(memory,0x2d1a0,()=>originalElapsedInputTicks(memory(),0x2d1a0)),input:(delta:number)=>input.readMemory(memory,0x2d1a0,delta),ctrlHeld:input.ctrlHeld,waitTicks:input.waitTicks,
+   return {control,present:presentWorld,presentWorld,dialog,opponent,waiting,saveName,saveDialog:saveDialogs.dialog,file:setupDialogs.file,setupDialog:async(resource:string,mode:number,selected:number,border:number)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(resource,mode,selected,border);},read:()=>readReplayInput(memory,()=>originalElapsedInputTicks(memory(),0x2d1a0)),input:(delta:number)=>readReplayInput(memory,delta),ctrlHeld:input.ctrlHeld,waitTicks:input.waitTicks,
     changeGraphics:(writeAudio:(writes:number[][])=>void)=>selectAllocatedGraphicsLevel({memory,audio:operation=>writeAudio(runtime.dialogAudio(operation)),dialog:async(...args)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(...args);},hideCursor(){canvas.style.cursor='none';}},0x2d1a0),
     selectMouse:(writeAudio:(writes:number[][])=>void)=>selectAllocatedMouseControl({memory,audio:operation=>writeAudio(runtime.dialogAudio(operation)),dialog:async(...args)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(...args);},hideCursor(){canvas.style.cursor='none';}},0x2d1a0),
     hideCursor(){canvas.style.cursor='none';},
@@ -301,7 +306,7 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
    const display=()=>{pixels.set(background.subarray(0,Math.min(background.length,pixels.length)));show('replay');present();};
    const control=createNativeReplayBar({memory,pixels:()=>background,font:replayFont,art,present:display},0x2d1a0);
    focusBrowserGameCanvas(canvas);
-   return {control,present:display,read:()=>input.readMemory(memory,0x2d1a0),input:(delta:number)=>input.readMemory(memory,0x2d1a0,delta),ctrlHeld:input.ctrlHeld,waitTicks:input.waitTicks};
+   return {control,present:display,read:()=>readReplayInput(memory),input:(delta:number)=>readReplayInput(memory,delta),ctrlHeld:input.ctrlHeld,waitTicks:input.waitTicks};
   },
   resetRaceMouse:input.resetMouse,
   async showTrackValidationError(error:number){
