@@ -121,6 +121,7 @@ def main():
             for directory in ['stunts-box','enhanced-backgrounds','enhanced-artwork']:
                 source=args.site_art/directory
                 if source.is_dir():shutil.copytree(source,public/'site'/directory,dirs_exist_ok=True)
+            subprocess.run([node, str(ROOT/'tools/optimize_site_art.mjs'), str(public/'site')], check=True)
         subprocess.run([node, str(ROOT/'tools/generate_startup.ts'), str(game)], check=True)
         scores=game/'high-scores';scores.mkdir(exist_ok=True)
         for name,file in files.items():

@@ -37,7 +37,7 @@
    black surfaces and bold italic headings. Game renderers keep their own styles. */
 .stunts-universe{--stunts-yellow:#fcf420;--background:#080c10;--foreground:#f4f3e9;--primary:var(--stunts-yellow);--primary-foreground:#080c10;--border:#294252;--muted-foreground:#b1bec7;--ring:var(--stunts-yellow);max-width:1560px;padding:0 28px 24px;background:#080c10;font-family:"Arial Narrow","Helvetica Neue","Archivo",Arial,sans-serif}
 .stunts-brand{position:relative;display:block;overflow:hidden;aspect-ratio:4/1;width:100%;isolation:isolate}
-.stunts-brand img{position:absolute!important;width:310%!important;max-width:none!important;height:auto!important;left:-178%;top:-350%;mix-blend-mode:lighten}
+.stunts-brand img{position:absolute!important;inset:0;width:100%!important;max-width:100%!important;height:100%!important;object-fit:contain;mix-blend-mode:lighten}
 .stunts-universe a{color:inherit;text-underline-offset:4px}.stunts-universe button,.stunts-universe a{touch-action:manipulation}.stunts-universe :is(button,a,summary):focus-visible{outline:3px solid var(--stunts-yellow);outline-offset:5px}
 .stunts-universe .stunts-masthead{position:relative;display:grid;grid-template-columns:1.05fr .8fr .9fr;gap:24px;min-height:218px;padding:26px 12px 22px;border:0;overflow:hidden;background:#050708}
 .stunts-masthead-brand{align-self:center;position:relative;z-index:1}.stunts-masthead-brand h1{margin:0;width:100%;font-size:inherit}.stunts-masthead-brand p{margin:13px 0 0;text-align:center;color:#b6c6d3;font-size:13px;letter-spacing:.22em;font-weight:700}
@@ -63,11 +63,13 @@
 
 .stunts-universe .launcher-play:hover{filter:brightness(1.08)}
 
-@font-face{font-family:Archivo;src:url("/site/fonts/archivo-variable.ttf") format("truetype");font-weight:100 900;font-stretch:62% 125%;font-style:normal;font-display:swap}
-@font-face{font-family:Archivo;src:url("/site/fonts/archivo-italic-variable.ttf") format("truetype");font-weight:100 900;font-stretch:62% 125%;font-style:italic;font-display:swap}
+@font-face{font-family:Archivo;src:url("/site/fonts/archivo-variable.woff2") format("woff2");font-weight:100 900;font-stretch:62% 125%;font-style:normal;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Archivo;src:url("/site/fonts/archivo-italic-variable.woff2") format("woff2");font-weight:100 900;font-stretch:62% 125%;font-style:italic;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 .stunts-universe button,.stunts-navigation{font-family:Archivo,Arial,sans-serif}.stunts-history{max-width:850px;border-left:1px solid #294251;padding-left:28px}.stunts-history p{margin:0 0 16px;font-size:17px;line-height:1.65;color:#bdcbd4}.stunts-history p:last-child{margin-bottom:0}.stunts-history strong{color:#f4f3e9}.stunts-universe h2,.stunts-masthead-copy strong,.rail-statement{font-stretch:110%}@media(max-width:760px){.stunts-history{border-left:0;padding-left:0}}
 
-.setup-menu-preview{object-fit:fill;image-rendering:pixelated;filter:brightness(.65)}
+.setup-menu-preview{object-fit:contain;image-rendering:pixelated;filter:brightness(.65)}
+
+.launcher-game-loading{position:relative;overflow:hidden;color:#fff;isolation:isolate}.launcher-game-loading>p,.launcher-game-loading>button{position:relative;z-index:1}.launcher-game-loading>p{padding:.35rem .7rem;background:#071019d9;color:#fff}
 
 /* Keep setup controls and its screen within narrow panel widths. */
 .stunts-universe .native-setup-panel .game-toolbar{height:auto;min-height:64px;flex-wrap:wrap}.stunts-universe .native-setup-panel .game-toolbar>output{min-width:0;flex:1 1 120px;max-width:none}.stunts-universe .native-setup-panel .game-toolbar>button{flex:0 0 auto}.stunts-universe .native-setup-panel{min-width:0}

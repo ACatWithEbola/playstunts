@@ -4,12 +4,12 @@ import {useEffect,useRef,type KeyboardEvent as ReactKeyboardEvent,type PointerEv
 import Image from 'next/image';
 
 const FACE_IMAGE={
- front:{src:'/site/stunts-box/Stunts-front.jpg',width:3930,height:5244},
- back:{src:'/site/stunts-box/Stunts-back.jpg',width:3954,height:5237},
- top:{src:'/site/stunts-box/Stunts-top.jpg',width:621,height:3989},
- bottom:{src:'/site/stunts-box/Stunts-bottom.jpg',width:604,height:3989},
- right:{src:'/site/stunts-box/Stunts-right.jpg',width:637,height:5267},
- left:{src:'/site/stunts-box/Stunts-left.jpg',width:629,height:5299},
+ front:{src:'/site/stunts-box/Stunts-front.webp',width:360,height:478},
+ back:{src:'/site/stunts-box/Stunts-back.webp',width:360,height:478},
+ top:{src:'/site/stunts-box/Stunts-top.webp',width:56,height:360},
+ bottom:{src:'/site/stunts-box/Stunts-bottom.webp',width:56,height:360},
+ right:{src:'/site/stunts-box/Stunts-right.webp',width:56,height:478},
+ left:{src:'/site/stunts-box/Stunts-left.webp',width:56,height:478},
 } as const;
 
 export default function StuntsBox(){

@@ -111,3 +111,21 @@ assert.equal(originalPlays.at(-1),'vict','re-enabling must use the most recently
 assert.equal(context.starts.at(-1).offset,remixedMusicTiming.vict.cueOffset);
 
 console.log('remixed music synchronization checks passed');
+
+const delayedContext=new Context(),delayedOutput=[],delayedPlays=[];
+let delayedSettings={musicEnabled:true,soundEnabled:true,paused:false};
+const delayedOriginal={
+ fadeTicks:128,get settings(){return delayedSettings;},
+ control(operation){if(operation==='pause-audio')delayedSettings={...delayedSettings,paused:true};if(operation==='resume-audio')delayedSettings={...delayedSettings,paused:false};return 0;},
+ setOutputMuted(muted,at=delayedContext.currentTime,fade=0){delayedOutput.push({muted,at,fade});},
+ play(name){delayedPlays.push(name);},async fadeOut(){},stop(){},close(){},
+};
+const delayed=createSynchronizedRemixedMusic(delayedContext,delayedOriginal,{},true);
+delayed.play('slct');
+assert.equal(delayedContext.starts.length,0,'a score that is still downloading must not delay playback');
+assert.equal(delayedOutput.at(-1).muted,false,'the original must remain audible while its remix downloads');
+delayedContext.currentTime=22;
+delayed.addBuffers({slct:buffers.slct});
+assert.equal(delayedContext.starts.length,1,'a downloaded remix must join the score already in progress');
+assert.ok(Math.abs(delayedContext.starts[0].offset-(remixedMusicTiming.slct.cueOffset+11.985))<1e-9,'late loading must use the shared elapsed score position');
+assert.equal(delayedOutput.at(-1).muted,true,'the original may be muted only after the remix is scheduled');

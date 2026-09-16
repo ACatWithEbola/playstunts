@@ -24,7 +24,7 @@ const Answer=({question,children,open=false}:{question:string;children:ReactNode
 export default function FaqPage(){return <main className="game-shell stunts-universe faq-page">
  <header className="stunts-masthead">
   <div className="stunts-masthead-brand"><h1><a href="/" aria-label="Play Stunts home"><StuntsBrand/></a></h1><p className="stunts-developer-credit">BY DISTINCTIVE SOFTWARE, THE DEVELOPERS OF <span style={{whiteSpace:'nowrap'}}>TEST DRIVE™</span> &amp; <span style={{whiteSpace:'nowrap'}}>THE DUEL: TEST DRIVE II™</span></p></div>
-  <div className="stunts-masthead-art" aria-hidden="true"><Image unoptimized width={790} height={309} src="/site/manual-red-car.png" alt=""/></div>
+  <div className="stunts-masthead-art" aria-hidden="true"><Image unoptimized width={790} height={309} src="/site/manual-red-car.webp" alt=""/></div>
   <div className="stunts-masthead-copy"><span>PLAYER &amp; PROJECT GUIDE</span><strong>FREQUENTLY&nbsp;ASKED<br/>QUESTIONS</strong><p>Playing, graphics, sound, saves and local installation.</p></div>
  </header>
  <StuntsNavigation><a href="/#play">PLAY</a><a href="/#setup">SETUP</a><a href="/#about">THE GAME</a><a href="/?view=cars#play">3D CARS</a><a href="/#roland">MT-32</a><a href="https://pigsgrame.de/downloads/stunts.pdf" target="_blank" rel="noreferrer">MANUAL ↗</a><a href="/#saves">TRACKS &amp; REPLAYS</a><a className="nav-play" href="/faq" aria-current="page">FAQ</a><a href="https://github.com/ACatWithEbola/playstunts" target="_blank" rel="noreferrer">GITHUB ↗</a></StuntsNavigation>

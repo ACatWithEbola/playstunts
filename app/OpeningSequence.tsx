@@ -83,7 +83,12 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
  const surface=useRef<HTMLElement>(null),[fullscreen,setFullscreen]=useState(false),[fullscreenError,setFullscreenError]=useState('');
  const canvas=useRef<HTMLCanvasElement>(null),[status,setStatus]=useState('Ready to play Stunts'),[error,setError]=useState('');
  const [trackExplanation,setTrackExplanation]=useState('');
- useEffect(()=>{void preloadRemixedMusicFiles().catch(()=>{});},[]);
+ useEffect(()=>{
+  const preload=()=>{void preloadRemixedMusicFiles(['titl']).catch(()=>{});};
+  const idleWindow=window as Window&{requestIdleCallback?:(callback:()=>void,options?:{timeout:number})=>number;cancelIdleCallback?:(id:number)=>void};
+  if(idleWindow.requestIdleCallback){const id=idleWindow.requestIdleCallback(preload,{timeout:1500});return()=>idleWindow.cancelIdleCallback?.(id);}
+  const id=window.setTimeout(preload,500);return()=>window.clearTimeout(id);
+ },[]);
  useEffect(()=>{const visibility=()=>{if(document.hidden)performanceCounter.current.pause();};document.addEventListener('visibilitychange',visibility);return()=>document.removeEventListener('visibilitychange',visibility);},[]);
  useEffect(()=>{const timer=window.setInterval(()=>{if(performanceActiveRef.current&&performance.now()-performanceFrameAt.current>400){performanceActiveRef.current=false;setPerformanceActive(false);}},200);return()=>window.clearInterval(timer);},[]);
  useEffect(()=>{const changed=()=>setFullscreen(document.fullscreenElement===surface.current);document.addEventListener('fullscreenchange',changed);return()=>document.removeEventListener('fullscreenchange',changed);},[]);
@@ -118,7 +123,7 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
   const frame=()=>new Promise<void>(resolve=>{wake=resolve;animation=requestAnimationFrame(()=>{wake=undefined;resolve();});});
   async function run(){
    setStatus('Loading original opening assets…');
-   const remixedMusicPromise=decodeRemixedMusic(runAudio);
+   const remixedTitlePromise=decodeRemixedMusic(runAudio,['titl']).catch(()=>({}));
    const json=async<T,>(name:string):Promise<T>=>{const r=await fetch('/game/'+name+'.json');if(!r.ok)throw Error('Original opening asset failed to load: '+name);return r.json() as Promise<T>;};
    const binary=async(name:string)=>{const r=await fetch('/game/'+name);if(!r.ok)throw Error('Original opening asset failed to load: '+name);return new Uint8Array(await r.arrayBuffer());};
    const enhancedTitlesPromise=Promise.all([loadEnhancedStaticArtwork(ENHANCED_STATIC_ARTWORK.prod),loadEnhancedStaticArtwork(ENHANCED_STATIC_ARTWORK.titl)]);
@@ -127,7 +132,9 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
    retainedSession=readRetainedMenuSession(startup,0x2d1a0);menuClockAt=openingInput.counter();
    if(disposed)return;
    const originalMusic=soundDevice==='mt32'?(roland=await createBrowserNativeMt32Music(runAudio,demoAbort.signal,rolandPower)).music:await (soundDevice==='tandy'?createNativeTandyMusic(runAudio):soundDevice==='pc-speaker'?createNativePcSpeakerMusic(runAudio):createNativeMusic(runAudio));
-   music=createSynchronizedRemixedMusic(runAudio,originalMusic,await remixedMusicPromise,audioUpdateState.enabled);audioUpdateState.controller=music;
+   music=createSynchronizedRemixedMusic(runAudio,originalMusic,{},audioUpdateState.enabled);audioUpdateState.controller=music;
+   void remixedTitlePromise.then(buffers=>{if(!disposed)music?.addBuffers(buffers);});
+   void remixedTitlePromise.then(()=>decodeRemixedMusic(runAudio,['slct','vict','over'])).then(buffers=>{if(!disposed)music?.addBuffers(buffers);}).catch(()=>{});
    if(disposed){audioUpdateState.controller=undefined;music.close();roland?.output.close();return;}
    if(roland&&onRolandDevice)unsubscribeRoland=roland.power.subscribe(onRolandDevice);onRolandPower?.(roland?.power);
    applyNativeStartupAudio(initiallyMuted,music.control);
