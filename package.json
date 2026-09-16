@@ -11,7 +11,7 @@
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
     "format": "oxfmt",
-    "test": "python3 -m unittest discover -s tools -p \"test_*.py\" && node tools/test_audio_param_automation.mjs && node tools/test_remixed_music.mjs && node tools/test_effect_player.mjs && node tools/test_upgraded_background_view.mjs && node tools/test_replay_keyboard_hold.mjs",
+    "test": "python3 -m unittest discover -s tools -p \"test_*.py\" && node tools/test_audio_param_automation.mjs && node tools/test_remixed_music.mjs && node tools/test_effect_player.mjs && node tools/test_upgraded_background_view.mjs && node tools/test_replay_keyboard_hold.mjs && node tools/test_replay_scrub_animation.mjs",
     "typecheck": "tsc --noEmit",
     "assets:check": "python3 tools/check_assets.py",
     "assets:extract": "python3 tools/extract.py"

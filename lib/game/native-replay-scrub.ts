@@ -21,7 +21,9 @@ export async function scrubNativeReplay(host:NativeReplayScrubHost,d:number,dire
   let target=(word(0x73b2)+distance)&65535;
   if(s16(word(0x8fd8))<s16(target))target=word(0x8fd8);
   host.prepareSeek(target);write(0x73b2,target);host.control(2,4,0);host.waitMessage();
-  while(word(0x8c26)!==word(0x73b2)){host.simulate(target);host.control(1,word(0x8c26),word(0x73b2));}
+  while(word(0x8c26)!==word(0x73b2)){
+   host.simulate(target);host.control(1,word(0x8c26),word(0x73b2));await host.input(1);
+  }
  }else{
   host.control(2,4,0);
   // A quick click can leave the original one-frame accumulator intact even
