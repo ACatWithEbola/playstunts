@@ -38,7 +38,7 @@ export function preloadRemixedMusicFiles(names:readonly NativeMusicScore[]=nativ
  return Promise.all(names.map(async name=>{
   let transfer=encodedMusic.get(name);
   if(!transfer){
-   transfer=fetch(remixPaths[name],{cache:'force-cache'}).then(async response=>{
+   transfer=fetch(remixPaths[name],{cache:'force-cache',priority:'low'} as RequestInit&{priority:'low'}).then(async response=>{
     if(!response.ok)throw Error(`Remixed score failed to load: ${name}`);
     return response.arrayBuffer();
    }).catch(error=>{encodedMusic.delete(name);throw error;});
