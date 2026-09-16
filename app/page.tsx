@@ -63,7 +63,7 @@ export default function Home(){
  const selectedSound=setup?.soundDevice;
  return <main className="game-shell stunts-launcher stunts-universe" id="top">
   <header className="stunts-masthead">
-   <div className="stunts-masthead-brand"><h1><StuntsBrand/></h1><p className="stunts-developer-credit">BY DISTINCTIVE SOFTWARE, THE DEVELOPERS OF <span style={{whiteSpace:'nowrap'}}>TEST DRIVE™</span> &amp; <span style={{whiteSpace:'nowrap'}}>THE DUEL: TEST DRIVE II™</span></p></div>
+   <div className="stunts-masthead-brand"><h1><a href="/" aria-label="Play Stunts home"><StuntsBrand/></a></h1><p className="stunts-developer-credit">BY DISTINCTIVE SOFTWARE, THE DEVELOPERS OF <span style={{whiteSpace:'nowrap'}}>TEST DRIVE™</span> &amp; <span style={{whiteSpace:'nowrap'}}>THE DUEL: TEST DRIVE II™</span></p></div>
    <div className="stunts-masthead-art" aria-hidden="true"><Image unoptimized width={790} height={309} onError={event=>{event.currentTarget.style.display="none";}} src="/site/manual-red-car.webp" alt=""/></div>
    <div className="stunts-masthead-copy"><span>WELCOME TO</span><strong>4D SPORTS<br/>DRIVING</strong><p>Choose your car. Build your track.<br/>Take it for a drive.</p></div>
   </header>
