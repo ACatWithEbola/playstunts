@@ -1,6 +1,8 @@
 import {openNativeFilePersistence,nativeFileKey} from './native-file-store.ts';
 import {readOriginalSetupSelection} from './read-setup-selection.ts';
-export const browserDefaultSetup=()=>new TextEncoder().encode('rem 4 5 -1 -1 -1 -1\r\n');
+// Browser first-run defaults: MCGA and SETUP's Sound Blaster selection. Its
+// original OPL sound/music path is available without optional Roland ROMs.
+export const browserDefaultSetup=()=>new TextEncoder().encode('rem 4 4 -1 -1 -1 -1\r\n');
 export const NATIVE_GAME_DIRECTORY_KEY='stunts-native-game-directory';
 /** Browser launch boundary: installed files override immutable supplied files.
  * Configuration parsing itself remains the original SETUP parser. */
