@@ -13,5 +13,5 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image', title, description, images: sharingImage.map(image => image.url) },
 };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="en"><head><link rel="preload" as="image" type="image/webp" href="/site/enhanced-artwork/SDMSEL-scrn-menu-v1.webp" fetchPriority="high"/></head><body>{children}</body></html>;
+  return <html lang="en"><head><link rel="preload" as="image" type="image/webp" href="/site/enhanced-artwork/SDMSEL-scrn-menu-display-v1.webp" fetchPriority="high"/></head><body>{children}</body></html>;
 }

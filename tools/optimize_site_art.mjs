@@ -19,6 +19,7 @@ await sharp(path.join(site,'manual-cover-spread.png'))
  .toFile(path.join(site,'stunts-wordmark.webp'));
 await convert('manual-red-car.png','manual-red-car.webp',{lossless:true,effort:6});
 await convert('enhanced-artwork/SDMSEL-scrn-menu-v1.png','enhanced-artwork/SDMSEL-scrn-menu-v1.webp',{quality:92,smartSubsample:true,effort:6});
+await convert('enhanced-artwork/SDMSEL-scrn-menu-v1.png','enhanced-artwork/SDMSEL-scrn-menu-display-v1.webp',{quality:92,smartSubsample:true,effort:6},{width:1280,height:960});
 
 for(const [name,width,height] of [
  ['front',360,478],['back',360,478],['left',56,478],['right',56,478],['top',56,360],['bottom',56,360],
