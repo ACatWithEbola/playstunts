@@ -1,6 +1,7 @@
 import {ORIGINAL_PIT_DIVISOR,PC_PIT_INPUT_HZ} from './timer-interrupt.ts';
 import type {createNativeMusic} from './native-music.ts';
 import {nativeMusicScores,type NativeMusicScore} from './native-music-score.ts';
+import {cancelAndHoldAudioParam} from './audio-param-automation.ts';
 
 const REMIX_ROOT='/audio/remixed';
 const SCHEDULE_LEAD=.015;
@@ -56,7 +57,7 @@ export function createSynchronizedRemixedMusic(context:AudioContext,original:Ori
  let position=0,startedAt=0,generation=0;
  const level=(value:number,at=context.currentTime,fade=0)=>{
   if(closed)return;const parameter=gain.gain;
-  parameter.cancelAndHoldAtTime(at);
+  cancelAndHoldAudioParam(parameter,at);
   if(fade>0)parameter.linearRampToValueAtTime(value,at+fade);else parameter.setValueAtTime(value,at);
  };
  const release=()=>{if(!source)return;source.onended=null;try{source.stop();}catch{}source.disconnect();source.buffer=null;source=undefined;};

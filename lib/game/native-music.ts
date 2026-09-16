@@ -7,6 +7,7 @@ import {createOplOutput} from './opl-output.ts';
 import {audioTimerSampleOffsets} from './audio-sample-clock.ts';
 import {audioBufferBatch} from './audio-buffer-batch.ts';
 import {fadeOriginalMusic} from './fade-original-music.ts';
+import {cancelAndHoldAudioParam} from './audio-param-automation.ts';
 /** Bounded streaming of the reconstructed original score, without recording or MIDI conversion. */
 export async function createNativeMusic(context:AudioContext){
  const seeds=await Promise.all(nativeMusicScores.map(async name=>{const r=await fetch('/game/music-'+name+'-seed.json');if(!r.ok)throw Error('Original score failed to load');return await r.json() as OriginalMusicSeed;}));
@@ -29,7 +30,7 @@ export async function createNativeMusic(context:AudioContext){
   if(operation==='toggle-music')musicEnabled=!musicEnabled;else if(operation==='toggle-sound')soundEnabled=!soundEnabled;else paused=operation==='pause-audio';
   return operation==='toggle-music'?Number(musicEnabled):operation==='toggle-sound'?Number(soundEnabled):0;
  };
- const setOutputMuted=(muted:boolean,at=context.currentTime,fade=0)=>{if(closed)return;const parameter=gain.gain;parameter.cancelAndHoldAtTime(at);if(fade>0)parameter.linearRampToValueAtTime(muted?0:.6,at+fade);else parameter.setValueAtTime(muted?0:.6,at);};
+ const setOutputMuted=(muted:boolean,at=context.currentTime,fade=0)=>{if(closed)return;const parameter=gain.gain;cancelAndHoldAudioParam(parameter,at);if(fade>0)parameter.linearRampToValueAtTime(muted?0:.6,at+fade);else parameter.setValueAtTime(muted?0:.6,at);};
  return {control,setOutputMuted,fadeTicks:128,get settings(){return {musicEnabled,soundEnabled,paused};},play(name:NativeMusicScore){if(closed||!musicEnabled)return;const restorePaused=paused,restoreSound=soundEnabled;stop();const seed=seeds[nativeMusicScores.indexOf(name)];runtime=createControlledOriginalMusic(seed);phase=0;for(const [reg,value] of seed.initialWrites)output.write(reg,value);if(!restoreSound)control('toggle-sound');if(restorePaused)control('pause-audio');pump();timer=setInterval(pump,25);},
   async fadeOut(waitTicks:(ticks:number)=>Promise<void>){
    if(closed)return;const owner=++generation,active=()=>!closed&&owner===generation;const memory=new Uint8Array(65536);memory[0x9f62]=127;let delay=0;
