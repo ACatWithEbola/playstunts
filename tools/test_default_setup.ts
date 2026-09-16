@@ -13,7 +13,7 @@ import {nativeFileKey, type NativeStoredFile} from '../lib/game/native-file-stor
 const resource = JSON.parse(readFileSync(new URL('../public/game/setup-initial-data.json', import.meta.url), 'utf8'));
 const initial = Buffer.from(resource.data, 'hex');
 
-await test('fresh browser SETUP selects Sound Blaster and saves the original /ssb command', async () => {
+await test('fresh browser SETUP selects Sound Blaster without ROMs and MT-32 with ROMs', async () => {
   const configuration = browserDefaultSetup();
   const selected = await readOriginalSetupSelection(initial, configuration);
   assert.deepEqual(selected, {video: 4, sound: 4, control: -1, language: -1, printer: -1, soundParameter: -1});
@@ -33,30 +33,33 @@ await test('fresh browser SETUP selects Sound Blaster and saves the original /ss
   });
   assert.match(new TextDecoder().decode(saved), /load\.exe \/u MCGA  \/ssb /);
   assert.deepEqual(await readOriginalSetupSelection(initial, saved), selected);
+  const roland = await readOriginalSetupSelection(initial, browserDefaultSetup(true));
+  assert.equal(roland.sound, 5);
+  assert.equal(nativeLaunchProfile(roland).soundDevice, 'mt32');
   // Browser seeding must not rewrite the original missing-file detection rule.
   assert.equal((await readOriginalSetupSelection(initial, null, 4)).sound, 1);
   assert.equal((await readOriginalSetupSelection(initial, null, 3)).sound, 2);
 });
 
-await test('Setup storage uses the new seed only when a user has no saved SETUP.DAT', async () => {
-  for (const savedSound of [undefined, 0, 1, 2, 3, 4, 5]) {
+await test('Setup storage uses the detected seed only when a user has no saved SETUP.DAT', async () => {
+ for(const mt32Installed of [false,true])for (const savedSound of [undefined, 0, 1, 2, 3, 4, 5]) {
     const bytes = savedSound === undefined ? undefined : Buffer.from(`rem 2 ${savedSound} -1 -1 -1 -1\r\n`);
     const files: NativeStoredFile[] = bytes ? [{key: 'C:\\SETUP.DAT', bytes}] : [];
     const before = structuredClone(files);
     const storage = await createNativeSetupStorage(new Map([
-      ['C:\\SETUP.DAT', {bytes: browserDefaultSetup(), timestamp: 0}],
+      ['C:\\SETUP.DAT', {bytes: browserDefaultSetup(mt32Installed), timestamp: 0}],
     ]), {all: async () => files, async put() {assert.fail('Reading Setup must not overwrite settings');}});
     const configuration = await storage.read('SETUP.DAT');
     assert.ok(configuration);
     const selected = await readOriginalSetupSelection(initial, configuration.bytes);
-    assert.equal(selected.sound, savedSound ?? 4);
+    assert.equal(selected.sound, savedSound ?? (mt32Installed?5:4));
     assert.equal(selected.video, bytes ? 2 : 4);
     if (bytes) assert.deepEqual(Uint8Array.from(configuration.bytes), Uint8Array.from(bytes));
     assert.deepEqual(structuredClone(files), before);
   }
 });
 
-await test('actual browser launch defaults to Sound Blaster and retains existing per-directory settings', async () => {
+await test('browser launch falls back only from unavailable MT-32 and retains saved settings', async () => {
   const names = ['indexedDB', 'localStorage', 'fetch'] as const;
   const descriptors = names.map(name => Object.getOwnPropertyDescriptor(globalThis, name));
   let directory = 'C:\\', files: NativeStoredFile[] = [], closed = 0;
@@ -83,17 +86,22 @@ await test('actual browser launch defaults to Sound Blaster and retains existing
     return {ok: true, json: async () => resource};
   }});
   try {
-    for (const path of ['C:\\', 'C:\\STUNTS\\']) for (const sound of [undefined, 0, 1, 2, 3, 4, 5]) {
+   for(const installed of [false,true])for (const path of ['C:\\', 'C:\\STUNTS\\']) for (const sound of [undefined, 0, 1, 2, 3, 4, 5]) {
       directory = path;
       files = sound === undefined ? [] : [{key: nativeFileKey(path, 'SETUP', '.DAT'), bytes: Buffer.from(`rem 2 ${sound} -1 -1 -1 -1\r\n`)}];
       const before = structuredClone(files);
-      const loaded = await loadBrowserSetupSelection(new AbortController().signal);
+      let probes=0;
+      const loaded = await loadBrowserSetupSelection(new AbortController().signal,async()=>{probes++;return installed;});
       assert.equal(loaded.directory, path);
-      assert.equal(loaded.selection.sound, sound ?? 4);
+      const configured=sound??(installed?5:4),effective=configured===5&&!installed?4:configured;
+      assert.equal(loaded.configuredSelection.sound,configured);
+      assert.equal(loaded.selection.sound,effective);
       assert.equal(loaded.selection.video, sound === undefined ? 4 : 2);
+      assert.equal(loaded.mt32Fallback,!installed&&(sound===undefined||sound===5));
+      assert.equal(probes,sound===undefined||sound===5?1:0,'Only clean or selected MT-32 sound may probe the ROMs');
       assert.deepEqual(structuredClone(files), before);
     }
-    assert.equal(closed, 14, 'every launch closes its read connection');
+    assert.equal(closed, 28, 'every launch closes its read connection');
   } finally {
     names.forEach((name, index) => {
       if (descriptors[index]) Object.defineProperty(globalThis, name, descriptors[index]!);

@@ -51,7 +51,7 @@ The recognized `DEFAULT.TRK`, `LOAD.EXE`, `ST.COM` and `STUNTS.COM` variants in 
 
 ### Roland MT-32
 
-The default sound choice is MT-32. For that option, put these two files in a separate directory and include `--roms` when preparing:
+MT-32 is the default original sound only when both supported ROMs are installed and validated. Otherwise the browser explains what is missing and uses Sound Blaster, while every other Setup sound choice remains unchanged. To enable MT-32, put these two files in a separate directory and include `--roms` when preparing:
 
 ```sh
 python tools/prepare_assets.py --original "/path/to/your/Stunts" --roms "/path/to/your/MT32-ROMs" --output public

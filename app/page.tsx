@@ -12,16 +12,17 @@ import SaveBackupPanel from './SaveBackupPanel';
 import StuntsBox from './StuntsBox';
 import StuntsNavigation from './StuntsNavigation';
 import type {Assets} from '@/lib/game/types';
+import {MT32_INSTALLATION_GUIDE} from '@/lib/game/browser-mt32-installation';
 
 const Garage=lazy(()=>import('./Garage'));
 
 type SavedSetup=Awaited<ReturnType<typeof loadBrowserSetupSelection>>;
-const setupKey=(saved:SavedSetup)=>JSON.stringify([saved.directory,saved.selection]);
+const setupKey=(saved:SavedSetup)=>JSON.stringify([saved.directory,saved.configuredSelection]);
 const soundNames=['No sound','PC speaker','Tandy','AdLib','Sound Blaster','Roland MT-32'];
 export default function Home(){
  const roland=useRolandDevice();
  const [running,setRunning]=useState(false);
- const [setup,setSetup]=useState<(ReturnType<typeof nativeLaunchProfile>&{directory:string;track?:number[];soundName:string})|null>(null);
+ const [setup,setSetup]=useState<(ReturnType<typeof nativeLaunchProfile>&{directory:string;track?:number[];soundName:string;mt32Fallback:boolean})|null>(null);
  const [assets,setAssets]=useState<Assets|null>(null),[error,setError]=useState(''),[session,setSession]=useState(0);
  const [settingsNotice,setSettingsNotice]=useState(''),[autoStart,setAutoStart]=useState(false);
  const [showroom,setShowroom]=useState(false);
@@ -39,7 +40,7 @@ export default function Home(){
   const controller=new AbortController();
   fetch('/game/assets.json',{signal:controller.signal}).then(response=>{if(!response.ok)throw Error('The game files could not load. Please reload the page.');return response.json();}).then(async value=>{
    const saved=await loadBrowserSetupSelection(controller.signal),profile=nativeLaunchProfile(saved.selection);if(controller.signal.aborted)return;
-   currentSetupKey.current=setupKey(saved);setSetup({...profile,directory:saved.directory,track:saved.track,soundName:soundNames[saved.selection.sound]});setAssets(value as Assets);
+   currentSetupKey.current=setupKey(saved);setSetup({...profile,directory:saved.directory,track:saved.track,soundName:soundNames[saved.selection.sound],mt32Fallback:saved.mt32Fallback});setAssets(value as Assets);
   }).catch(reason=>{if(!controller.signal.aborted)setError(reason instanceof Error?reason.message:String(reason));});
   return()=>controller.abort();
  },[session]);
@@ -76,6 +77,7 @@ export default function Home(){
    </aside>
    <div className="stunts-setup-column"><section className="launcher-station stunts-setup-station" id="setup" aria-labelledby="setup-heading"><h2 id="setup-heading">GAME SETUP</h2><NativeSetupPanel onClosed={setupClosed}/><div className="launcher-settings-state"><p role="status">{settingsNotice||'Saving changed settings restarts the game automatically.'}</p></div></section><section className="launcher-station stunts-shortcuts" aria-labelledby="shortcuts-heading"><h2 id="shortcuts-heading">KEYBOARD SHORTCUTS</h2><dl><dt><kbd>↑</kbd> / <kbd>↓</kbd></dt><dd>Accelerate / brake</dd><dt><kbd>←</kbd> / <kbd>→</kbd></dt><dd>Steer left / right</dd><dt><kbd>A</kbd> / <kbd>Z</kbd></dt><dd>Shift up / down</dd><dt><kbd>Space</kbd> / <kbd>Enter</kbd></dt><dd>Alternate shift keys</dd><dt><kbd>Esc</kbd></dt><dd>Open game menu</dd><dt><kbd>C</kbd></dt><dd>Cycle camera views</dd><dt><kbd>F1</kbd> – <kbd>F4</kbd></dt><dd>Choose camera</dd><dt><kbd>T</kbd></dt><dd>Follow opponent</dd><dt><kbd>D</kbd></dt><dd>Toggle dashboard</dd><dt><kbd>F</kbd></dt><dd>Toggle FPS (Enhanced)</dd><dt><kbd>V</kbd></dt><dd>Cycle chase distance (Enhanced)</dd><dt><kbd>Ctrl</kbd> + <kbd>Arrows</kbd></dt><dd>Move replay camera</dd><dt><kbd>+</kbd> / <kbd>−</kbd></dt><dd>Zoom replay camera</dd><dt><kbd>Arrow keys</kbd></dt><dd>Choose replay control</dd><dt><kbd>Enter</kbd> / <kbd>Space</kbd></dt><dd>Activate replay control</dd><dt><kbd>Shift</kbd> + <kbd>F1</kbd></dt><dd>Open terrain editor</dd></dl></section></div>
    <section className="launcher-station stunts-play-station" id="play" aria-labelledby="game-heading"><h2 id="game-heading">{showroom?'3D CAR SHOWROOM':'PLAY STUNTS IN YOUR BROWSER'}</h2>
+    {!showroom&&setup?.mt32Fallback&&<aside className="mt32-fallback-panel" role="alert"><strong>Roland MT-32 is not available</strong><p>Compatible MT-32 ROMs were not found or did not pass validation. Original sound and music will use Sound Blaster instead.</p><a href={MT32_INSTALLATION_GUIDE} target="_blank" rel="noreferrer">How to install Roland MT-32 correctly on GitHub ↗</a></aside>}
     {showroom?<div className="stunts-showroom-inline">{assets?<Suspense fallback={<div className="launcher-loading"><p role="status">Loading cars…</p></div>}><Garage assets={assets}/></Suspense>:<div className="launcher-loading"><p role={error?'alert':'status'}>{error||'Loading cars…'}</p></div>}</div>:<><OpeningSequence embedded autoStart={autoStart} key={session} assets={assets} ready={!!assets&&!!setup&&(selectedSound!=='mt32'||!!roland.power)} soundDevice={selectedSound} rolandPower={selectedSound==='mt32'?roland.power:undefined} onRunningChange={gameRunningChanged} displayMode={setup?.displayMode} initiallyMuted={setup?.initiallyMuted} hercules={setup?.hercules} directory={setup?.directory} initialTrack={setup?.track} onBack={()=>setSession(value=>value+1)} backLabel="Restart"/>{error&&<p role="alert">{error}</p>}</>}
     <section className="launcher-roland" id="roland" aria-label="Roland MT-32 sound module"><RolandDevicePanel roland={roland}/></section>
    </section>

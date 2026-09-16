@@ -9,18 +9,19 @@ import {originalSetupVgaCursor} from './setup-vga-cursor.ts';
 import {egaPaletteRgb} from './ega-display-palette.ts';
 import {createNativeSetupStorage} from './native-setup-storage.ts';
 import {openNativeFilePersistence} from './native-file-store.ts';
+import {browserMt32Installed} from './browser-mt32-installation.ts';
 import {runNativeSetupProgram} from './native-setup-program.ts';
 /** Browser boundary for original SETUP; all menu and installation decisions
  * remain in the source-derived program. BIOS bell output is caller-owned. */
 export async function runBrowserNativeSetup(canvas:HTMLCanvasElement,signal:AbortSignal,host:{bell():void|Promise<void>;ready?():void;browserSettings?:boolean}){
- const [media,initialResponse,fontResponse]=await Promise.all([loadBrowserSetupMedia(signal),fetch('/game/setup-initial-data.json',{signal}),fetch('/game/reference-text-font.bin',{signal})]);
+ const [media,initialResponse,fontResponse,mt32Installed]=await Promise.all([loadBrowserSetupMedia(signal),fetch('/game/setup-initial-data.json',{signal}),fetch('/game/reference-text-font.bin',{signal}),browserMt32Installed(signal)]);
  if(!initialResponse.ok||!fontResponse.ok)throw Error('Original SETUP presentation resources could not load');
  const initial=await initialResponse.json() as {data:string},font=new Uint8Array(await fontResponse.arrayBuffer()),memory=createOriginalSetupMemory(Uint8Array.from(initial.data.match(/../g)??[],byte=>parseInt(byte,16))),screen=createOriginalSetupTextScreen();
  if(signal.aborted)throw new DOMException('Native SETUP closed','AbortError');
  // The ready-to-play distribution is also available at C:\, while A: stays
  // read-only for the source installer's disk checks and file-copy operations.
  const mounted=new Map(media);for(const [path,file] of media)mounted.set('C:'+path.slice(2),file);
- mounted.set('C:\\SETUP.DAT',{bytes:browserDefaultSetup(),timestamp:0});
+ mounted.set('C:\\SETUP.DAT',{bytes:browserDefaultSetup(mt32Installed),timestamp:0});
  const persistence=await openNativeFilePersistence();
  let animation=0,renderError:unknown;
  let storage:Awaited<ReturnType<typeof createNativeSetupStorage>>|undefined,input:ReturnType<typeof createBrowserSetupInput>|undefined;
