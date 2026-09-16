@@ -11,7 +11,7 @@
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
     "format": "oxfmt",
-    "test": "python3 -m unittest discover -s tools -p \"test_*.py\" && node tools/test_audio_param_automation.mjs && node tools/test_remixed_music.mjs && node tools/test_effect_player.mjs && node tools/test_race_audio_memory.ts && node tools/test_race_results.ts && node tools/test_upgraded_background_view.mjs && node tools/test_replay_keyboard_hold.mjs && node tools/test_replay_scrub_animation.mjs && node tools/test_showroom_car_model.ts && node tools/test_upgraded_camera_motion.ts && node tools/test_showroom_shadows.ts && node tools/test_chase_runtime_motion.ts",
+    "test": "python3 -m unittest discover -s tools -p \"test_*.py\" && node tools/test_audio_param_automation.mjs && node tools/test_remixed_music.mjs && node tools/test_effect_player.mjs && node tools/test_race_audio_memory.ts && node tools/test_race_results.ts && node tools/test_dialog_text_entry.ts && node tools/test_upgraded_background_view.mjs && node tools/test_replay_keyboard_hold.mjs && node tools/test_replay_scrub_animation.mjs && node tools/test_showroom_car_model.ts && node tools/test_upgraded_camera_motion.ts && node tools/test_showroom_shadows.ts && node tools/test_chase_runtime_motion.ts",
     "typecheck": "tsc --noEmit",
     "assets:check": "python3 tools/check_assets.py",
     "assets:extract": "python3 tools/extract.py"

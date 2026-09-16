@@ -6,8 +6,10 @@ export interface NativeEvaluationContinueHost extends Pick<NativeDialogHost,'pix
  * menu, this wait accepts Escape as well as Enter/Space. */
 export async function continueNativeEvaluation(host:NativeEvaluationContinueHost){
  if(host.drawing)host.drawing.button();else drawOriginalMenuButton(host.pixels,host.font,host.resources.ebct,129,175,70,21,15,8,7,0);host.present();await host.release();
- // 1BAAC clears the previous timer sample at DS:9008 as well as flash state.
- let last=0,phase=0,color=-1;
+ // 1BAAC clears flash/idle state, not the elapsed-clock sample at DS:4DCC.
+ // The preceding release polls have consumed that sample. Start here so menu
+ // uptime cannot become a portrait-animation catch-up burst on first entry.
+ let last=host.counter(),phase=0,color=-1;
  for(;;){
   const now=host.counter(),delta=(now-last)&65535;last=now;
   const flash=originalMenuSelectionFlash(phase,delta);phase=flash.counter;

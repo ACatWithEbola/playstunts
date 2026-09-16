@@ -19,9 +19,6 @@ export interface NativeEvaluationResources {resources:Record<string,number[]>;ar
 export interface NativeRaceResultsHost extends NativeDialogHost {
  playResultMusic?(name:'vict'|'over'):void;
  smallFont:Uint8Array;counter():number;
- /** Original opponent portraits advance from the divided game clock, while
-  * button flashes continue to use the faster input clock. */
- animationCounter?():number;
  files:NativeHighScorePreparationHost;
  evaluation(opponent:number):Promise<NativeEvaluationResources>;
  randomWord():number;randomByte():number;
@@ -66,11 +63,14 @@ export async function runNativeRaceResults(host:NativeRaceResultsHost,state:Nati
  if(selection)state.choices={current:selection.current,previous:selection.previous};
  const eligibility=host.prepareScores?await host.prepareScores(state):await prepareNativeHighScores(host.files,state.scores,state.track,state.panel.playerTime,state.panel.flags,state.retainedCandidateTime);state.retainedCandidateTime=eligibility.candidateTime;
  let flags:Omit<OriginalEndMenuState,'selected'>={evaluationAvailable,evaluationStatus:eligibility.status,showEvaluation:1};
- let animation={phase:30,index:0,drawnIndex:0},animationTime=host.animationCounter?.()??0;
+ let animation={phase:30,index:0,drawnIndex:0};
  const art=selection&&evaluation?evaluation.art[selection.mode]:undefined,sequence=selection&&evaluation?evaluation.resources[selection.sequence]:undefined;
  if(display&&selection&&art)await display.prepareEvaluation(state.panel.opponentSelected,selection.mode as 'win'|'lose',art);
  const portrait=()=>{if(!art||!sequence)throw Error('Original evaluation resource is unavailable');const key='op0'+String.fromCharCode((sequence[animation.index]+48)&255),sprite=art[key];if(!sprite)throw Error('Missing original evaluation portrait '+key);return sprite;};
- const animate=(inputDelta:number)=>{if(!sequence||!art)return;const now=host.animationCounter?.(),delta=now===undefined?inputDelta:(now-animationTime)&65535;if(now!==undefined)animationTime=now;const next=advanceOriginalEvaluationAnimation(animation,delta,index=>{const value=sequence[index];if(value===undefined)throw Error('Evaluation sequence needs retained adjacent memory');return value;});animation=next.state;if(next.changed){if(display)display.portrait(art.op01,portrait());else drawOriginalEvaluationPortrait(host.pixels,art.op01,portrait());host.present();}};
+ // 6508/6970 use AX returned by the button flash routine 1BAC0. Its timer
+ // path is 1C42E -> 245D0 -> DS:407A: the undivided PIT callback counter.
+ // Each sequence entry lasts 30 ticks of the original 0x2E9C PIT divisor.
+ const animate=(delta:number)=>{if(!sequence||!art)return;const next=advanceOriginalEvaluationAnimation(animation,delta,index=>{const value=sequence[index];if(value===undefined)throw Error('Evaluation sequence needs retained adjacent memory');return value;});animation=next.state;if(next.changed){if(display)display.portrait(art.op01,portrait());else drawOriginalEvaluationPortrait(host.pixels,art.op01,portrait());host.present();}};
  const clearTop=()=>display?display.clearTop():drawOriginalMenuButton(host.pixels,host.font,null,0,0,320,100,15,8,7,0);
  const scores=()=>{if(display)display.scores();else drawOriginalHighScoreTable(host.pixels,host.font,host.smallFont,host.resources,state.trackName,Array.from(state.scores.file),state.scores.order,state.scores.selected);state.smallFontColor=state.scores.selected===6?4:0;};
  const reviewHost={
