@@ -51,7 +51,7 @@ export function trackContact(
       i16(n + (invertedPull < 0 ? invertedPull : 0)),
     ),
   };
-  const origins = proposeWheels({ ...proposalState, roadSpeed: 0 }, wheels);
+  let origins = proposeWheels({ ...proposalState, roadSpeed: 0 }, wheels);
   let proposed = proposeWheels(proposalState, wheels);
   const scaledRoadSpeed = i16(
     Math.trunc(((chassis.roadSpeed & 65535) * 1408) / 15360),
@@ -137,6 +137,10 @@ export function trackContact(
         });
         if (response) {
           proposed = response.proposed;
+          // At rest the wall correction is a separation, not forward travel.
+          // Ground contact must start there too, or its zero-motion projection
+          // restores the old origin inside the wall during this same retry.
+          if (scaledRoadSpeed === 0) origins = proposed.map(p => [...p] as Vector);
           wheelAngle = response.wheelAngle;
           soundFlags = response.soundFlags;
           response.crashEvents.forEach(requestCrash);
