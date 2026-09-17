@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {upgradedBackgroundHeight,upgradedBackgroundView} from '../lib/game/upgraded-background-view.ts';
 
-assert.equal(upgradedBackgroundHeight(true,0,720),720);
+assert.equal(upgradedBackgroundHeight(true,0,720),0);
 assert.equal(upgradedBackgroundHeight(false,3,720),720);
 assert.equal(upgradedBackgroundHeight(false,0,720),720);
 assert.equal(upgradedBackgroundHeight(false,0,720),720);

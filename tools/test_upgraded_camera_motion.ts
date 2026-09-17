@@ -11,6 +11,7 @@ import {upgradedCameraBasis} from '../lib/game/upgraded-camera-basis.ts';
 import {upgradedBackgroundView,upgradedBackgroundHeight} from '../lib/game/upgraded-background-view.ts';
 import {backgroundCamera,createNativeBackground,nativePanoramaHorizon} from '../lib/game/native-background.ts';
 import {enhancedPanoramaLeft} from '../lib/game/enhanced-alpine-background.ts';
+import {distantCloudPlacement} from '../lib/game/upgraded-world-visibility.ts';
 import {drawOriginalSceneBackground} from '../lib/game/render-scene-background.ts';
 import {projectOriginalVector} from '../lib/game/project-original-vector.ts';
 import {rotateZXY} from '../lib/physics/rotation.ts';
@@ -116,6 +117,24 @@ await test('banked source view keeps the enhanced panorama eligible and rolls it
  assert.equal(view.angles[0],0);
  assert.notEqual(nativePanoramaHorizon(view.angles,270,[160,100,200,160]),undefined);
  near(view.rotation,-source[0]*Math.PI/512);
+});
+
+for(const level of [1,2,3] as const)await test(`V ${level}: bridges cannot translate the panorama or clouds`,()=>{
+ for(const rate of [60,120,240]){
+  const rig=createEnhancedChaseCamera(track);let initialHorizon:number|undefined,initialCloudHeight:number|undefined;
+  for(let sample=0;sample<rate*3;sample++){
+   const at=sample*1000/rate,frame=Math.floor((at+1e-7)/50),height=8+Math.min(673,frame*12);
+   const car={...pose(15000,15000),position:[15000,height,15000] as Vector};
+   const chase=rig.sample(car,level,0,1000+at,frame+1,0);
+   const angles=backgroundCamera(chase.position,chase.target,chase.up,true).angles;
+   const reference=upgradedBackgroundHeight(true,0,chase.position[1]);
+   const horizon=nativePanoramaHorizon(upgradedBackgroundView(angles).angles,reference,[160,100,200,160])!;
+   const camera=[chase.position[0],chase.position[1],-chase.position[2]] as Vector;
+   const cloud=distantCloudPlacement(128,camera,reference),cloudHeight=cloud.position[1]-camera[1];
+   initialHorizon??=horizon;initialCloudHeight??=cloudHeight;
+   near(horizon,initialHorizon);near(cloudHeight,initialCloudHeight);
+  }
+ }
 });
 
 await test('native TV site cuts and paused replay remain immediate',()=>{

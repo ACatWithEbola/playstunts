@@ -238,6 +238,10 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
    camera.aspect=4/3;camera.fov=chase?.fov??2*Math.atan(100/fy)*180/Math.PI;
    canvas.dataset.enhancedCamera=chase?`chase-${chaseLevel}`:requestedChaseLevel?'chase-pending':'original';
+   // V chase presents the panorama and clouds as one infinitely distant sky.
+   // Share a translation-invariant elevation reference so bridges and jumps
+   // cannot move either layer while original cameras retain live projection.
+   const backgroundElevationReference=upgradedBackgroundHeight(!!chase,cameraMode,position[1]);
 
    cars.forEach((models,i)=>models.forEach((model,detail)=>{if(!model)return;const state=i?runtime.session.state.opponent.car:runtime.session.state.player.driving.car,pose=shown.cars[i];
     setUpgradedCarPresentationPose(model,pose.position,pose.rotation,carGrounding[i]);
@@ -278,7 +282,7 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
     if(index<cloudTypes.length&&!cloudTypesByDescriptor.has(descriptor))cloudTypesByDescriptor.set(descriptor,cloudTypes[index]!);
     let model=clouds.get(key);if(!model){model=createEnhancedCloudModel(readUpgradedShape(live,descriptor),cloudTypesByDescriptor.get(descriptor));clouds.set(key,model);world.add(model);}
     const cloudCamera=chase?[position[0],position[1],-position[2]] as Vector:shown.camera.position;
-    const cloud=distantCloudPlacement(v.getInt16(d+0x622+index*2,true)+v.getInt16(d+0x73da,true),cloudCamera,cloudCamera[1]);
+    const cloud=distantCloudPlacement(v.getInt16(d+0x622+index*2,true)+v.getInt16(d+0x73da,true),cloudCamera,backgroundElevationReference);
     model.visible=true;model.position.set(...cloud.position);model.rotation.set(0,cloud.heading,0);model.scale.setScalar(cloud.scale);
    }
    // Upgraded mode retains the full world, with camera-frustum culling.
@@ -326,8 +330,7 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    }
    const context=canvas.getContext('2d')!,backgroundAngles=chase?backgroundCamera(position,target,displayUp,true).angles:[...shown.camera.rotation] as Vector;
    const backgroundView=upgradedBackgroundView(backgroundAngles);
-   const effectiveBackgroundHeight=upgradedBackgroundHeight(!!chase,cameraMode,position[1]);
-   const background=backdrop.render(backgroundView.angles,effectiveBackgroundHeight,4/3,camera.fov,chase?[cx,cy,chaseFx,chaseFy]:frame.projection,live[d+0x134],chase?undefined:frame.rectangle);
+   const background=backdrop.render(backgroundView.angles,backgroundElevationReference,4/3,camera.fov,chase?[cx,cy,chaseFx,chaseFy]:frame.projection,live[d+0x134],chase?undefined:frame.rectangle);
    // The cylindrical enhanced artwork is level-projected and then rolled with
    // the source camera, so a bank no longer switches back to pixel artwork.
    const enhancedBackgroundDrawn=background.panoramaHorizon!==undefined&&(enhancedBackground?.draw(context,{width:canvas.width,height:canvas.height,heading:backgroundView.angles[2],horizon:background.panoramaHorizon,rotation:backgroundView.rotation,sky:paletteCss[background.sky],ground:paletteCss[background.ground]})??false);
