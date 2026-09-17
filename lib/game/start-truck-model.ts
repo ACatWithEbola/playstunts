@@ -21,7 +21,7 @@ export function createStartTruckModel(baseline:Uint8Array,shape:Shape,materials:
    // Only the two moving rear doors and vertical cross-panels perpendicular to
    // the car's path are omitted, because those are the faces a rear chase eye
    // can look through. The complete animated model still serves the original
-   // cameras, Far chase and the shadow pass.
+   // cameras and the shadow pass.
    const cutawayPrimitives=visual.shape.primitives.filter((primitive,index)=>{
     if(primitive.type===12)return true;
     if(index===7||index===8)return false;

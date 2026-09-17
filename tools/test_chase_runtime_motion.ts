@@ -6,7 +6,7 @@ import {createNativeManualRaceRuntime} from '../lib/game/native-manual-race-runt
 import {createNativeResourceCatalog} from '../lib/game/native-resource-catalog.ts';
 import {readUpgradedCarPose} from '../lib/game/upgraded-source-camera.ts';
 import {createLiveGraphicsMotion} from '../lib/game/live-graphics-motion.ts';
-import {createEnhancedChaseCamera} from '../lib/game/enhanced-chase-camera.ts';
+import {createEnhancedChaseCamera,enhancedChaseNeedsTransporterCutaway,ENHANCED_CHASE_CAMERA_PRESETS} from '../lib/game/enhanced-chase-camera.ts';
 import {backgroundCamera} from '../lib/game/native-background.ts';
 import {upgradedCameraBasis} from '../lib/game/upgraded-camera-basis.ts';
 import {createCompleteUpgradedCarModel} from '../lib/game/complete-upgraded-car-model.ts';
@@ -33,6 +33,22 @@ for(let step=0;step<450;step++){
  if(graphics.memory[d+0xa3c2]===0&&next&&snapshots.at(-1)?.frame!==next)snapshots.push({frame:next,pose:readUpgradedCarPose(data,d+0x8c38),steering:data.getInt16(d+0x8c58,true),camera:{position:graphics.position,rotation:graphics.angles},mask});
 }
 const delta=(a:number,b:number)=>((a-b+512)%1024+1024)%1024-512;
+await test('V chase starts with the requested close framing and steps outward gradually',()=>{
+ const close=ENHANCED_CHASE_CAMERA_PRESETS[1],standard=ENHANCED_CHASE_CAMERA_PRESETS[2],far=ENHANCED_CHASE_CAMERA_PRESETS[3];
+ assert.deepEqual([close.distance,standard.distance,far.distance],[150,175,225]);
+ assert.deepEqual([close.fov,standard.fov,far.fov],[54,56,58]);
+ assert.ok(close.height<standard.height&&standard.height<far.height);
+ assert.ok(close.lookAhead<standard.lookAhead&&standard.lookAhead<far.lookAhead);
+ assert.ok(standard.distance-close.distance<=50&&far.distance-standard.distance<=50,'zoom levels must stay close enough to feel like gradual steps');
+ const downwardAngles=[close,standard,far].map(rig=>Math.atan2(rig.height-rig.targetHeight,rig.distance+rig.lookAhead)*180/Math.PI);
+ [2.5,2.7,3].forEach((expected,index)=>assert.ok(Math.abs(downwardAngles[index]-expected)<0.01,`V ${index+1} pitch must remain ${expected} degrees`));
+});
+await test('all three V chase levels use the transporter cutaway during rollout',()=>{
+ for(const level of [1,2,3] as const)assert.equal(enhancedChaseNeedsTransporterCutaway(level,true,0,false),true);
+ assert.equal(enhancedChaseNeedsTransporterCutaway(0,true,0,true),false);
+ assert.equal(enhancedChaseNeedsTransporterCutaway(3,true,1,true),true);
+ assert.equal(enhancedChaseNeedsTransporterCutaway(3,true,1,false),false);
+});
 await test('native reproduction includes sustained left/right input and actual yaw-increment variation',()=>{
  assert.ok(snapshots.length>160);
  assert.ok(snapshots.some(sample=>sample.steering===-240));

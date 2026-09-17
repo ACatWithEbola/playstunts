@@ -11,10 +11,17 @@ export type EnhancedChaseCameraLevel=0|1|2|3;
 
 export const ENHANCED_CHASE_CAMERA_LABELS=['Original','Close','Standard','Far'] as const;
 
-const PRESETS={
- 1:{distance:210,height:76,lookAhead:105,targetHeight:44,fov:58},
- 2:{distance:310,height:108,lookAhead:150,targetHeight:48,fov:60},
- 3:{distance:440,height:150,lookAhead:215,targetHeight:52,fov:62},
+export function enhancedChaseNeedsTransporterCutaway(level:EnhancedChaseCameraLevel,truckVisible:boolean,sourceFrame:number,carInsideTransporter:boolean){
+ return level!==0&&truckVisible&&(sourceFrame===0||carInsideTransporter);
+}
+
+export const ENHANCED_CHASE_CAMERA_PRESETS={
+ // Level 1 follows the close, low third-person composition used by modern
+ // driving games. Levels 2 and 3 widen in compact, gradual steps so the far
+ // view remains useful instead of shrinking the car into the distance.
+ 1:{distance:150,height:51.52,lookAhead:68,targetHeight:42,fov:54},
+ 2:{distance:175,height:56.40,lookAhead:88,targetHeight:44,fov:56},
+ 3:{distance:225,height:63.66,lookAhead:112,targetHeight:46,fov:58},
 } as const;
 const TRANSITION_MS=320;
 type ChaseRig={distance:number;height:number;lookAhead:number;targetHeight:number;fov:number};
@@ -44,7 +51,7 @@ export function createEnhancedChaseCamera(track:{raw:number[];objects:TrackObjec
  const desiredPosition=new Vector3(),desiredTarget=new Vector3(),desiredForward=new Vector3();
  const turn=createChaseTurnOffset(),turnAxis=new Vector3(0,1,0);
  let initialized=false,lastAt=0,lastCarIndex=-1,lastFrame=-1,rigLevel:Exclude<EnhancedChaseCameraLevel,0>=1;
- let rig:ChaseRig=copyRig(PRESETS[1]),transitionFrom:ChaseRig=copyRig(PRESETS[1]),transitionTo:ChaseRig=copyRig(PRESETS[1]),transitionAt=0;
+ let rig:ChaseRig=copyRig(ENHANCED_CHASE_CAMERA_PRESETS[1]),transitionFrom:ChaseRig=copyRig(ENHANCED_CHASE_CAMERA_PRESETS[1]),transitionTo:ChaseRig=copyRig(ENHANCED_CHASE_CAMERA_PRESETS[1]),transitionAt=0;
  const clear=(point:Vector,mode:number):Vector=>{
   const source=[Math.round(point[0]),Math.round(point[1]),Math.round(-point[2])] as Vector;
   const result=originalExternalCameraClearance(source,track.raw,track.objects,track.planes,mode);
@@ -55,7 +62,7 @@ export function createEnhancedChaseCamera(track:{raw:number[];objects:TrackObjec
  };
  return {
   sample(pose:RenderPose,level:Exclude<EnhancedChaseCameraLevel,0>,carIndex:number,now:number,frame:number,raceMode:number,steering=0){
-   const preset=PRESETS[level],car=new Vector3(pose.position[0],pose.position[1],-pose.position[2]);
+   const preset=ENHANCED_CHASE_CAMERA_PRESETS[level],car=new Vector3(pose.position[0],pose.position[1],-pose.position[2]);
    const interrupted=!initialized||carIndex!==lastCarIndex||now-lastAt>250||frame<lastFrame||car.distanceToSquared(lastCar)>1024*1024;
    const basis=upgradedCameraBasis([pose.rotation[2],pose.rotation[1],pose.rotation[0]]);
    // A modern chase camera follows the car's compass heading, but it does not

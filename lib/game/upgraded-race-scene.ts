@@ -20,7 +20,7 @@ import {createUpgradedRetroLighting,RETRO_SUN,type RetroSceneryCaster} from './u
 import {upgradedCarGroundingOffset,setUpgradedCarPresentationPose} from './upgraded-car-grounding';
 import {upgradedCompositeShadowShapes,upgradedSceneryCastsShadow,upgradedSceneryUsesPatternedShadow} from './upgraded-scenery-shadows';
 import {upgradedBackgroundHeight,upgradedBackgroundView} from './upgraded-background-view';
-import {createEnhancedChaseCamera,type EnhancedChaseCameraLevel} from './enhanced-chase-camera';
+import {createEnhancedChaseCamera,enhancedChaseNeedsTransporterCutaway,type EnhancedChaseCameraLevel} from './enhanced-chase-camera';
 import {readUpgradedCarPose,upgradedSourceCamera} from './upgraded-source-camera';
 import {createEnhancedCrashEffects} from './enhanced-crash-effects';
 import {upgradedTrackSeamShape} from './upgraded-track-seams';
@@ -219,14 +219,12 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    let transporterCutaway=false;
    if(chase&&transporterBoundsKnown){
     const carInsideTransporter=transporterBounds.containsPoint(chasedCarPosition);
-    // Close and Standard retain their real chase distances at the opening of a
-    // drive or replay. The truck is omitted only from this camera render so its
-    // closed doors cannot occlude the car; simulation, geometry and door motion
-    // remain untouched. Frame zero covers the entire automatic rollout, even
-    // after the car's centre has crossed the truck bounds; keeping the cutaway
-    // until the timed race begins prevents the chase eye from looking back
-    // through a door or wall during that handoff. Far keeps the exterior view.
-    transporterCutaway=chaseLevel<=2&&truck.group.visible&&(sourceFrame===0||carInsideTransporter);
+    // Every current V preset is close enough to intersect the starting truck.
+    // Use its view-only cutaway during rollout so no zoom level can look into a
+    // wall; simulation, geometry and door motion remain untouched. Frame zero
+    // covers the full automatic rollout, including the handoff after the car's
+    // centre has crossed the truck bounds.
+    transporterCutaway=enhancedChaseNeedsTransporterCutaway(chaseLevel,truck.group.visible,sourceFrame,carInsideTransporter);
    }
    const chaseChanged=chaseLevel!==lastChaseLevel;
    if(!chase)chaseCamera.reset();

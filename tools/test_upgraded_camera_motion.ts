@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {PerspectiveCamera,Vector3} from 'three';
-import {createEnhancedChaseCamera} from '../lib/game/enhanced-chase-camera.ts';
+import {createEnhancedChaseCamera,ENHANCED_CHASE_CAMERA_PRESETS} from '../lib/game/enhanced-chase-camera.ts';
 import {readUpgradedCarPose,upgradedSourceCamera} from '../lib/game/upgraded-source-camera.ts';
 import {createLiveGraphicsMotion} from '../lib/game/live-graphics-motion.ts';
 import {originalExternalCameraClearance} from '../lib/game/external-camera-clearance.ts';
@@ -39,7 +39,7 @@ for(const level of [1,2,3] as const)await test(`chase ${level}: slow car and eye
 await test('fractional chase eye retains native terrain clearance corrections',()=>{
  const raised={...track,raw:[...track.raw]};raised.raw.fill(6,901,1801);
  const car=pose(15000.23,15000.67),view=createEnhancedChaseCamera(raised).sample(car,1,0,1000,1,0);
- const desired:Vector=[car.position[0],car.position[1]+76,car.position[2]-210];
+ const preset=ENHANCED_CHASE_CAMERA_PRESETS[1],desired:Vector=[car.position[0],car.position[1]+preset.height,car.position[2]-preset.distance];
  const rounded=desired.map(Math.round) as Vector,cleared=originalExternalCameraClearance(rounded,raised.raw,raised.objects,raised.planes);
  assert.ok(cleared[1]>rounded[1]);
  view.position.forEach((value,i)=>near(i===2?-value:value,desired[i]+cleared[i]-rounded[i]));
