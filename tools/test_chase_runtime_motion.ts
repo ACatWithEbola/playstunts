@@ -35,7 +35,8 @@ for(let step=0;step<450;step++){
 const delta=(a:number,b:number)=>((a-b+512)%1024+1024)%1024-512;
 await test('V chase starts with the requested close framing and steps outward gradually',()=>{
  const close=ENHANCED_CHASE_CAMERA_PRESETS[1],standard=ENHANCED_CHASE_CAMERA_PRESETS[2],far=ENHANCED_CHASE_CAMERA_PRESETS[3];
- assert.deepEqual([close.distance,standard.distance,far.distance],[150,175,225]);
+ assert.deepEqual([close.distance,standard.distance,far.distance],[160,192.5,225]);
+ assert.equal(standard.distance,(close.distance+far.distance)/2,'Standard must remain midway between Close and Far');
  assert.deepEqual([close.fov,standard.fov,far.fov],[54,56,58]);
  assert.ok(close.height<standard.height&&standard.height<far.height);
  assert.ok(close.lookAhead<standard.lookAhead&&standard.lookAhead<far.lookAhead);

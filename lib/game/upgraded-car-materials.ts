@@ -225,7 +225,7 @@ export function setUpgradedCarBrakeLights(model:THREE.Group,braking:boolean,mate
 }
 
 /** The study's sky fill, warm key and cool rim; key direction uses the shared
- * 70-degree world Sun, while BasicMaterial scenery is unaffected by lights. */
+ * world Sun, while BasicMaterial scenery is unaffected by lights. */
 export function addUpgradedCarStudyLights(scene:THREE.Scene,sunDirection:THREE.Vector3){
  const hemisphere=new THREE.HemisphereLight(0xcfe6ff,0x3f4548,2.5);
  const sun=new THREE.DirectionalLight(0xfff2d2,4);sun.position.copy(sunDirection);

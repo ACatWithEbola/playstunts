@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import * as THREE from 'three';
 import {createShowroomCarModel} from '../lib/game/showroom-car-model.ts';
-import {createUpgradedRetroLighting,RETRO_SUN} from '../lib/game/upgraded-retro-lighting.ts';
+import {createUpgradedRetroLighting,placeRetroShadowCamera,RETRO_SUN} from '../lib/game/upgraded-retro-lighting.ts';
 import {SHOWROOM_SUN,SHOWROOM_SHADOW_WORLD_SCALE} from '../lib/game/showroom-lighting.ts';
 import type {Assets} from '../lib/game/types.ts';
 
@@ -71,6 +71,19 @@ for(const car of assets.cars)await test(`${car.name}: showroom shadow retains ga
 });
 
 await test('showroom lighting leaves the game sun unchanged',()=>{
- close(Math.asin(RETRO_SUN.y)*180/Math.PI,70);close(Math.asin(SHOWROOM_SUN.y)*180/Math.PI,35);
+ close(Math.asin(RETRO_SUN.y)*180/Math.PI,55);close(Math.asin(SHOWROOM_SUN.y)*180/Math.PI,35);
  close(SHOWROOM_SHADOW_WORLD_SCALE,1/20);
+});
+
+await test('moving car light views keep fixed world points on stable shadow texels',()=>{
+ const camera=new THREE.OrthographicCamera(),mapSize=512,extent=128;
+ for(let step=0;step<16;step++){
+  const center=new THREE.Vector3(100.13+step*.04,24.37,200.29-step*.03);
+  const matrix=placeRetroShadowCamera(camera,center,extent,mapSize);
+  const fixedWorldPoint=new THREE.Vector3().applyMatrix4(matrix);
+  for(const coordinate of [fixedWorldPoint.x,fixedWorldPoint.y]){
+   const texelCoordinate=coordinate*mapSize;
+   assert.ok(Math.abs(texelCoordinate-Math.round(texelCoordinate))<1e-7,`unstable shadow texel phase ${texelCoordinate}`);
+  }
+ }
 });

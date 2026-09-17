@@ -9,14 +9,15 @@ export type RetroSceneryCaster=THREE.Group|{
 type NormalizedRetroSceneryCaster={source:THREE.Group;caster:THREE.Group;receiver?:THREE.Group;patterned?:boolean};
 
 /** Display-world direction (the race scene mirrors source Z), independent of
- * the car heading and camera. The 70-degree elevation keeps the projection
- * readable while shortening scenery shadows around raised road joins. */
+ * the car heading and camera. At 55 degrees the low Indy silhouette extends
+ * beyond the body in native-resolution helicopter views, including grass
+ * suspension travel; a 70-degree sun hid most of it beneath the car. */
 // Parallel sunlight from the forward/right side of the initial road heading.
 // The Sun's ~149.6 million km distance is represented by this world-fixed
 // direction, not by a nearby point light or an enormous scene object.
 // Shadow coverage is antialiased and softly filtered for the upgraded view.
 // The filter is an artistic real-time approximation, not a solar penumbra simulation.
-const SUN_ELEVATION = THREE.MathUtils.degToRad(70);
+const SUN_ELEVATION = THREE.MathUtils.degToRad(55);
 const SUN_AZIMUTH = THREE.MathUtils.degToRad(-45);
 export const RETRO_SUN = new THREE.Vector3(
  Math.cos(SUN_ELEVATION) * Math.cos(SUN_AZIMUTH),
@@ -102,8 +103,12 @@ export function placeRetroShadowCamera(camera: THREE.OrthographicCamera, center:
  const texel = extent / mapSize;
  const dx = Math.round(worldOrigin.x / texel) * texel - worldOrigin.x;
  const dy = Math.round(worldOrigin.y / texel) * texel - worldOrigin.y;
- camera.left += dx + lightCenter.x; camera.right += dx + lightCenter.x;
- camera.bottom += dy + lightCenter.y; camera.top += dy + lightCenter.y;
+ // Projection subtracts the orthographic bounds centre. Apply the snap in
+ // the opposite direction so a fixed world point remains on a fixed shadow
+ // texel while the car-centred light view moves. Adding this delta doubled
+ // within-texel motion and then snapped the map backwards at each boundary.
+ camera.left += lightCenter.x - dx; camera.right += lightCenter.x - dx;
+ camera.bottom += lightCenter.y - dy; camera.top += lightCenter.y - dy;
  camera.updateProjectionMatrix();
  return shadowBiasMatrix.clone().multiply(camera.projectionMatrix).multiply(camera.matrixWorldInverse);
 }
@@ -133,6 +138,12 @@ export function createUpgradedRetroLighting(options:{sunDirection?:THREE.Vector3
  // RGB stores depth and alpha explicitly identifies a rasterized caster.
  // Uncovered pixels must never be treated as the shadow-camera footprint.
  const depthMaterial = new THREE.MeshDepthMaterial({depthPacking: THREE.RGBDepthPacking, side: THREE.DoubleSide, blending: THREE.NoBlending, toneMapped: false});
+ // The completed car borrows downward-facing rollover floors from car1.
+ // Those coarse floors can extend outside car0's detailed outline. Forcing
+ // their back faces to cast from above creates a detached rectangular lip
+ // that switches on/off as its height crosses the grass receiver. Preserve
+ // authored car sidedness: these floors still cast when exposed in a roll.
+ const carDepthMaterial=depthMaterial.clone();carDepthMaterial.side=THREE.FrontSide;
  // Some original models use pattern 1 as genuine open space. The windmill's
  // rotating blade variants are built from alternating solid and fully open
  // wedges; a plain depth material would fill those openings into a disk.
@@ -386,13 +397,18 @@ export function createUpgradedRetroLighting(options:{sunDirection?:THREE.Vector3
      source.traverse(node => {
       if (!(node instanceof THREE.Mesh) || presentationOnlyShadowGeometry(node)) return;
       // The map shares the animated wheel/body geometry, but owns transforms.
-      const mesh = new THREE.Mesh(node.geometry, casterMaterial(node));
+      const materials=Array.isArray(node.material)?node.material:[node.material];
+      const mesh = new THREE.Mesh(node.geometry,materials.some(material=>material.side===THREE.DoubleSide)?casterMaterial(node):carDepthMaterial);
       mesh.matrixAutoUpdate = false; shadow.scene.add(mesh);
       shadow.proxies.push({source: node, mesh});
      });
     }
     source.updateWorldMatrix(true,true);
-    for (const proxy of shadow.proxies){proxy.mesh.matrix.copy(proxy.source.matrixWorld);proxy.mesh.matrixWorld.copy(proxy.source.matrixWorld);}
+    for (const proxy of shadow.proxies){
+     proxy.mesh.visible=proxy.source.visible;
+     for(let parent=proxy.source.parent;parent&&parent!==source;parent=parent.parent)if(!parent.visible){proxy.mesh.visible=false;break;}
+     proxy.mesh.matrix.copy(proxy.source.matrixWorld);proxy.mesh.matrixWorld.copy(proxy.source.matrixWorld);
+    }
     const bounds = new THREE.Box3().setFromObject(source), center = bounds.getCenter(new THREE.Vector3());
     // Showroom coordinates are 1/20 racing-world units. Scale the complete
     // light volume so texel density, contact bias and receiver tolerance keep
@@ -483,5 +499,5 @@ export function createUpgradedRetroLighting(options:{sunDirection?:THREE.Vector3
    renderer.autoClear = oldAutoClear;
   }
  }
- return {apply, drawShadows, dispose() {shadows.forEach(shadow => {shadow.target.dispose();shadow.receiverTarget.dispose();shadow.coverageTarget.dispose();shadow.filterTarget.dispose();});receiverMaterials.forEach(material=>material.dispose());coverageReceiverMaterials.forEach(material=>material.dispose());depthMaterial.dispose();patternedDepthMaterial.dispose();filterMaterial.dispose();filterQuad.geometry.dispose();}};
+ return {apply, drawShadows, dispose() {shadows.forEach(shadow => {shadow.target.dispose();shadow.receiverTarget.dispose();shadow.coverageTarget.dispose();shadow.filterTarget.dispose();});receiverMaterials.forEach(material=>material.dispose());coverageReceiverMaterials.forEach(material=>material.dispose());depthMaterial.dispose();carDepthMaterial.dispose();patternedDepthMaterial.dispose();filterMaterial.dispose();filterQuad.geometry.dispose();}};
 }

@@ -19,8 +19,8 @@ export const ENHANCED_CHASE_CAMERA_PRESETS={
  // Level 1 follows the close, low third-person composition used by modern
  // driving games. Levels 2 and 3 widen in compact, gradual steps so the far
  // view remains useful instead of shrinking the car into the distance.
- 1:{distance:150,height:51.52,lookAhead:68,targetHeight:42,fov:54},
- 2:{distance:175,height:56.40,lookAhead:88,targetHeight:44,fov:56},
+ 1:{distance:160,height:51.9567,lookAhead:68,targetHeight:42,fov:54},
+ 2:{distance:192.5,height:57.2251,lookAhead:88,targetHeight:44,fov:56},
  3:{distance:225,height:63.66,lookAhead:112,targetHeight:46,fov:58},
 } as const;
 const TRANSITION_MS=320;
