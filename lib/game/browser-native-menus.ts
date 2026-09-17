@@ -42,6 +42,7 @@ import {runNativeMainMenuSelection} from './native-main-menu.ts';
 import {restoreOriginalMainMenuPixels} from './main-menu-raster.ts';
 import {originalMainMenuBounds} from './main-menu-hit.ts';
 import {ENHANCED_STATIC_ARTWORK,loadEnhancedStaticArtwork} from './enhanced-static-artwork.ts';
+import {raceGraphicsTransition} from './race-graphics-transition.ts';
 import {runNativeCarMenu,type NativeCarMenuHost} from './native-car-runtime.ts';
 import {runNativeOpponentMenu,type NativeOpponentHost} from './native-opponent-runtime.ts';
 import {runNativeOptions,type NativeOptionsHost} from './native-options-runtime.ts';
@@ -232,11 +233,15 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
    let upgraded:ReturnType<typeof createUpgradedRaceScene>|undefined,loading=false,closed=false,failed=false;
    const graphics=options.graphics;if(graphics){runtime.enableGraphicsCapture();graphics.resetPerformance?.();}
    const presentWorld=()=>{
-    display();if(!graphics)return;graphics.refresh=presentWorld;
-    if(!graphics.enabled)return;
-    if(failed)return;
-    if(!upgraded){if(!loading){loading=true;graphics.notice?.('Loading upgraded driving graphics…');void import('./upgraded-race-scene').then(({createUpgradedRaceScene})=>{if(closed)return;upgraded=createUpgradedRaceScene(options.assets,baseline,runtime,()=>graphics.chaseCamera??0,()=>graphics.selectOriginalCamera?.());graphics.refresh?.();}).catch(()=>{failed=true;graphics.notice?.('Upgraded graphics are unavailable. Original graphics remain active.');});}return;}
-    try{const shown=upgraded.draw(canvas);if(shown)graphics.performanceFrame?.(performance.now());graphics.notice?.(shown?'Upgraded driving graphics · experimental':'Original graphics for this scene');}catch{failed=true;upgraded.close();upgraded=undefined;display();graphics.notice?.('Upgraded graphics are unavailable. Original graphics remain active.');}
+    if(!graphics){display();return;}graphics.refresh=presentWorld;
+    const transition=raceGraphicsTransition(graphics.enabled,!!upgraded,failed);
+    if(transition==='original'){display();return;}
+    // Results -> View Replay constructs a fresh enhanced scene. Retain the
+    // results/loading composition until it is ready instead of exposing the
+    // native 3D frame for one browser frame during that asynchronous handoff.
+    if(transition==='hold'){if(!loading){loading=true;graphics.notice?.('Loading upgraded driving graphics…');void import('./upgraded-race-scene').then(({createUpgradedRaceScene})=>{if(closed)return;upgraded=createUpgradedRaceScene(options.assets,baseline,runtime,()=>graphics.chaseCamera??0,()=>graphics.selectOriginalCamera?.());graphics.refresh?.();}).catch(()=>{failed=true;graphics.notice?.('Upgraded graphics are unavailable. Original graphics remain active.');graphics.refresh?.();});}return;}
+    const scene=upgraded;if(!scene)return;
+    try{const shown=scene.draw(canvas);if(shown)graphics.performanceFrame?.(performance.now());graphics.notice?.(shown?'Upgraded driving graphics · experimental':'Preparing upgraded driving graphics…');}catch{failed=true;scene.close();upgraded=undefined;display();graphics.notice?.('Upgraded graphics are unavailable. Original graphics remain active.');}
    };
    const gameText=await json<TextResources>('race-dialog-text');
    activeRace=runtime;racePoll=onPoll;
