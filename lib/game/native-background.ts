@@ -1,8 +1,7 @@
 import {Euler,Matrix4,Vector3} from 'three';
 import {rotateZXY} from '../physics/rotation.ts';
-import {i16,vecTransform,type Vector} from '../physics/math.ts';
+import {vecTransform,type Vector} from '../physics/math.ts';
 import {renderOriginalSceneBackground} from './render-scene-background.ts';
-import {projectOriginalVector} from './project-original-vector.ts';
 
 /** Recover the original angle convention from the actual display camera.
  * The display reflects world Z; its local forward is original positive Z.
@@ -16,21 +15,17 @@ export function backgroundCamera(position:readonly number[],target:readonly numb
  return {angles:[-e.z,-e.x,-e.y].map(n=>fractional?(n*512/Math.PI%1024+1024)%1024:Math.round(n*512/Math.PI)&1023) as Vector,height:fractional?position[1]:Math.round(position[1])};
 }
 
-/** Interpolate only between the native projected horizon's integer inputs.
- * At every original endpoint this is the exact DOS projection; between them
- * it prevents the enhanced artwork stepping by a whole source-screen pixel. */
+/** Subpixel presentation of the native horizon vector [0,-eyeHeight,15000].
+ * Do not interpolate integer-raster results: eye height can advance through
+ * dozens of units with the same rounded pixel, then cross a one-pixel step.
+ * Continuous projection follows the GPU world and retains source framing to
+ * within native raster rounding. The original background pixels below still
+ * use the unchanged fixed-point/raster path. */
 export function nativePanoramaHorizon(angles:Vector,height:number,projection:readonly number[],top=0){
  if(angles[0]!==0)return undefined;
- const at=(pitch:number,eyeHeight:number)=>{
-  const matrix=rotateZXY(0,pitch,0,true);
-  if(vecTransform([0,0,1000],matrix)[2]<=0)return undefined;
-  const vector=vecTransform([0,i16(-eyeHeight),15000],matrix);
-  return vector[2]>=0?Math.max(top,projectOriginalVector(vector,projection.slice(0,2),projection.slice(2,4))[1]):undefined;
- };
- const pitch=Math.floor(angles[1]),eye=Math.floor(height),pt=angles[1]-pitch,ht=height-eye;
- const a=at(pitch,eye),b=pt?at(pitch+1,eye):a,c=ht?at(pitch,eye+1):a,d=pt&&ht?at(pitch+1,eye+1):ht?c:b;
- if(a===undefined||b===undefined||c===undefined||d===undefined)return undefined;
- return (a+(b-a)*pt)*(1-ht)+(c+(d-c)*pt)*ht;
+ const pitch=angles[1]*Math.PI/512,sine=Math.sin(pitch),cosine=Math.cos(pitch),depth=15000*cosine-height*sine;
+ if(cosine<=1e-12||depth<=0)return undefined;
+ return Math.max(top,projection[1]+projection[3]*(height*cosine+15000*sine)/depth);
 }
 
 /** Original panorama artwork and background rules behind the GPU world.

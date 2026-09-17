@@ -83,7 +83,7 @@ for(const mode of ['cockpit','helicopter','orbit','TV'])await test(`${mode}: sou
  }
 });
 
-await test('TV background follows native camera projection with no held pitch, height or separate lag',()=>{
+await test('TV background follows native camera framing within source raster rounding',()=>{
  const memory=new Uint8Array(readFileSync(new URL('../public/game/native-resource-base.bin',import.meta.url))),data=new DataView(memory.buffer),d=0x2d1a0;
  const projection=[160,100,200,160];projection.forEach((value,i)=>data.setInt16(d+0x4b88+i*2,value,true));
  const renderer=createNativeBackground(memory),eye:Vector=[14950,270,14700];
@@ -96,7 +96,7 @@ await test('TV background follows native camera projection with no held pitch, h
   const matrix=rotateZXY(0,angles[1],0,true);
   drawOriginalSceneBackground(memory,d,[0,320,0,200],1,matrix,0,angles[2],height,{fill(){},polygon(){},panorama(_rectangle,_heading,horizon){nativeHorizon=horizon;}});
   const shown=renderer.render(view.angles,height,4/3,58,projection,0);
-  assert.equal(shown.panoramaHorizon,nativeHorizon);assert.notEqual(nativeHorizon,previousHorizon);previousHorizon=nativeHorizon;
+  assert.ok(Math.abs(shown.panoramaHorizon!-nativeHorizon!)<1.1);assert.notEqual(nativeHorizon,previousHorizon);previousHorizon=nativeHorizon;
  }
  for(const source of fixtures){
   const background=upgradedBackgroundView(source.rotation);
@@ -107,8 +107,44 @@ await test('TV background follows native camera projection with no held pitch, h
  const before:Vector=[0,997,1018],after:Vector=[0,998,1019];
  const a=nativePanoramaHorizon(before,270,projection)!,b=nativePanoramaHorizon(after,270,projection)!;
  for(const fraction of [0,.125,.25,.5,.75,1]){
-  near(nativePanoramaHorizon([0,997+fraction,1018+fraction],270,projection)!,a+(b-a)*fraction);
+  const horizon=nativePanoramaHorizon([0,997+fraction,1018+fraction],270,projection)!;
+  assert.ok(horizon>=a&&horizon<=b);
   near(enhancedPanoramaLeft(1018+fraction),enhancedPanoramaLeft(1018)+fraction);
+ }
+});
+
+for(const mode of ['cockpit','helicopter','orbit','TV'])for(const rate of [60,120,240])await test(`${mode}: panorama follows continuous world projection without pixel steps at ${rate} Hz`,()=>{
+ const projection=[160,mode==='cockpit'?65:100,230,155],view=new PerspectiveCamera();
+ view.projectionMatrix.makePerspective(-projection[0]/projection[2],(320-projection[0])/projection[2],projection[1]/projection[3],-(200-projection[1])/projection[3],1,200000);
+ let last:number|undefined;
+ for(let i=0;i<=rate;i++){
+  // A TV eye stays fixed while it aims at a jumping car; following cameras
+  // also translate vertically. Keep both paths below the viewport clipping.
+  const camera:RenderPose={position:[15000,mode==='TV'?270:70+450*i/rate,15000],rotation:[0,mode==='TV'?5*i/rate:0,0]};
+  const source=upgradedSourceCamera(camera);view.position.set(...source.position);view.up.set(...source.up);view.lookAt(...source.target);view.updateMatrixWorld();
+  const groundPoint=new Vector3(15000,0,-30000).project(view),expected=(1-groundPoint.y)*100;
+  const horizon=nativePanoramaHorizon(camera.rotation,camera.position[1],projection)!;
+  near(horizon,expected);
+  if(last!==undefined){assert.ok(horizon>last,'every moving display frame must move the horizon');assert.ok(horizon-last<6/rate,'no one-source-pixel threshold jumps');}
+  last=horizon;
+ }
+});
+
+for(const rate of [60,120,240])await test(`native helicopter startup dolly remains smooth at ${rate} Hz with irregular arrivals`,()=>{
+ // Captured native startup frames 6..9. The projection stays constant:
+ // the apparent zoom is a dolly, not a change in focal length.
+ const heights=[780,750,720,690],pitches=[993,994,994,994],times=[0,50,250/3,400/3];
+ const projection=[160,100,230,155],motion=createLiveGraphicsMotion();
+ const value=(i:number)=>({camera:{position:[15000,heights[i],15000] as Vector,rotation:[0,pitches[i],0] as Vector},cars:[pose(15000,15000)]});
+ const view=new PerspectiveCamera();view.projectionMatrix.makePerspective(-160/230,160/230,100/155,-100/155,1,200000);
+ let index=0;
+ for(let sample=0;sample<=Math.ceil(200*rate/1000);sample++){
+  const now=sample*1000/rate;
+  if(index+1<times.length&&now+1e-7>=times[index+1])index++;
+  const shown=motion.sample(value(index),index,'1',false,now).camera,source=upgradedSourceCamera(shown);
+  view.position.set(...source.position);view.up.set(...source.up);view.lookAt(...source.target);view.updateMatrixWorld();
+  const expected=(1-new Vector3(15000,0,-30000).project(view).y)*100;
+  near(nativePanoramaHorizon(shown.rotation,shown.position[1],projection)!,expected);
  }
 });
 
@@ -117,6 +153,22 @@ await test('banked source view keeps the enhanced panorama eligible and rolls it
  assert.equal(view.angles[0],0);
  assert.notEqual(nativePanoramaHorizon(view.angles,270,[160,100,200,160]),undefined);
  near(view.rotation,-source[0]*Math.PI/512);
+});
+
+await test('continuous panorama retains native visible framing, angle wrap and clipping',()=>{
+ const memory=new Uint8Array(readFileSync(new URL('../public/game/native-resource-base.bin',import.meta.url))),data=new DataView(memory.buffer),d=0x2d1a0;
+ const projection=[160,100,230,155];projection.forEach((value,i)=>data.setInt16(d+0x4b88+i*2,value,true));
+ for(let pitch=-100;pitch<=100;pitch++)for(let height=0;height<2000;height+=37){
+  const angles:Vector=[0,pitch&1023,0],matrix=rotateZXY(...angles,true);
+  let original:number|undefined;
+  drawOriginalSceneBackground(memory,d,[0,320,0,200],1,matrix,0,0,height,{fill(){},polygon(){},panorama(_rectangle,_heading,horizon){original=horizon;}});
+  const shown=nativePanoramaHorizon(angles,height,projection)!;
+  if(original!==undefined&&Math.max(original,shown)<=200)assert.ok(Math.abs(shown-original)<1.1,'same source geometry, differing only within integer raster rounding');
+ }
+ near(nativePanoramaHorizon([0,1023.75,0],270,projection)!,nativePanoramaHorizon([0,-.25,0],270,projection)!);
+ assert.equal(nativePanoramaHorizon([0,256,0],0,projection),undefined);
+ assert.equal(nativePanoramaHorizon([0,512,0],0,projection),undefined);
+ assert.equal(nativePanoramaHorizon([0,900,0],0,projection,9),9);
 });
 
 for(const level of [1,2,3] as const)await test(`V ${level}: bridges cannot translate the panorama or clouds`,()=>{

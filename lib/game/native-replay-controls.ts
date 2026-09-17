@@ -4,6 +4,7 @@ import {originalReplayCameraAdjustment} from './replay-camera-adjustment.ts';
 export interface NativeReplayControlsHost {
  memory():Uint8Array;read():Promise<number>;ctrlHeld():boolean;raceCommand(key:number):number|Promise<number>;
  control(mode:number,start:number,current:number):void;pauseAudio():void;
+ presentWorld():void;
  scrub(direction:'forward'|'backward'):Promise<void>;menu():Promise<void>;
  seekStart():void;waitTicks(ticks:number):Promise<void>;
 }
@@ -14,10 +15,20 @@ export async function runNativeReplayControls(host:NativeReplayControlsHost,d:nu
  const redraw=()=>host.control(1,word(0x8c26),word(0x8c26));
  let prepare=true;
  for(;;){
-  const input=await host.read();let key=originalReplayPointerInput(host.memory(),d,input,prepare);prepare=false;
+  const input=await host.read(),sample=host.memory();
+  // Hidden replay buttons have no browser pointer targets. Keep keyboard
+  // commands active without letting invisible hover regions redraw the panel.
+  let key=sample[d+0xaae6]?originalReplayPointerInput(sample,d,input,prepare):input&65535;prepare=false;
   if(key!==0&&key!==27&&await host.raceCommand(key))return;
   let m=host.memory();
-  if(!m[d+0x9aca]&&key===0){if(m[d+0xaae6])redraw();return;}
+  if(!m[d+0x9aca]&&key===0){
+   if(m[d+0xaae6])redraw();
+   // Browser input polling already yielded one animation frame. A visible
+   // panel presents that frame through control(1); a hidden panel must still
+   // present the world instead of limiting enhanced playback to half refresh.
+   else host.presentWorld();
+   return;
+  }
   if(!m[d+0xaae6]){m[d+0x9c46]=255;new DataView(m.buffer,m.byteOffset,m.byteLength).setUint16(d+0x9000,65535,true);}
   if(m[d+0x9aca]&&(m[d+0x5527]||m[d+0x5526]))host.control(2,4,0);
   redraw();m=host.memory();
