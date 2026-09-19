@@ -41,7 +41,12 @@ export function createBrowserMenuInput(element:HTMLCanvasElement,options:{joysti
  const clear=()=>{blockedButtons|=buttons;controlHeld=false;buttons=0;pendingKey=0;held.clear();pointerEdges.length=0;releaseCapture();};
  const visibility=()=>{if(page?.hidden)clear();};
  page?.addEventListener('visibilitychange',visibility);
+ page?.addEventListener('fullscreenchange',clear);
  element.addEventListener('keydown',keyboard);element.addEventListener('keyup',keyup);element.addEventListener('blur',clear);element.addEventListener('pointerdown',down);element.addEventListener('pointermove',pointer);element.addEventListener('pointerup',pointer);element.addEventListener('pointercancel',leave);element.addEventListener('lostpointercapture',leave);element.addEventListener('pointerleave',leave);element.addEventListener('contextmenu',contextMenu);window.addEventListener('blur',clear);
+ // A browser may retarget a release during a fullscreen or browser-chrome
+ // transition without first blurring the canvas. Catch releases at the window
+ // boundary so an old direction cannot remain combined with the next one.
+ window.addEventListener('keyup',keyup,true);
  const gamepad=()=>{
   // Original225bc returns no joystick sample while DS:4602 bit0 is clear.
   if(!active||disposed||(options.joystickEnabled&&!options.joystickEnabled()))return {mask:0,direction:0,axis:0};
@@ -78,6 +83,6 @@ export function createBrowserMenuInput(element:HTMLCanvasElement,options:{joysti
   async keyboard(){await wait();const ticks=counter();return {key:takeKey(),input:ticks>>>0,game:Math.floor(ticks/ORIGINAL_GAME_TIMER_DIVIDER)>>>0};},
   async gameCounter(){await wait();return Math.floor(counter()/ORIGINAL_GAME_TIMER_DIVIDER)>>>0;},
   async release(){for(;;){if(gamepad().mask&48){await wait();continue;}const sample=await read();if(!sample.key&&!(sample.mouseActive&&sample.buttons&3))return;}},
-  close(){if(disposed)return;const ownedCursor=active;disposed=true;active=false;clear();page?.removeEventListener('visibilitychange',visibility);cancelAnimationFrame(request);rejectWait?.(new DOMException('Native menu closed','AbortError'));element.removeEventListener('keydown',keyboard);element.removeEventListener('keyup',keyup);element.removeEventListener('blur',clear);element.removeEventListener('pointerdown',down);element.removeEventListener('pointermove',pointer);element.removeEventListener('pointerup',pointer);element.removeEventListener('pointercancel',leave);element.removeEventListener('lostpointercapture',leave);element.removeEventListener('pointerleave',leave);element.removeEventListener('contextmenu',contextMenu);window.removeEventListener('blur',clear);if(ownedCursor)element.style.cursor='';},
+  close(){if(disposed)return;const ownedCursor=active;disposed=true;active=false;clear();page?.removeEventListener('visibilitychange',visibility);page?.removeEventListener('fullscreenchange',clear);cancelAnimationFrame(request);rejectWait?.(new DOMException('Native menu closed','AbortError'));element.removeEventListener('keydown',keyboard);element.removeEventListener('keyup',keyup);element.removeEventListener('blur',clear);element.removeEventListener('pointerdown',down);element.removeEventListener('pointermove',pointer);element.removeEventListener('pointerup',pointer);element.removeEventListener('pointercancel',leave);element.removeEventListener('lostpointercapture',leave);element.removeEventListener('pointerleave',leave);element.removeEventListener('contextmenu',contextMenu);window.removeEventListener('blur',clear);window.removeEventListener('keyup',keyup,true);if(ownedCursor)element.style.cursor='';},
  };
 }
