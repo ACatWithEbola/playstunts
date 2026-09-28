@@ -1,0 +1,4 @@
+<!doctype html><html><head><title>Actual bridge shadow test</title></head><body style="background:#182028;color:white;font:16px monospace"><h1>Actual bridge shadow test</h1><pre id="result">Running…</pre><script type="module">
+import {verifyBridgeShadow} from './verify_bridge_shadow.ts';
+try {document.querySelector('#result').textContent=JSON.stringify(await verifyBridgeShadow(),null,2);}catch(e){document.querySelector('#result').textContent='FAIL: '+e.stack;}
+</script></body></html>

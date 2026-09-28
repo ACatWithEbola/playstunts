@@ -213,15 +213,21 @@ export function createUpgradedRetroLighting(options:{sunDirection?:THREE.Vector3
  }
  const makeReceiverMaterial=(shadow:Shadow,index:number,directCoverage=false)=>new THREE.ShaderMaterial({
   uniforms:{retroCasterMap:{value:shadow.target.texture},retroShadowMatrix:shadow.matrix},
-  vertexShader:`varying vec3 vRetroWorld;
+  vertexShader:`attribute vec4 originalPattern; varying vec4 vReceiverPattern; varying vec3 vRetroWorld;
    void main() {
+    vReceiverPattern=originalPattern;
     vRetroWorld = (modelMatrix * vec4(position, 1.0)).xyz;
     gl_Position = projectionMatrix * viewMatrix * vec4(vRetroWorld, 1.0);
    }`,
   fragmentShader:`uniform sampler2D retroCasterMap; uniform mat4 retroShadowMatrix;
-   varying vec3 vRetroWorld;
+   varying vec3 vRetroWorld; varying vec4 vReceiverPattern;
    #include <packing>
    void main() {
+    ${index<CAR_SHADOWS?`// A perforated deck and the ground both receive the same blocked
+    // sunlight. Keep the first opaque receiver here; the visible deck samples
+    // that light interval separately. Independent hole rasters otherwise
+    // erase most of the car silhouette when combined with scenery shadows.
+    if(vReceiverPattern.x>.5&&vReceiverPattern.x<1.5&&vReceiverPattern.z>.5)discard;`:''}
     vec3 p = (retroShadowMatrix * vec4(vRetroWorld, 1.0)).xyz;
     if (p.x <= 0.0 || p.x >= 1.0 || p.y <= 0.0 || p.y >= 1.0 || p.z <= 0.0 || p.z >= 1.0) discard;
     vec4 caster = texture2D(retroCasterMap, p.xy);
@@ -237,6 +243,7 @@ export function createUpgradedRetroLighting(options:{sunDirection?:THREE.Vector3
  });
  const receiverMaterials=shadows.map((shadow,index)=>makeReceiverMaterial(shadow,index));
  const coverageReceiverMaterials=shadows.map((shadow,index)=>makeReceiverMaterial(shadow,index,true));
+ for(const material of [...receiverMaterials,...coverageReceiverMaterials])Object.assign(material.defaultAttributeValues,{originalPattern:[0,0,0,0]});
  const installed = new WeakSet<THREE.Material>();
  const normalizedFaces = new WeakSet<THREE.BufferGeometry>();
  let cachedScenerySource:RetroSceneryCaster[]|undefined,cachedSceneryEntries:NormalizedRetroSceneryCaster[]=[],cachedSceneryHidden:THREE.Group[]=[],cachedSceneryShown:THREE.Group[]=[],cachedSceneryVisible=0,cachedSceneryRevision:number|undefined;
@@ -248,6 +255,7 @@ export function createUpgradedRetroLighting(options:{sunDirection?:THREE.Vector3
    const geometry = node.geometry;
    const keepsWorldSurfaceColour=geometry.hasAttribute('originalRoadSurface')&&geometry.hasAttribute('originalTerrainSurface');
    const excludesSceneryCasterFaces=geometry.hasAttribute('originalSceneryCaster');
+   const hasOpenPattern=geometry.hasAttribute('originalPatternNormal');
    if (!geometry.hasAttribute('normal')) geometry.computeVertexNormals();
    // A source car polygon may be warped. One normal for the complete source
    // polygon avoids a visible diagonal between its triangulated halves.
@@ -319,6 +327,21 @@ export function createUpgradedRetroLighting(options:{sunDirection?:THREE.Vector3
        if(aperture>.0001&&abs(p.z-.5-coverage.a/aperture)>receiverTolerance)aperture=0.0;
        return clamp(max(solid,aperture),0.0,1.0);
       }
+      float retroOpenShadow(sampler2D coverageMap,sampler2D casterMap,sampler2D receiverMap,mat4 matrix,vec2 texel,float enabled,float tolerance){
+       if(enabled<.5)return 0.0;
+       vec3 p=(matrix*vec4(vRetroWorld,1.0)).xyz;
+       if(p.x<=0.0||p.x>=1.0||p.y<=0.0||p.y>=1.0||p.z<=0.0||p.z>=1.0)return 0.0;
+       vec4 caster=texture2D(casterMap,p.xy);
+       if(caster.a<.5||p.z<=unpackRGBToDepth(caster.rgb)+${SHADOW_DEPTH_BIAS.toFixed(12)})return 0.0;
+       if(!retroFilteredCoverage){
+        vec4 receiver=texture2D(receiverMap,p.xy);
+        return receiver.a>.5&&p.z<=unpackRGBToDepth(receiver.rgb)+tolerance?1.0:0.0;
+       }
+       vec4 c=texture2D(coverageMap,p.xy);
+       float solid=c.r>.0001&&p.z-.5<=c.b/c.r+tolerance?c.r:0.0;
+       float aperture=c.g>.0001&&p.z-.5<=c.a/c.g+tolerance?c.g:0.0;
+       return clamp(max(solid,aperture),0.0,1.0);
+      }
       ${shader.fragmentShader}`;
      // Apply after the stipple's second colour has been selected too.
      shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', `
@@ -329,9 +352,10 @@ export function createUpgradedRetroLighting(options:{sunDirection?:THREE.Vector3
       float retroShade = retroSourceSurface > .5 ? 1.0 : (retroLight > ${BRIGHT_FACE} ? 1.1 : retroLight > ${MID_FACE} ? 1.0 : .76);
       outgoingLight *= retroShade;
       float retroShadowAmount = 0.0;
+      ${hasOpenPattern?`bool retroOpenReceiver=vOriginalPattern.x>.5&&vOriginalPattern.x<1.5&&vOriginalPattern.z>.5;`:''}
       ${receiveCarShadows ? `retroShadowAmount = max(retroShadowAmount,max(
-       retroShadow(retroCoverageMap0,retroShadowMap0,retroShadowReceiverMap0,retroShadowMatrix0,retroShadowTexel0,retroShadowActive0,${CAR_RECEIVER_TOLERANCE.toFixed(12)}),
-       retroShadow(retroCoverageMap1,retroShadowMap1,retroShadowReceiverMap1,retroShadowMatrix1,retroShadowTexel1,retroShadowActive1,${CAR_RECEIVER_TOLERANCE.toFixed(12)})));` : ''}
+       ${hasOpenPattern?'retroOpenReceiver?retroOpenShadow(retroCoverageMap0,retroShadowMap0,retroShadowReceiverMap0,retroShadowMatrix0,retroShadowTexel0,retroShadowActive0,'+CAR_RECEIVER_TOLERANCE.toFixed(12)+'):':''}retroShadow(retroCoverageMap0,retroShadowMap0,retroShadowReceiverMap0,retroShadowMatrix0,retroShadowTexel0,retroShadowActive0,${CAR_RECEIVER_TOLERANCE.toFixed(12)}),
+       ${hasOpenPattern?'retroOpenReceiver?retroOpenShadow(retroCoverageMap1,retroShadowMap1,retroShadowReceiverMap1,retroShadowMatrix1,retroShadowTexel1,retroShadowActive1,'+CAR_RECEIVER_TOLERANCE.toFixed(12)+'):':''}retroShadow(retroCoverageMap1,retroShadowMap1,retroShadowReceiverMap1,retroShadowMatrix1,retroShadowTexel1,retroShadowActive1,${CAR_RECEIVER_TOLERANCE.toFixed(12)})));` : ''}
       ${receiveSceneryShadows ? `// Prefer the detailed cascade in its interior, but feather it to the
        // distant result before reaching the orthographic map edge. The map
        // boundary therefore cannot become a diagonal or rectangular slab.
@@ -345,7 +369,7 @@ export function createUpgradedRetroLighting(options:{sunDirection?:THREE.Vector3
       outgoingLight = mix(outgoingLight,retroDistanceTint,retroDistanceAmount);`}
       #include <opaque_fragment>`);
     };
-    material.customProgramCacheKey = () => key + '/retro-light-v23/' + Number(receiveCarShadows) + '/' + Number(receiveSceneryShadows) + '/' + Number(!!node.userData.originalBodyFace) + '/' + Number(node.userData.retroDistanceColour!==false) + '/' + Number(keepsWorldSurfaceColour) + '/' + Number(excludesSceneryCasterFaces);
+    material.customProgramCacheKey = () => key + '/retro-light-v24/' + Number(receiveCarShadows) + '/' + Number(receiveSceneryShadows) + '/' + Number(!!node.userData.originalBodyFace) + '/' + Number(node.userData.retroDistanceColour!==false) + '/' + Number(keepsWorldSurfaceColour) + '/' + Number(excludesSceneryCasterFaces) + '/' + Number(hasOpenPattern);
     material.needsUpdate = true;
    }
   });
@@ -418,8 +442,8 @@ export function createUpgradedRetroLighting(options:{sunDirection?:THREE.Vector3
     renderer.setRenderTarget(shadow.target);
     renderer.render(shadow.scene,shadow.camera);
     // A caster map alone shadows every surface farther down the same sun ray.
-    // Depth-peel the first actual world surface behind the car so a bridge deck
-    // receives the shadow while lower terrain beneath it remains untouched.
+    // Depth-peel the first opaque world surface behind the car. Solid decks
+    // stop the shadow; perforated decks also sample the intervening light ray.
     drawReceiver(renderer,shadow,i,receiverScene,cars);
     filterCoverage(renderer,shadow);
    }

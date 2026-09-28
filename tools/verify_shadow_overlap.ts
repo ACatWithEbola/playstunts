@@ -9,7 +9,7 @@ export function verifyShadowOverlap(){
  const scene=new THREE.Scene(),lighting=createUpgradedRetroLighting();
  const ground=new THREE.Mesh(new THREE.PlaneGeometry(3000,3000),new THREE.MeshBasicMaterial({color:0x27641d,side:THREE.DoubleSide}));ground.rotation.x=-Math.PI/2;scene.add(ground);lighting.apply(ground);
  const deck=new THREE.Group(),geometry=new THREE.PlaneGeometry(700,700);geometry.rotateX(-Math.PI/2);
- geometry.setAttribute('originalPattern',new THREE.Float32BufferAttribute(Array.from({length:geometry.attributes.position.count},()=>[1,0xaaaa]).flat(),2));
+ geometry.setAttribute('originalPattern',new THREE.Float32BufferAttribute(Array.from({length:geometry.attributes.position.count},()=>[1,0xaaaa,1,.5]).flat(),4));
  deck.add(new THREE.Mesh(geometry,new THREE.MeshBasicMaterial()));deck.position.y=300;deck.userData.retroPatternedShadow=true;scene.add(deck);
  const car=new THREE.Group();car.add(new THREE.Mesh(new THREE.BoxGeometry(140,60,200),new THREE.MeshBasicMaterial()));car.position.y=100;scene.add(car);lighting.apply(car,false);
  const camera=new THREE.PerspectiveCamera(45,640/480,1,5000);camera.position.set(0,1800,0);camera.up.set(0,0,-1);camera.lookAt(0,0,0);
@@ -24,6 +24,13 @@ export function verifyShadowOverlap(){
   const without=capture(false,1),withCar=capture(true,2);let brighter=0,darker=0;
   for(let i=0;i<without.length;i+=4){const delta=Math.max(...[0,1,2].map(c=>withCar[i+c]-without[i+c]));if(delta>2)brighter++;if(delta< -2)darker++;}
   if(brighter)throw Error(`Car erased scenery shadow at ${brighter} ground pixels`);
-  return {result:'PASS',brighterGroundPixels:brighter,darkerGroundPixels:darker};
+  car.position.y=360;
+  const countDark=(a:Uint8Array,b:Uint8Array)=>{let count=0;for(let i=0;i<a.length;i+=4)if(a[i+1]-b[i+1]>2)count++;return count;};
+  const openDark=countDark(capture(false,3),capture(true,4));
+  if(openDark<50)throw Error(`Open bridge blocks car shadow: only ${openDark} darkened ground pixels`);
+  geometry.deleteAttribute('originalPattern');deck.userData.retroPatternedShadow=false;
+  const solidDark=countDark(capture(false,5),capture(true,6));
+  if(solidDark!==0)throw Error(`Solid bridge leaks car shadow: ${solidDark} ground pixels`);
+  return {result:'PASS',brighterGroundPixels:brighter,darkerGroundPixels:darker,openBridgeCarShadowPixels:openDark,solidBridgeLeakPixels:solidDark};
  }finally{lighting.dispose();scene.traverse(n=>{if(n instanceof THREE.Mesh){n.geometry.dispose();(n.material as THREE.Material).dispose();}});renderer.dispose();}
 }
