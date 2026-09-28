@@ -1,0 +1,4 @@
+<!doctype html><html><head><title>Shadow overlap regression</title></head><body style="background:#182028;color:white;font:18px monospace"><h1>Shadow overlap regression</h1><pre id="result">Running GPU check…</pre><script type="module">
+import {verifyShadowOverlap} from './verify_shadow_overlap.ts';
+try {document.querySelector('#result').textContent=JSON.stringify(verifyShadowOverlap(),null,2);} catch(error){document.querySelector('#result').textContent='FAIL: '+error.stack;}
+</script></body></html>

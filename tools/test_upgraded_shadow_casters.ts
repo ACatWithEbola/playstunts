@@ -41,3 +41,18 @@ await test('Countach grounded contact panels stop casting and return when airbor
  const harness=captureCasters(model);
  try{const airborne=harness.draw().length;setUpgradedCarGroundContactPanels(model,true);assert.equal(harness.draw().length,airborne-2);setUpgradedCarGroundContactPanels(model,false);assert.equal(harness.draw().length,airborne);}finally{harness.close();}
 });
+
+for(const filtered of [true,false])await test(`scenery receivers exclude both cars without erasing ground coverage (filtered=${filtered})`,()=>{
+ const scene=new THREE.Scene(),cars=[new THREE.Group(),new THREE.Group()],scenery=new THREE.Group();
+ for(const group of [...cars,scenery]){group.add(new THREE.Mesh(new THREE.BoxGeometry(),new THREE.MeshBasicMaterial()));scene.add(group);}
+ const lighting=createUpgradedRetroLighting();let target:THREE.WebGLRenderTarget|null=null,passes=0;
+ const renderer={autoClear:true,extensions:{has:()=>filtered},getRenderTarget:()=>target,getClearColor:(value:THREE.Color)=>value.set(0),getClearAlpha:()=>0,setClearColor(){},setRenderTarget(next:THREE.WebGLRenderTarget|null){target=next;},render(source:THREE.Scene){
+  if(source===scene&&source.overrideMaterial&&target?.width!==512){
+   passes++;assert.ok(cars.every(car=>!car.visible),'a car must not intercept the scenery receiver depth and punch a lit hole below a bridge');
+  }
+ }} as unknown as THREE.WebGLRenderer;
+ try{
+  lighting.drawShadows(renderer,cars,scene,[scenery],new THREE.Vector3());
+  assert.equal(passes,2,'check both scenery cascades');assert.ok(cars.every(car=>car.visible),'restore car visibility');
+ }finally{lighting.dispose();scene.traverse(node=>{if(node instanceof THREE.Mesh){node.geometry.dispose();(node.material as THREE.Material).dispose();}});}
+});

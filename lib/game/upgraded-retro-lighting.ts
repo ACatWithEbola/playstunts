@@ -463,7 +463,13 @@ export function createUpgradedRetroLighting(options:{sunDirection?:THREE.Vector3
     cachedSceneryRevision=sceneryRevision;
    }
    sceneryShadows.forEach(shadow=>{shadow.active.value=sceneryCenter&&cachedSceneryVisible?1:0;});
-   const hidden=cachedSceneryHidden;
+   // Cars do not receive scenery shadows (their materials are installed with
+   // apply(car,false)). Including them in this first-surface pass nevertheless
+   // steals the receiver depth from the ground under a patterned bridge,
+   // punching a bright car-shaped hole into its shadow. Exclude both cars,
+   // just as the car-shadow receiver pass does. Their own shadow maps still
+   // land on the bridge deck, and the static scenery cache stays car-independent.
+   const hidden=[...cachedSceneryHidden,...cars];
    const shown=cachedSceneryShown;
    const drawScenery=(shadow:Shadow,index:number,center:THREE.Vector3,extent:number,size:number,depth=16384)=>{
     // Scenery and its sunlight are fixed in world space. A cached orthographic
