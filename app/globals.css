@@ -151,3 +151,5 @@
  .stunts-menu-toggle>span:first-child{display:none}
  .stunts-masthead-brand{padding-right:60px}
 }
+.stunts-universe .launch-info .graphics-performance-notice{max-width:960px;margin:0 0 22px;padding:14px 18px;border-left:3px solid var(--stunts-yellow);background:#172b39;color:#dce7ed;font-size:14px;line-height:1.65}
+.stunts-universe .launch-info .graphics-performance-notice strong{color:var(--stunts-yellow)}
