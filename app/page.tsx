@@ -9,6 +9,8 @@ import {useRolandDevice} from './use-roland-device';
 import {RolandDevicePanel} from './RolandDevicePanel';
 import StuntsBrand from './StuntsBrand';
 import SaveBackupPanel from './SaveBackupPanel';
+import SharedTracksPanel from './SharedTracksPanel';
+import GlobalScoreStatus from './GlobalScoreStatus';
 import StuntsBox from './StuntsBox';
 import StuntsNavigation from './StuntsNavigation';
 import type {Assets} from '@/lib/game/types';
@@ -85,5 +87,8 @@ export default function Home(){
 
   <section className="stunts-about" id="about" aria-labelledby="about-heading"><div className="about-heading"><span className="rail-kicker">THE ORIGINAL GAME · 1990</span><h2 id="about-heading">THE STORY<br/>BEHIND STUNTS.</h2><a href="https://pigsgrame.de/downloads/stunts.pdf" target="_blank" rel="noreferrer">Source: original manual &amp; credits ↗</a></div><div className="stunts-history"><p><strong>Stunts was created by Distinctive Software</strong>, the team behind Test Drive and The Duel: Test Drive II, and published by Brøderbund in 1990. Brad Gour, Kevin Pickell, Don Mattrick and Rob Martyn designed the game. Pickell was its lead programmer, with additional programming by Rick Friesen and Gour; Martyn produced it.</p><p>The idea was to put you in charge of both the car and the course. Choose from eleven cars, race against the clock or a computer opponent, then watch your run in replay. The built-in track editor lets you create your own courses with jumps, loops and other stunt pieces.</p><p>Its look came from Mike Smith, David Adams, Nicola Swain and Kevin Pickell, with sound by Kris Hatlelid and Michael Sokyrka.</p></div></section>
  <section className="launch-info" aria-label="About this browser edition"><p className="graphics-performance-notice"><strong>IMPORTANT:</strong> When playing in updated graphics mode, please make sure to enable hardware acceleration first for best performance.</p><p><strong>Public beta</strong> · Unofficial Stunts browser reconstruction. Not an official release from the original developers or Roland.</p><p>Best played on a computer with a keyboard. <a href="mailto:svenanders@lokaas.net?subject=PlayStunts%20bug%20report">Report a bug</a> — please include your browser, sound/display settings, and steps to reproduce it.</p><SaveBackupPanel running={running} assets={assets}/></section>
+ <SharedTracksPanel running={running}/>
+ <GlobalScoreStatus/>
+ <p className="global-score-note">High scores are shared worldwide in the original game’s score table. Completed runs are checked against their recorded inputs; using “Continue driving” from a replay makes a run ineligible. Offline results wait in this browser until they can be submitted.</p>
  </main>;
 }

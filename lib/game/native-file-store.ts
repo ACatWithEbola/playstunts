@@ -33,8 +33,8 @@ export async function createNativeFileStore(original:ReadonlyMap<string,()=>Prom
  };
 }
 /** Dedicated native save database, separate from the retained DOS reference. */
-export async function openNativeFilePersistence():Promise<NativeFilePersistence&{merge(files:NativeStoredFile[]):Promise<number>}>{
- const database=await new Promise<IDBDatabase>((resolve,reject)=>{const request=indexedDB.open('stunts-native-files',1);request.onupgradeneeded=()=>request.result.createObjectStore('files',{keyPath:'key'});request.onerror=()=>reject(request.error);request.onsuccess=()=>resolve(request.result);});
+export async function openNativeFilePersistence(databaseName='stunts-native-files'):Promise<NativeFilePersistence&{merge(files:NativeStoredFile[]):Promise<number>}>{
+ const database=await new Promise<IDBDatabase>((resolve,reject)=>{const request=indexedDB.open(databaseName,1);request.onupgradeneeded=()=>request.result.createObjectStore('files',{keyPath:'key'});request.onerror=()=>reject(request.error);request.onsuccess=()=>resolve(request.result);});
  return {
   close:()=>database.close(),
   merge: (files:NativeStoredFile[])=>new Promise<number>((resolve,reject)=>{const transaction=database.transaction('files','readwrite'),store=transaction.objectStore('files');let added=0;for(const file of files){const request=store.getKey(file.key);request.onsuccess=()=>{if(request.result===undefined){store.add(file);added++;}};}transaction.oncomplete=()=>resolve(added);transaction.onerror=()=>reject(transaction.error);transaction.onabort=()=>reject(transaction.error??Error('Import cancelled'));}),

@@ -62,6 +62,9 @@ import type {NativeDialogHost} from './native-dialog-runtime.ts';
 import {createNativeDialogRuntime} from './native-dialog-runtime.ts';
 import {runNativeRaceResults,type NativeRaceResultsState,type NativeRaceResultsHost,type NativeEvaluationResources} from './native-race-results.ts';
 import type {NativeHighScorePreparationHost} from './native-high-score-preparation.ts';
+import {createGlobalScoreClient} from './browser-global-scores.ts';
+import {captureGlobalRace} from './global-race-recording.ts';
+import {createGlobalScoreFileStore} from './global-score-file-store.ts';
 import type {Assets} from './types.ts';
 const ENHANCED_BACKGROUND_ROOT='/site/enhanced-backgrounds';
 const enhancedTrackOverviews=['desert','tropical','alpine','city','country'].map(name=>`${ENHANCED_BACKGROUND_ROOT}/${name}-overview.png`);
@@ -85,7 +88,19 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
  const mainMenuArt=await binary('main-menu-art.bin'),enhancedMainMenu=await enhancedMainMenuPromise;
  const original=bundledTrackReplays(options.assets.tracks,binary,options.assets.replays);
  for(const [name,entry] of Object.entries(scores))original.set(nativeFileKey('',name,'.hig'),()=>binary('high-scores/'+entry.file));
- const files=await createNativeFileStore(original,await openNativeFilePersistence());
+ const localFiles=await createNativeFileStore(original,await openNativeFilePersistence());
+ const sharedScores=await createGlobalScoreClient(await openNativeFilePersistence('stunts-global-highscores'));
+ const runHistory=new WeakMap<ReturnType<typeof createNativeRaceSession>,ReturnType<typeof captureGlobalRace>>();
+ let scoreContext:{runtime:Awaited<ReturnType<typeof createNativeManualRaceRuntime>>;state:NativeRaceResultsState}|undefined;
+ const files=createGlobalScoreFileStore(localFiles,sharedScores,()=>scoreContext?{...scoreContext,history:runHistory.get(scoreContext.runtime.session)}:undefined);
+ const registerRun=(runtime:Awaited<ReturnType<typeof createNativeManualRaceRuntime>>)=>{
+  const session=runtime.session;
+  if(runHistory.has(session))return;
+  runHistory.set(session,captureGlobalRace(runtime));
+ };
+ const retryScores=()=>{void sharedScores.flush();};window.addEventListener('online',retryScores);
+ void sharedScores.flush();
+ options.signal?.addEventListener('abort',()=>window.removeEventListener('online',retryScores),{once:true});
  const drivingSettings={...(options.settings??{mouse:false,joystick:false,graphics:2})};
  let activeRace:Awaited<ReturnType<typeof createNativeManualRaceRuntime>>|undefined,racePoll:(()=>void|Promise<void>)|undefined;
  const presentHercules=options.hercules?createBrowserHerculesPresenter(options.canvas):undefined;
@@ -227,9 +242,10 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
   return runNativeOptions(nativeHost,createNativeDisplayOptionsPresentation(owner,nativeHost,dialogs));
  };
  if(options.displayMode)lastNativeDisplay=await prepareBrowserNativeMenuDisplay({catalog:await loadBrowserOriginalResourceCatalog()},options.displayMode,options.hercules);
- return {configuration,track,elapsedSinceInputPoll:input.elapsedSinceInputPoll,selectOptions,selectCar:car,selectOpponent:opponent,selectTrack,setInputActive:input.setActive,settings:drivingSettings,get replay(){return replay;},get selectedReplay(){return selectedReplay;},raceEntryKey:fastForwardKey,fadeMusic:()=>music.fadeOut(input.waitTicks),close:()=>{input.close();files.close();},
+ return {configuration,track,elapsedSinceInputPoll:input.elapsedSinceInputPoll,selectOptions,selectCar:car,selectOpponent:opponent,selectTrack,setInputActive:input.setActive,settings:drivingSettings,get replay(){return replay;},get selectedReplay(){return selectedReplay;},raceEntryKey:fastForwardKey,fadeMusic:()=>music.fadeOut(input.waitTicks),close:()=>{window.removeEventListener('online',retryScores);input.close();files.close();},
   /** Use the live allocated game banks and retained framebuffer. */
   async allocatedRacePresentation(runtime:Awaited<ReturnType<typeof createNativeManualRaceRuntime>>,onPoll:()=>void|Promise<void>,alternate?:Awaited<ReturnType<typeof prepareBrowserNativeManualDisplay>>){
+   registerRun(runtime);
    let upgraded:ReturnType<typeof createUpgradedRaceScene>|undefined,loading=false,closed=false,failed=false;
    const graphics=options.graphics;if(graphics){runtime.enableGraphicsCapture();graphics.resetPerformance?.();}
    const presentWorld=()=>{
@@ -366,14 +382,14 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
     async readFile(filename){const {path,name}=parts(filename);try{return files.exists(path,name,'')?await files.read(path,name,''):null;}catch{return null;}},
     async writeFile(filename,bytes){const {path,name}=parts(filename);try{await files.write(path,name,'',bytes);return 0;}catch{return 1;}},
     insertTrackDisk:()=>{const m=runtime.session.state.memory;return dialogs.dialog('eihd',1,1,alternate?new DataView(alternate.owner.memory().buffer).getUint16(alternate.owner.d+0x4ec2,true):new DataView(m.buffer,m.byteOffset,m.byteLength).getUint16(0x2d1a0+0x4ec2,true));},
-    present:(state,services)=>this.results(state,services,alternate),
-   });}finally{alternate?.release();}
+    present:(state,services)=>{scoreContext={runtime,state};return this.results(state,services,alternate);},
+   });}finally{scoreContext=undefined;alternate?.release();}
   },
   async results(state:NativeRaceResultsState,services:{randomWord():number;randomByte():number;files?:NativeHighScorePreparationHost;selectEvaluation?:NativeRaceResultsHost['selectEvaluation'];prepareScores?:NativeRaceResultsHost['prepareScores']},alternate?:Awaited<ReturnType<typeof prepareBrowserNativeResultsDisplay>>){
    const scoreText=await json<TextResources>('high-score-text'),resultHost={...host,resources:{...host.resources,...scoreText.resources}},dialogs=createNativeDialogRuntime(resultHost);
    const read=async(extension:string)=>{try{return files.exists(state.trackPath,state.trackName,extension)?await files.read(state.trackPath,state.trackName,extension):null;}catch{return null;}};
    const scoreFiles:NativeHighScorePreparationHost=services.files??{readSavedTrack:()=>read('.trk'),insertTrackDisk:()=>dialogs.dialog('eihd',1,1,4),readScores:()=>read('.hig'),writeScores:async bytes=>{try{await files.write(state.trackPath,state.trackName,'.hig',bytes);return true;}catch{return false;}}};
-   const results:NativeRaceResultsHost={...resultHost,playResultMusic:name=>music.play(name),smallFont,counter:input.counter,files:scoreFiles,evaluation:opponent=>json<NativeEvaluationResources>('opponent-evaluation/'+opponent),randomWord:services.randomWord,randomByte:services.randomByte,selectEvaluation:services.selectEvaluation,prepareScores:services.prepareScores};
+   const results:NativeRaceResultsHost={...resultHost,playResultMusic:name=>music.play(name),smallFont,counter:input.counter,files:scoreFiles,evaluation:opponent=>json<NativeEvaluationResources>('opponent-evaluation/'+opponent),randomWord:services.randomWord,randomByte:services.randomByte,selectEvaluation:services.selectEvaluation,prepareScores:services.prepareScores?async current=>{const eligibility=await services.prepareScores!(current);return runHistory.get(scoreContext!.runtime.session)?.continued&&eligibility.status===1?{...eligibility,status:0}:eligibility;}:undefined};
    show('results');focusBrowserGameCanvas(canvas);
    if(!alternate)return runNativeRaceResults(results,state);
    const owner=alternate.owner,displayHost={...results,present:()=>{pixels.set(alternate.pixels());paint(alternate.palette,undefined,alternate.owner);},editPath:(path:string,length:number,timeout:number,field:{x:number;y:number})=>editNativeDisplayPath({memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,present:()=>{pixels.set(alternate.pixels());paint(alternate.palette,undefined,alternate.owner);},counters:input.counters,keyboard:input.keyboard},path,length,timeout,field,0xe800)};

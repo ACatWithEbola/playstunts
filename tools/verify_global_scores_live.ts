@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {finishedScoreFixture} from './global-score-fixture.ts';
+import {GLOBAL_SCORE_RULES,scoreHash,scoreTicks} from '../lib/game/global-score-format.ts';
+const origin=process.argv[2];if(!origin||!/^https:\/\//.test(origin))throw Error('Pass the published HTTPS origin');
+const proof=await finishedScoreFixture(),hash=await scoreHash(Uint8Array.from(proof.replay.slice(24,0x722)));
+const board=await fetch(origin+'/api/highscores?track='+hash),scores=await board.json() as {file:number[]};assert.equal(board.status,200);assert.equal(scores.file.length,364);
+const validation=await fetch(origin+'/api/highscores',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Score':GLOBAL_SCORE_RULES},body:JSON.stringify({...proof,validateOnly:true})}),result=await validation.json() as {verified:boolean;ticks:number};assert.equal(validation.status,200,JSON.stringify(result));assert.equal(result.verified,true);assert.equal(result.ticks,scoreTicks(proof.record));
+const continued=await fetch(origin+'/api/highscores',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Score':GLOBAL_SCORE_RULES},body:JSON.stringify({...proof,continued:true,validateOnly:true})});assert.equal(continued.status,400);
+const after=await fetch(origin+'/api/highscores?track='+hash).then(r=>r.json()) as {file:number[]};assert.deepEqual(after.file,scores.file,'Smoke verification must not insert test scores');
+const tracks=await fetch(origin+'/api/tracks');assert.equal(tracks.status,200);
+console.log('Live score read, native race verification, continuation rejection and community track read passed; no test scores were inserted.');
