@@ -67,6 +67,29 @@ test('full-route proof needs a finished connected path with positive gate covera
 test('ground-level bypass cannot certify elevated stunt gates',()=>{
  const witness=createFullRouteWitness(proofGraph,[gates[0],[{position:[1536,975,512],radius:200}],gates[2]]);observeGates(witness);assert.equal(witness.result(true),false);
 });
+test('collision-height road gates allow bounded jumps but reject bridge underpasses and prolonged grass',()=>{
+ const finite=gates.map((list,node)=>list.map(g=>({...g,position:[g.position[0],450,g.position[2]],radius:240,requiresRoad:true,heightTolerance:280,airborneHeightTolerance:600})));
+ const jump=createFullRouteWitness(proofGraph,finite);
+ jump.observe([0,450*64,512*64],road);
+ for(const list of finite)jump.observe([list[0].position[0]*64,800*64,512*64],[0,0,0,0]);
+ assert.equal(jump.result(true),true);
+ const under=createFullRouteWitness(proofGraph,finite);
+ for(const list of finite)under.observe([list[0].position[0]*64,100*64,512*64],road);
+ assert.equal(under.result(true),false,'Actual ground-road contact cannot prove the bridge above it');
+ const prolonged=createFullRouteWitness(proofGraph,finite);
+ for(let i=0;i<41;i++)prolonged.observe([0,450*64,512*64],grass);
+ for(const list of finite)prolonged.observe([list[0].position[0]*64,450*64,512*64],grass);
+ assert.equal(prolonged.result(true),false);
+});
+test('unordered section visits and perpendicular crossing traffic cannot certify the route',()=>{
+ const bent=[gates[0],[{position:[1536,-1,1536],radius:100}],gates[2]],reversed=createFullRouteWitness(proofGraph,bent);
+ for(const node of [0,2,1])reversed.observe([bent[node][0].position[0]*64,0,bent[node][0].position[2]*64],road);
+ assert.equal(reversed.result(true),false);
+ const crossingGates=[[{position:[0,-1,0],radius:120}],[{position:[1024,-1,-369],radius:240},{position:[1024,-1,369],radius:240}],[{position:[2048,-1,0],radius:120}]];
+ const crossing=createFullRouteWitness(proofGraph,crossingGates);
+ for(let x=0;x<=2048;x+=64)crossing.observe([x*64,0,0],road);
+ assert.equal(crossing.result(true),false,'Horizontal traffic must not prove the vertical road');
+});
 test('unused branch is not mandatory; unsupported chosen branch stays unassessed',()=>{
  const fork={...proofGraph,primary:[1,0,0],alternate:[2,65535,65535]};
  const witness=createFullRouteWitness(fork,[gates[0],gates[1],[]]);observeGates(witness);assert.equal(witness.result(true),true);
