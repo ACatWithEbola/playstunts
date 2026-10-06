@@ -46,6 +46,12 @@ After accepting a ranked score, the browser retains its proof under `VERIFIED:<c
 
 Public listings show driver, exact track identity, track label, car and time. Downloads retain the recorded inputs and embed the track; safe hash-derived DOS aliases avoid replacing personal files. Add replay to my game installs both files before game startup, and playback uses Options → Load Replay in the unchanged original viewer. Its existing 12,000-frame limit remains: longer proofs may qualify for scores, but cannot be published as watchable replays and are never silently truncated. Public replays are removed when the associated score drops out of the top seven per car; the webpage lists the latest 50 shared runs. Sharing is rate-limited and idempotent.
 
+### Automatic public replay reassessment
+
+High Scores page loads, hourly/focus refreshes and Refresh scores call the same-origin `POST /api/replay-assessments` after displaying scores. This endpoint accepts only an empty JSON object and no uploaded proof or client category. Each request verifies at most one existing server-stored public replay against its exact current accepted score ID, car, track and finish time. A database-wide tokenized 120-second lease prevents simultaneous visitors duplicating native verification; expired leases can recover. The client handles at most six jobs per refresh and reloads rankings after changes. Larger backlogs continue on subsequent visits/refreshes, not a hidden scheduled job.
+
+Successful results, including Unassessed, record `ROUTE_ASSESSMENT_VERSION` and timestamp on the public replay; bump this constant whenever the classifier changes. New manually shared replays are stamped immediately because they already passed the current verifier. Failures leave the score/category unchanged and defer retry for an hour. Private browser-only proofs and scores without public recordings cannot be automatically reassessed. Category updates, acceptance receipt retention, per-category pruning, and orphan public-replay cleanup are atomic. The score's proof bytes, identity, time and posting date are unchanged. Migration 0007 is schema-only; existing public replays start pending without a production backfill.
+
 Personal imports validate DOS filenames and original track/replay fields. Backups permit only validated `.TRK`, `.RPL`, 364-byte `.HIG`, and bounded text `SETUP.DAT` records. Unsupported extensions, malformed data, executable/resource payloads and replay trailing bytes are rejected. MIME types are not used as proof of binary format.
 
 ## Community tracks

@@ -15,6 +15,10 @@ export const scoreTracks=sqliteTable('score_tracks',{
 });
 export const sharedReplays=sqliteTable('shared_replays',{
  id:text('id').primaryKey(),replay:text('replay').notNull(),trackName:text('track_name').notNull(),createdAt:integer('created_at').notNull(),
+ assessmentVersion:text('assessment_version').notNull().default(''),assessedAt:integer('assessed_at').notNull().default(0),assessmentRetryAt:integer('assessment_retry_at').notNull().default(0),
+});
+export const replayAssessmentLock=sqliteTable('replay_assessment_lock',{
+ key:text('key').primaryKey(),token:text('token').notNull(),leaseUntil:integer('lease_until').notNull(),
 });
 export const sharedTracks=sqliteTable('shared_tracks',{
  hash:text('hash').primaryKey(),name:text('name').notNull(),bytes:text('bytes').notNull(),createdAt:integer('created_at').notNull(),

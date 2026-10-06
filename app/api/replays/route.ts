@@ -4,6 +4,7 @@ import {verifyGlobalScore} from '@/lib/server/verify-global-score';
 import {globalScoreData} from '@/lib/server/global-score-data';
 import {publicScoreName} from '@/lib/game/public-score-name';
 import {currentCarScoresSQL,pruneCarScoresSQL,retainAcceptedScoresSQL,driverKey} from '@/lib/server/leaderboard-ranking';
+import {ROUTE_ASSESSMENT_VERSION} from '@/lib/server/route-assessment-version';
 const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const bindings=()=>env as unknown as {DB:D1Database;ASSETS:Fetcher};
 export async function GET(request:Request){
@@ -40,6 +41,7 @@ export async function POST(request:Request){
    db.prepare(pruneCarScoresSQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare('INSERT OR IGNORE INTO shared_replays(id,replay,track_name,created_at) SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM global_scores WHERE id=?)').bind(verified.id,JSON.stringify(Array.from(verified.replay)),trackName,now,verified.id),
    db.prepare('DELETE FROM shared_replays WHERE id NOT IN (SELECT id FROM global_scores)'),
+   db.prepare('UPDATE shared_replays SET assessment_version=?,assessed_at=?,assessment_retry_at=0 WHERE id=?').bind(ROUTE_ASSESSMENT_VERSION,now,verified.id),
   ]);
   if(!await db.prepare('SELECT id FROM shared_replays WHERE id=?').bind(verified.id).first())return reply({error:'Route assessed, but this run is not a top-seven car time in its category'},422);
   return reply({shared:true,id:verified.id});
