@@ -1,5 +1,6 @@
 import {GLOBAL_SCORE_ENDPOINT,GLOBAL_SCORE_RULES,scoreHash,scoreTicks,sharedScoreFile,validateScoreSubmission,type GlobalScoreSubmission} from './global-score-format.ts';
 import type {NativeFilePersistence} from './native-file-store.ts';
+import type {RouteAssessment} from '../server/shortcut-assessment.ts';
 export async function createGlobalScoreClient(persistence:NativeFilePersistence,request:typeof fetch=fetch){
  const stored=new Map((await persistence.all()).map(file=>[file.key,file.bytes]));
  const decoder=new TextDecoder(),encoder=new TextEncoder();
@@ -23,13 +24,20 @@ export async function createGlobalScoreClient(persistence:NativeFilePersistence,
  return {
   flush,
   close(){persistence.close?.();},
-  async read(track:Uint8Array,car?:string){
+  async assess(submission:GlobalScoreSubmission):Promise<RouteAssessment|undefined>{
+   try{const response=await request(GLOBAL_SCORE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Score':GLOBAL_SCORE_RULES},body:JSON.stringify({...submission,validateOnly:true}),signal:AbortSignal.timeout(30000)});
+    if(!response.ok)return undefined;const body=await response.json() as {verified?:boolean;routeAssessment?:string};
+    if(body.verified&&['full_route','shortcuts_detected','not_assessed'].includes(body.routeAssessment??''))return body.routeAssessment as RouteAssessment;
+   }catch{/* Offline qualification may queue a score; it never invents a category. */}
+   return undefined;
+  },
+  async read(track:Uint8Array,car?:string,category?:RouteAssessment){
    const hash=await scoreHash(track);await flush();
-   const boardKey='BOARD:'+hash+(car?':'+car:'');
-   try{const response=await request(GLOBAL_SCORE_ENDPOINT+'?track='+hash+(car?'&car='+car:''),{cache:'no-store',signal:AbortSignal.timeout(5000)});if(response.ok)await put(boardKey,await responseFile(response));}catch{/* Use the last shared table while offline. */}
+   const boardKey='BOARD:'+hash+(car?':'+car:'')+(category?':'+category:'');
+   try{const response=await request(GLOBAL_SCORE_ENDPOINT+'?track='+hash+(car?'&car='+car:'')+(category?'&category='+category:''),{cache:'no-store',signal:AbortSignal.timeout(5000)});if(response.ok)await put(boardKey,await responseFile(response));}catch{/* Use the last shared table while offline. */}
    const cached=stored.get(boardKey)??sharedScoreFile([]);
    const records=Array.from({length:7},(_,i)=>Array.from(cached.slice(i*52,i*52+52))).filter(row=>scoreTicks(row)!==65535);
-   for(const [key,bytes] of stored){if(!key.startsWith('PENDING:')||!bytes.length)continue;const pending=JSON.parse(decoder.decode(bytes)) as {submission:GlobalScoreSubmission;hash:string};if(pending.hash===hash&&(!car||String.fromCharCode(...pending.submission.replay.slice(0,4))===car))records.push(pending.submission.record);}
+   for(const [key,bytes] of stored){if(category||!key.startsWith('PENDING:')||!bytes.length)continue;const pending=JSON.parse(decoder.decode(bytes)) as {submission:GlobalScoreSubmission;hash:string};if(pending.hash===hash&&(!car||String.fromCharCode(...pending.submission.replay.slice(0,4))===car))records.push(pending.submission.record);}
    records.sort((a,b)=>scoreTicks(a)-scoreTicks(b));
    const seen=new Set<string>();return sharedScoreFile(records.filter(record=>{const name=String.fromCharCode(...record.slice(0,17)).split('\0')[0].trim().replace(/[A-Z]/g,c=>c.toLowerCase());if(!name)return true;if(seen.has(name))return false;seen.add(name);return true;}));
   },

@@ -25,12 +25,14 @@ test('schema-only migration preserves old scores while ranking legacy names corr
  db.exec(readFileSync(new URL('../drizzle/0004_tricky_aaron_stack.sql',import.meta.url),'utf8'));
  assert.deepEqual(db.prepare('SELECT id FROM global_scores ORDER BY id').all().map(r=>r.id),['a','b','c','d','e']);
  assert.equal(db.prepare("SELECT driver_key FROM global_scores WHERE id='c'").get()!.driver_key,'');
+ db.exec(readFileSync(new URL('../drizzle/0005_dark_silhouette.sql',import.meta.url),'utf8'));
+ assert.ok(db.prepare('SELECT route_assessment FROM global_scores').all().every(row=>row.route_assessment==='not_assessed'),'Older scores must not be presumed full-route');
  assert.deepEqual(db.prepare('SELECT id FROM shared_replays').all().map(r=>r.id),['a','b']);
  assert.deepEqual(db.prepare('SELECT id FROM ('+rankedScoresSQL+') WHERE driver_rank=1 ORDER BY ticks').all().map(r=>r.id),['a','d','e']);db.close();
 });
 test('retention keeps seven drivers per car, not seven runs across every car; faster improvements replace older runs',()=>{
- const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE global_scores(id TEXT PRIMARY KEY,rules TEXT,track_hash TEXT,car_code TEXT,ticks INTEGER,record TEXT,created_at INTEGER,driver_key TEXT)');
- const insert=db.prepare('INSERT INTO global_scores VALUES (?,?,?,?,?,?,?,?)');
+ const db=new DatabaseSync(':memory:');db.exec("CREATE TABLE global_scores(id TEXT PRIMARY KEY,rules TEXT,track_hash TEXT,car_code TEXT,ticks INTEGER,record TEXT,created_at INTEGER,driver_key TEXT,route_assessment TEXT DEFAULT 'not_assessed')");
+ const insert=db.prepare('INSERT INTO global_scores(id,rules,track_hash,car_code,ticks,record,created_at,driver_key) VALUES (?,?,?,?,?,?,?,?)');
  for(let i=0;i<9;i++)for(const car of ['PMIN','COUN'])insert.run(car+i,'rules','track',car,100+i+(car==='COUN'?100:0),'[]',i,'name:driver'+i);
  insert.run('better','rules','track','PMIN',99,'[]',20,'name:driver0');
  db.prepare(pruneCarScoresSQL).run('rules','track','rules','track');

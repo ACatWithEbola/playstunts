@@ -3,7 +3,7 @@ import {GLOBAL_SCORE_RULES,scoreHash,scoreString} from '@/lib/game/global-score-
 import {verifyGlobalScore} from '@/lib/server/verify-global-score';
 import {globalScoreData} from '@/lib/server/global-score-data';
 import {publicScoreName} from '@/lib/game/public-score-name';
-import {currentCarScoresSQL} from '@/lib/server/leaderboard-ranking';
+import {currentCarScoresSQL,pruneCarScoresSQL} from '@/lib/server/leaderboard-ranking';
 const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const bindings=()=>env as unknown as {DB:D1Database;ASSETS:Fetcher};
 export async function GET(request:Request){
@@ -31,7 +31,13 @@ export async function POST(request:Request){
   if(verified.replay.length>0x722+12000)return reply({error:'This recording exceeds the original replay viewer’s 10-minute limit; it will not be shortened or published'},422);
   const ranked=await db.prepare('SELECT id FROM ('+currentCarScoresSQL+') WHERE id=? AND rules=?').bind(verified.id,GLOBAL_SCORE_RULES).first();if(!ranked)return reply({error:'This run is no longer a current top-seven car score'},422);
   const original=(raw as {replay:number[]}).replay,name=scoreString(original,13,22),trackName=/^[A-Za-z0-9_-]{1,8}$/.test(name)?name.toUpperCase():verified.trackHash.slice(0,8).toUpperCase();
-  await db.prepare('INSERT OR IGNORE INTO shared_replays(id,replay,track_name,created_at) SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM global_scores WHERE id=?)').bind(verified.id,JSON.stringify(Array.from(verified.replay)),trackName,now,verified.id).run();
+  await db.batch([
+   db.prepare('UPDATE global_scores SET route_assessment=? WHERE id=? AND rules=?').bind(verified.routeAssessment,verified.id,GLOBAL_SCORE_RULES),
+   db.prepare(pruneCarScoresSQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
+   db.prepare('INSERT OR IGNORE INTO shared_replays(id,replay,track_name,created_at) SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM global_scores WHERE id=?)').bind(verified.id,JSON.stringify(Array.from(verified.replay)),trackName,now,verified.id),
+   db.prepare('DELETE FROM shared_replays WHERE id NOT IN (SELECT id FROM global_scores)'),
+  ]);
+  if(!await db.prepare('SELECT id FROM shared_replays WHERE id=?').bind(verified.id).first())return reply({error:'Route assessed, but this run is not a top-seven car time in its category'},422);
   return reply({shared:true,id:verified.id});
  }catch(error){if(error instanceof Error&&/Invalid|eligible|verify|Replay|configuration|supported original/i.test(error.message))return reply({error:error.message},422);console.error('Replay sharing failed',error);return reply({error:'Shared replays temporarily unavailable'},503);}
 }

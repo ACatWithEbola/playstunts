@@ -13,4 +13,14 @@ for(const [car,name,start] of cars)for(const [i,driver] of drivers.entries()){
  statements.push(`INSERT OR REPLACE INTO global_scores(id,rules,track_hash,car_code,ticks,record,created_at,driver_key) VALUES ('${id}','${GLOBAL_SCORE_RULES}','${hash}','${car}',${ticks},'${JSON.stringify(record)}',${Math.floor(Date.now()/1000)},'${driverKey(record,id)}');`);
 }
 execFileSync(process.execPath,['node_modules/wrangler/bin/wrangler.js','d1','execute','DB','--local','--config','dist/server/wrangler.json','--persist-to','.wrangler/state','--command',statements.join('\n')],{stdio:'pipe'});
+// Demonstrate category switching without pretending these are verified laps.
+for(const category of ['full_route','shortcuts_detected'] as const){
+ const rows=drivers.map((driver,i)=>{
+  const record=Array(52).fill(0),car='PMIN',carName='Porsche/March INDY',ticks=(category==='full_route'?1400:1000)+i*47;
+  for(const [offset,value] of [[0,driver],[17,carName]] as const)Array.from(value,c=>c.charCodeAt(0)).forEach((n,i)=>record[offset+i]=n);record[50]=ticks&255;record[51]=ticks>>>8;
+  const id=createHash('sha256').update('preview:'+category+':'+driver).digest('hex');
+  return `INSERT OR REPLACE INTO global_scores(id,rules,track_hash,car_code,ticks,record,created_at,driver_key,route_assessment) VALUES ('${id}','${GLOBAL_SCORE_RULES}','${hash}','${car}',${ticks},'${JSON.stringify(record)}',${Math.floor(Date.now()/1000)},'${driverKey(record,id)}','${category}');`;
+ });
+ execFileSync(process.execPath,['node_modules/wrangler/bin/wrangler.js','d1','execute','DB','--local','--config','dist/server/wrangler.json','--persist-to','.wrangler/state','--command',rows.join('\n')],{stdio:'pipe'});
+}
 console.log('Seeded DESIGN DEMO: illustrative local-only rankings, three cars, seven drivers.');

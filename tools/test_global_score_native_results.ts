@@ -19,7 +19,7 @@ test('original allocated name-entry save submits through the production shared-f
  const fasterOverall=sharedScoreFile(Array.from({length:7},(_,i)=>{const record=Array(52).fill(0);record[0]=65+i;record[50]=1;return record;}));
  const persistence={async all(){return [];},async put(){}};
  const local=await createNativeFileStore(new Map([[nativeFileKey('',name,'.TRK'),async()=>Uint8Array.from(proof.replay.slice(24,0x722))]]),persistence);
- const client=await createGlobalScoreClient(persistence,async(url,init)=>{if(init?.method==='POST'){const verified=await verifyGlobalScore(JSON.parse(String(init.body)),fixtureData);posted++;board=sharedScoreFile([Array.from(verified.record)]);return Response.json({rules:GLOBAL_SCORE_RULES,file:Array.from(board)});}reads.push(String(url));return Response.json({rules:GLOBAL_SCORE_RULES,file:Array.from(String(url).includes('&car=PMIN')?board:fasterOverall)});});
+ const client=await createGlobalScoreClient(persistence,async(url,init)=>{if(init?.method==='POST'){const proof=JSON.parse(String(init.body)),verified=await verifyGlobalScore(proof,fixtureData);if(proof.validateOnly)return Response.json({verified:true,routeAssessment:verified.routeAssessment});posted++;board=sharedScoreFile([Array.from(verified.record)]);return Response.json({rules:GLOBAL_SCORE_RULES,file:Array.from(board)});}reads.push(String(url));return Response.json({rules:GLOBAL_SCORE_RULES,file:Array.from(String(url).includes('&car=PMIN&category=not_assessed')?board:fasterOverall)});});
  let context:GlobalScoreContext|undefined;const files=createGlobalScoreFileStore(local,client,()=>context);
  const split=(filename:string)=>{const slash=filename.lastIndexOf('\\');return {path:filename.slice(0,slash+1),name:filename.slice(slash+1)};};
  await runAllocatedRaceResults(fixtureData,runtime,{progress(){},async readFile(filename){const p=split(filename);return files.exists(p.path,p.name,'')?files.read(p.path,p.name,''):null;},async writeFile(filename,bytes){const p=split(filename);await files.write(p.path,p.name,'',bytes);return 0;},async insertTrackDisk(){return 0;},async present(state,services){
@@ -30,5 +30,6 @@ test('original allocated name-entry save submits through the production shared-f
  }});
  assert.equal(posted,1);assert.equal(scoreString(board.slice(0,52),0,17),'QA DRIVER');
  assert.ok(reads.some(url=>url.includes('&car=PMIN')),'Results must qualify by car even with seven faster overall scores');
+ assert.ok(reads.some(url=>url.includes('&category=not_assessed')),'Results must qualify by assessed category even with seven faster combined car times');
  assert.equal((await files.read('',name,'.HIG')).length,364);
 });

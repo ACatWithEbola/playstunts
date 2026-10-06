@@ -6,7 +6,8 @@ import {validateReplayEncoding} from '../lib/game/upload-validation.ts';
 const origin=process.argv[2]??'http://localhost:3002';
 test('public replays are opt-in, verified, deduplicated and tied to a ranked score',async()=>{
  const proof=await finishedScoreFixture();proof.record.fill(0,0,17);
- for(const [i,c] of [...'QA REPLAY'].entries())proof.record[i]=c.charCodeAt(0);
+ const driver='R'+Date.now().toString(36).toUpperCase();
+ for(const [i,c] of [...driver].entries())proof.record[i]=c.charCodeAt(0);
  const post=(path:string,value:unknown,header:string)=>fetch(origin+path,{method:'POST',headers:{'Content-Type':'application/json',[header]:header==='X-Stunts-Score'?GLOBAL_SCORE_RULES:'share'},body:JSON.stringify(value)});
  const score=await post('/api/highscores',proof,'X-Stunts-Score');assert.equal(score.status,200);const accepted=await score.json() as {id:string;ranked:boolean};assert.equal(accepted.ranked,true);
  const track=await scoreHash(Uint8Array.from(proof.replay.slice(24,0x722))),list=()=>fetch(origin+'/api/replays?track='+track).then(r=>r.json() as Promise<{replays:{id:string;driver:string;ticks:number}[]}>);
@@ -15,7 +16,7 @@ test('public replays are opt-in, verified, deduplicated and tied to a ranked sco
  const fake={...proof,record:[...proof.record]};fake.record[50]=1;fake.record[51]=0;assert.equal((await post('/api/replays',fake,'X-Stunts-Replay')).status,422);
  const shared=await post('/api/replays',proof,'X-Stunts-Replay');assert.equal(shared.status,200);assert.equal((await shared.json() as {id:string}).id,accepted.id);
  assert.equal((await post('/api/replays',proof,'X-Stunts-Replay')).status,200);
- const rows=(await list()).replays.filter(row=>row.id===accepted.id);assert.equal(rows.length,1);assert.equal(rows[0].driver,'QA REPLAY');
+ const rows=(await list()).replays.filter(row=>row.id===accepted.id);assert.equal(rows.length,1);assert.equal(rows[0].driver,driver);
  const downloaded=await fetch(origin+'/api/replays?id='+accepted.id);assert.equal(downloaded.status,200);const replay=new Uint8Array(await downloaded.arrayBuffer());validateReplayEncoding(replay,30000);
  assert.deepEqual(replay.slice(24,0x722),Uint8Array.from(proof.replay.slice(24,0x722)));
  assert.deepEqual(replay.slice(0x722),Uint8Array.from(proof.replay.slice(0x722,0x722+replay[22]+(replay[23]<<8))));

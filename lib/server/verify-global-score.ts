@@ -4,6 +4,11 @@ import {readOriginalRaceResultMemory} from '../game/race-result-memory.ts';
 import {canonicalScoreRecord,scoreHash,scoreTicks,validateScoreSubmission,MAX_RANKED_FRAMES} from '../game/global-score-format.ts';
 import type {NativeDemoData} from '../game/native-demo-runtime.ts';
 import {validateReplayEncoding} from '../game/upload-validation.ts';
+import {prepareRaceTrack} from '../game/prepare-race-track.ts';
+import {createShortcutAssessment} from './shortcut-assessment.ts';
+import {createFullRouteWitness} from './full-route-witness.ts';
+import {trackRoutePoint} from '../physics/track-route-point.ts';
+import {createGrassSpeedExploit} from './grass-speed-exploit.ts';
 
 /** Re-run the original inputs with server-owned car/track physics. A claimed
  * time alone, a crashed replay or a different car cannot enter the board. */
@@ -15,13 +20,32 @@ export async function verifyGlobalScore(value:unknown,data:NativeDemoData){
  if(!car||configuration[5]>1||configuration[6]>6)throw Error('Invalid race configuration');
  const prepared=await createNativeManualRaceSession(data,{configuration,track,name:'GLOBAL',camera:0,graphics:2,soundEnabled:false},{resetMouse(){}}),d=0x2d1a0;
  prepared.session.skipIntroduction();
+ const preparedRoute=prepareRaceTrack(track,data.records,data.vectors,data.samples,data.objects),assessment=createShortcutAssessment(preparedRoute.graph);
+ const gates=preparedRoute.route.tiles.map((tile,node)=>{const points=Array.from({length:data.records[tile].records[preparedRoute.route.directions[node]&15][5]},(_,point)=>{
+  const gate=trackRoutePoint(track,preparedRoute.route,node,point,data.records,data.points,data.objects);
+  // Original edges supply road width; a small vehicle/curb margin is allowed.
+  return {position:gate.midpoint,radius:Math.min(280,Math.hypot(gate.first[0]-gate.second[0],gate.first[2]-gate.second[2])/2+64)};
+ });
+ // Navigation vectors for some stunt objects describe only their entrance
+ // and exit, not the stunt itself. They cannot certify complete execution.
+ const physics=data.objects[tile].physics;
+ const heights=points.filter(point=>point.position[1]!==-1).map(point=>point.position[1]);
+ const stuntGeometry=points.length>=8&&heights.length===points.length&&Math.max(...heights)-Math.min(...heights)>=128;
+ return physics>3&&!stuntGeometry?[]:points;
+ });
+ const witness=createFullRouteWitness(preparedRoute.graph,gates);
+ const grassExploit=createGrassSpeedExploit(car);
  let completedInputs=0;
  for(const input of replay.slice(0x722)){
   let result=captureOriginalRaceInput(prepared.session.state.memory,d,input);
   if(result.action==='continue-prompt'){prepared.session.resumeRecording(0);result=captureOriginalRaceInput(prepared.session.state.memory,d,input);}
   if(!result.recorded)throw Error('Invalid race recording length');
   prepared.session.originalMemory.writeMemory(prepared.session.state.memory);
+  const beforeCar=prepared.session.state.player.driving.car;
+  if(!prepared.session.state.done)grassExploit.observe(beforeCar.engine,beforeCar.grip.surfaces,input);
   prepared.session.advanceCaptured({entryStackPointer:0xeee2,incomingSI:0});
+  const carState=prepared.session.state.player.driving.car;
+  if(!prepared.session.state.done){assessment.observe(carState.pose.position,carState.grip.surfaces);witness.observe(carState.pose.position,carState.grip.surfaces);}
   completedInputs++;if(prepared.session.state.player.driving.car.grip.crash===3)break;
  }
  const memory=prepared.session.state.memory;
@@ -35,5 +59,6 @@ export async function verifyGlobalScore(value:unknown,data:NativeDemoData){
  if(configuration[6]){record.set(memory.slice(d+0xaa74,d+0xaa76),42);record[44]=47;record.set(memory.slice(d+0x8019,d+0x801d),45);record[49]=0;}
  else record[42]=32;
  const canonicalReplay=replay.slice(0,0x722+completedInputs);new DataView(canonicalReplay.buffer).setUint16(22,completedInputs,true);canonicalReplay.fill(0,13,21);
- return {record,carCode,ticks:panel.playerTime,replay:canonicalReplay,trackHash:await scoreHash(Uint8Array.from(track)),id:await scoreHash(Uint8Array.from([...canonicalReplay,...record]))};
+ const routeAssessment=assessment.result()==='shortcuts_detected'||grassExploit.result()?'shortcuts_detected':!grassExploit.uncertain()&&witness.result(!!panel.playerTime)?'full_route':'not_assessed';
+ return {record,carCode,ticks:panel.playerTime,replay:canonicalReplay,routeAssessment,trackHash:await scoreHash(Uint8Array.from(track)),id:await scoreHash(Uint8Array.from([...canonicalReplay,...record]))};
 }

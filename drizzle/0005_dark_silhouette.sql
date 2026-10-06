@@ -1,0 +1,1 @@
+ALTER TABLE `global_scores` ADD `route_assessment` text DEFAULT 'not_assessed' NOT NULL;

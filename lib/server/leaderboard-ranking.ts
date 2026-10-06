@@ -16,11 +16,17 @@ export const rankedScoresSQL=`SELECT s.*, ROW_NUMBER() OVER (
 export const bestCarScoresSQL=`SELECT s.*, ROW_NUMBER() OVER (
  PARTITION BY rules,track_hash,car_code,${resolvedDriverSQL} ORDER BY ticks,created_at,id
 ) AS driver_rank FROM global_scores s`;
+export const categoryCarScoresSQL=`SELECT s.*, ROW_NUMBER() OVER (
+ PARTITION BY rules,track_hash,car_code,route_assessment,${resolvedDriverSQL} ORDER BY ticks,created_at,id
+) AS driver_rank FROM global_scores s`;
+export const categoryScoresSQL=`SELECT s.*, ROW_NUMBER() OVER (
+ PARTITION BY rules,track_hash,route_assessment,${resolvedDriverSQL} ORDER BY ticks,created_at,id
+) AS driver_rank FROM global_scores s`;
 export const currentCarScoresSQL=`SELECT * FROM (SELECT s.*, ROW_NUMBER() OVER (
- PARTITION BY rules,track_hash,car_code ORDER BY ticks,created_at,id
-) AS car_rank FROM (${bestCarScoresSQL}) s WHERE driver_rank=1) WHERE car_rank<=7`;
+ PARTITION BY rules,track_hash,car_code,route_assessment ORDER BY ticks,created_at,id
+) AS car_rank FROM (${categoryCarScoresSQL}) s WHERE driver_rank=1) WHERE car_rank<=7`;
 /** Run inside the same atomic batch as insertion, including replay cleanup. */
 export const pruneCarScoresSQL=`DELETE FROM global_scores WHERE rules=? AND track_hash=? AND id NOT IN (
- SELECT id FROM (SELECT id,ROW_NUMBER() OVER (PARTITION BY car_code ORDER BY ticks,created_at,id) AS car_rank
- FROM (${bestCarScoresSQL}) WHERE rules=? AND track_hash=? AND driver_rank=1) WHERE car_rank<=7
+ SELECT id FROM (SELECT id,ROW_NUMBER() OVER (PARTITION BY car_code,route_assessment ORDER BY ticks,created_at,id) AS car_rank
+ FROM (${categoryCarScoresSQL}) WHERE rules=? AND track_hash=? AND driver_rank=1) WHERE car_rank<=7
 )`;
