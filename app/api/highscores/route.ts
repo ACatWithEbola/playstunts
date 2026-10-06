@@ -3,16 +3,17 @@ import {GLOBAL_SCORE_RULES,scoreHash,scoreString,validateScoreSubmission,sharedS
 import {publicScoreName} from '@/lib/game/public-score-name';
 import {verifyGlobalScore} from '@/lib/server/verify-global-score';
 import {globalScoreData} from '@/lib/server/global-score-data';
+import {driverKey,rankedScoresSQL,bestCarScoresSQL,pruneCarScoresSQL} from '@/lib/server/leaderboard-ranking';
 
 const bindings=()=>env as unknown as {DB:D1Database;ASSETS:Fetcher};
 const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
-async function board(db:D1Database,hash:string){
- const result=await db.prepare('SELECT record FROM global_scores WHERE rules = ? AND track_hash = ? ORDER BY ticks, created_at, id LIMIT 7').bind(GLOBAL_SCORE_RULES,hash).all<{record:string}>();
+async function board(db:D1Database,hash:string,car?:string){
+ const result=await db.prepare(`SELECT record FROM (${car?bestCarScoresSQL:rankedScoresSQL}) WHERE rules=? AND track_hash=? AND driver_rank=1 ${car?'AND car_code=?':''} ORDER BY ticks,created_at,id LIMIT 7`).bind(...(car?[GLOBAL_SCORE_RULES,hash,car]:[GLOBAL_SCORE_RULES,hash])).all<{record:string}>();
  return Array.from(sharedScoreFile(result.results.map(row=>{const record=JSON.parse(row.record) as number[],name=publicScoreName(scoreString(record,0,17));if(name==='••••'){record.fill(0,0,17);record.fill(42,0,4);}return record;})));
 }
 export async function GET(request:Request){
- const hash=new URL(request.url).searchParams.get('track');if(!hash||!/^[a-f0-9]{64}$/.test(hash))return reply({error:'Invalid track'},400);
- try{return reply({rules:GLOBAL_SCORE_RULES,file:await board(bindings().DB,hash)});}catch(error){console.error('Shared score read failed',error);return reply({error:'Shared scores temporarily unavailable'},503);}
+ const params=new URL(request.url).searchParams,hash=params.get('track'),car=params.get('car')??undefined;if(!hash||!/^[a-f0-9]{64}$/.test(hash)||car&&!/^[A-Z0-9]{4}$/.test(car))return reply({error:'Invalid track or car'},400);
+ try{return reply({rules:GLOBAL_SCORE_RULES,file:await board(bindings().DB,hash,car)});}catch(error){console.error('Shared score read failed',error);return reply({error:'Shared scores temporarily unavailable'},503);}
 }
 export async function POST(request:Request){
  const url=new URL(request.url),origin=request.headers.get('origin');
@@ -29,13 +30,13 @@ export async function POST(request:Request){
   const name=scoreString((raw as {replay:number[]}).replay,13,22),trackName=/^[A-Za-z0-9_-]{1,8}$/.test(name)?name.toUpperCase():'Track '+verified.trackHash.slice(0,8).toUpperCase();
   await db.batch([
    db.prepare('INSERT OR IGNORE INTO score_tracks(hash,name) VALUES (?,?)').bind(verified.trackHash,trackName),
-   db.prepare('INSERT OR IGNORE INTO global_scores(id,rules,track_hash,car_code,ticks,record,created_at) VALUES (?,?,?,?,?,?,?)').bind(verified.id,GLOBAL_SCORE_RULES,verified.trackHash,verified.carCode,verified.ticks,JSON.stringify(Array.from(verified.record)),now),
-   db.prepare('DELETE FROM global_scores WHERE rules=? AND track_hash=? AND id NOT IN (SELECT id FROM global_scores WHERE rules=? AND track_hash=? ORDER BY ticks,created_at,id LIMIT 7)').bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
+   db.prepare('INSERT OR IGNORE INTO global_scores(id,rules,track_hash,car_code,ticks,record,created_at,driver_key) VALUES (?,?,?,?,?,?,?,?)').bind(verified.id,GLOBAL_SCORE_RULES,verified.trackHash,verified.carCode,verified.ticks,JSON.stringify(Array.from(verified.record)),now,driverKey(verified.record,verified.id)),
+   db.prepare(pruneCarScoresSQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare('DELETE FROM score_requests WHERE expires_at < ?').bind(now),
    db.prepare('DELETE FROM shared_replays WHERE id NOT IN (SELECT id FROM global_scores)'),
   ]);
   const ranked=!!await db.prepare('SELECT id FROM global_scores WHERE id=?').bind(verified.id).first();
-  return reply({accepted:true,id:verified.id,ranked,rules:GLOBAL_SCORE_RULES,file:await board(db,verified.trackHash)});
+  return reply({accepted:true,id:verified.id,ranked,rules:GLOBAL_SCORE_RULES,file:await board(db,verified.trackHash),carFile:await board(db,verified.trackHash,verified.carCode)});
  }catch(error){
   if(error instanceof Error&&/Invalid|eligible|verify|Replay|configuration|supported original/i.test(error.message))return reply({error:error.message},422);
   console.error('Shared score submission failed',error);

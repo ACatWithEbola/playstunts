@@ -15,9 +15,11 @@ test('original allocated name-entry save submits through the production shared-f
  const proof=await finishedScoreFixture(),runtime=await createNativeManualRaceRuntime(fixtureData,{configuration:proof.replay.slice(0,24),track:proof.replay.slice(24,0x722),name:'GLOBAL',camera:0,graphics:2,soundEnabled:false},{resetMouse(){}});
  runtime.session.skipIntroduction();for(const input of proof.replay.slice(0x722)){captureOriginalRaceInput(runtime.session.state.memory,0x2d1a0,input);runtime.session.originalMemory.writeMemory(runtime.session.state.memory);runtime.session.advanceCaptured({entryStackPointer:0xeee2,incomingSI:0});}
  const m=runtime.session.state.memory,d=0x2d1a0;let name='';for(let i=0;i<8&&m[d+0x8fcf+i];i++)name+=String.fromCharCode(m[d+0x8fcf+i]);
- let posted=0,board=sharedScoreFile([]);const persistence={async all(){return [];},async put(){}};
+ let posted=0,board=sharedScoreFile([]);const reads:string[]=[];
+ const fasterOverall=sharedScoreFile(Array.from({length:7},(_,i)=>{const record=Array(52).fill(0);record[0]=65+i;record[50]=1;return record;}));
+ const persistence={async all(){return [];},async put(){}};
  const local=await createNativeFileStore(new Map([[nativeFileKey('',name,'.TRK'),async()=>Uint8Array.from(proof.replay.slice(24,0x722))]]),persistence);
- const client=await createGlobalScoreClient(persistence,async(_url,init)=>{if(init?.method==='POST'){const verified=await verifyGlobalScore(JSON.parse(String(init.body)),fixtureData);posted++;board=sharedScoreFile([Array.from(verified.record)]);}return Response.json({rules:GLOBAL_SCORE_RULES,file:Array.from(board)});});
+ const client=await createGlobalScoreClient(persistence,async(url,init)=>{if(init?.method==='POST'){const verified=await verifyGlobalScore(JSON.parse(String(init.body)),fixtureData);posted++;board=sharedScoreFile([Array.from(verified.record)]);return Response.json({rules:GLOBAL_SCORE_RULES,file:Array.from(board)});}reads.push(String(url));return Response.json({rules:GLOBAL_SCORE_RULES,file:Array.from(String(url).includes('&car=PMIN')?board:fasterOverall)});});
  let context:GlobalScoreContext|undefined;const files=createGlobalScoreFileStore(local,client,()=>context);
  const split=(filename:string)=>{const slash=filename.lastIndexOf('\\');return {path:filename.slice(0,slash+1),name:filename.slice(slash+1)};};
  await runAllocatedRaceResults(fixtureData,runtime,{progress(){},async readFile(filename){const p=split(filename);return files.exists(p.path,p.name,'')?files.read(p.path,p.name,''):null;},async writeFile(filename,bytes){const p=split(filename);await files.write(p.path,p.name,'',bytes);return 0;},async insertTrackDisk(){return 0;},async present(state,services){
@@ -27,5 +29,6 @@ test('original allocated name-entry save submits through the production shared-f
   return 2;
  }});
  assert.equal(posted,1);assert.equal(scoreString(board.slice(0,52),0,17),'QA DRIVER');
+ assert.ok(reads.some(url=>url.includes('&car=PMIN')),'Results must qualify by car even with seven faster overall scores');
  assert.equal((await files.read('',name,'.HIG')).length,364);
 });

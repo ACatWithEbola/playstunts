@@ -1,0 +1,20 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {finishedScoreFixture} from './global-score-fixture.ts';
+import {GLOBAL_SCORE_RULES,scoreHash,scoreString} from '../lib/game/global-score-format.ts';
+const origin=process.argv[2]??'http://localhost:3002';
+if(!['localhost','127.0.0.1'].includes(new URL(origin).hostname))throw Error('Local scores only');
+test('real slower/faster repeated races keep only the named driver best and car reads match the directory',async()=>{
+ const fast=await finishedScoreFixture(),slow=await finishedScoreFixture(20);
+ const name='RANKING QA',named=(proof:typeof fast)=>{const record=[...proof.record];record.fill(0,0,17);Array.from(name,c=>c.charCodeAt(0)).forEach((n,i)=>record[i]=n);return {...proof,record};};
+ const post=async(proof:typeof fast)=>{const r=await fetch(origin+'/api/highscores',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Score':GLOBAL_SCORE_RULES},body:JSON.stringify(named(proof))});assert.equal(r.status,200,await r.clone().text());return r.json() as Promise<{id:string;ranked:boolean}>;};
+ const a=await post(slow),b=await post(fast),c=await post(slow);assert.equal(b.ranked,true);assert.equal(c.ranked,false);
+ const hash=await scoreHash(Uint8Array.from(fast.replay.slice(24,0x722)));
+ const r=await fetch(origin+'/api/leaderboards?q=RANKING%20QA');assert.equal(r.status,200);const {boards}=await r.json() as {boards:{hash:string;scores:{id:string;driver:string}[];cars:{code:string;scores:{id:string;driver:string}[]}[]}[]};
+ const board=boards.find(x=>x.hash===hash)!;assert.ok(board);assert.equal(board.scores.filter(s=>s.driver===name).length,1);assert.equal(board.scores.find(s=>s.driver===name)!.id,b.id);
+ assert.ok(!board.cars.flatMap(car=>car.scores).some(s=>s.id===a.id));
+ const car=await fetch(origin+'/api/highscores?track='+hash+'&car=PMIN').then(r=>r.json() as Promise<{file:number[]}>);
+ assert.equal(Array.from({length:7},(_,i)=>scoreString(car.file,i*52,i*52+17)).filter(x=>x===name).length,1);
+ const missing=await fetch(origin+'/api/highscores?track='+hash+'&car=AUDI').then(r=>r.json() as Promise<{file:number[]}>);assert.equal(missing.file[362]|missing.file[363]<<8,65535);
+ assert.equal((await fetch(origin+'/api/highscores?track='+hash+'&car=invalid')).status,400);
+});

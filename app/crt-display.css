@@ -1,0 +1,16 @@
+/* Static paint-only overlays: no extra renderer, framebuffer, blur, animation,
+ * displacement shader or per-frame JavaScript. Off removes the overlay. */
+.crt-screen{position:relative;isolation:isolate}
+.crt-screen-on::after{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0px,rgba(0,0,0,.018) 1px,rgba(0,0,0,.075) 2px,rgba(0,0,0,.018) 3px,transparent 4px),radial-gradient(ellipse at center,transparent 65%,rgba(0,0,0,.14) 100%);border-radius:inherit}
+.stunts-launcher .crt-toggle{display:inline-flex;align-items:center;gap:10px;border:1px solid #466277;background:#132733;padding:8px 12px;font:650 12px Archivo,Arial,sans-serif;border-radius:3px;cursor:pointer;white-space:nowrap}
+.crt-toggle-track{display:inline-flex;align-items:center;width:29px;height:16px;padding:2px;background:#4e6473;border-radius:9px}
+.crt-toggle-track::before{content:"";display:block;width:12px;height:12px;border-radius:50%;background:#e4edf3}
+.crt-toggle[aria-pressed=true] .crt-toggle-track{background:#fbf333;justify-content:flex-end}
+.crt-toggle[aria-pressed=true] .crt-toggle-track::before{background:#101820}
+.crt-toggle-status{font:700 9px ui-monospace,monospace;letter-spacing:.04em;color:#9fb4c2}
+.crt-toggle[aria-pressed=true] .crt-toggle-status{color:#fbf333}
+.launcher-game-session{container-type:inline-size}
+.stunts-universe .launcher-game-session>.game-mode-toolbar{grid-template-columns:.7fr 1.2fr 1.1fr .9fr 1.2fr;gap:8px}
+.stunts-universe .launcher-game-session>.game-mode-toolbar>button{min-height:40px;height:40px;font-size:clamp(10px,1.1vw,13px);padding-inline:6px;overflow:visible;text-overflow:clip}
+.stunts-universe .launcher-game-session>.game-mode-toolbar>.crt-toggle{gap:7px;justify-content:center}
+@container(max-width:560px){.stunts-universe .launcher-game-session>.game-mode-toolbar{grid-template-columns:repeat(3,minmax(0,1fr));height:auto;padding-block:12px}.stunts-universe .launcher-game-session>.game-mode-toolbar>button{font-size:11px}}

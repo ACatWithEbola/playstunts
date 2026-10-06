@@ -23,13 +23,15 @@ export async function createGlobalScoreClient(persistence:NativeFilePersistence,
  return {
   flush,
   close(){persistence.close?.();},
-  async read(track:Uint8Array){
+  async read(track:Uint8Array,car?:string){
    const hash=await scoreHash(track);await flush();
-   try{const response=await request(GLOBAL_SCORE_ENDPOINT+'?track='+hash,{cache:'no-store',signal:AbortSignal.timeout(5000)});if(response.ok)await put('BOARD:'+hash,await responseFile(response));}catch{/* Use the last shared table while offline. */}
-   const cached=stored.get('BOARD:'+hash)??sharedScoreFile([]);
+   const boardKey='BOARD:'+hash+(car?':'+car:'');
+   try{const response=await request(GLOBAL_SCORE_ENDPOINT+'?track='+hash+(car?'&car='+car:''),{cache:'no-store',signal:AbortSignal.timeout(5000)});if(response.ok)await put(boardKey,await responseFile(response));}catch{/* Use the last shared table while offline. */}
+   const cached=stored.get(boardKey)??sharedScoreFile([]);
    const records=Array.from({length:7},(_,i)=>Array.from(cached.slice(i*52,i*52+52))).filter(row=>scoreTicks(row)!==65535);
-   for(const [key,bytes] of stored){if(!key.startsWith('PENDING:')||!bytes.length)continue;const pending=JSON.parse(decoder.decode(bytes)) as {submission:GlobalScoreSubmission;hash:string};if(pending.hash===hash)records.push(pending.submission.record);}
-   records.sort((a,b)=>scoreTicks(a)-scoreTicks(b));return sharedScoreFile(records);
+   for(const [key,bytes] of stored){if(!key.startsWith('PENDING:')||!bytes.length)continue;const pending=JSON.parse(decoder.decode(bytes)) as {submission:GlobalScoreSubmission;hash:string};if(pending.hash===hash&&(!car||String.fromCharCode(...pending.submission.replay.slice(0,4))===car))records.push(pending.submission.record);}
+   records.sort((a,b)=>scoreTicks(a)-scoreTicks(b));
+   const seen=new Set<string>();return sharedScoreFile(records.filter(record=>{const name=String.fromCharCode(...record.slice(0,17)).split('\0')[0].trim().replace(/[A-Z]/g,c=>c.toLowerCase());if(!name)return true;if(seen.has(name))return false;seen.add(name);return true;}));
   },
   async submit(submission:GlobalScoreSubmission){
    validateScoreSubmission(submission);const hash=await scoreHash(Uint8Array.from(submission.replay.slice(24,0x722)));

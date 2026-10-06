@@ -10,5 +10,5 @@ test('directory groups exact tracks, preserves times and metadata, and censors p
  const record=Array(52).fill(0);Array.from('FUCK',c=>c.charCodeAt(0)).forEach((n,i)=>record[i]=n);Array.from('Porsche March Indy',c=>c.charCodeAt(0)).forEach((n,i)=>record[17+i]=n);
  const row:PublicScoreRow={id:'one',track_hash:'hash1',car_code:'PMIN',ticks:1234,record:JSON.stringify(record),created_at:100,track_name:'CUSTOM',has_replay:1};
  const boards=publicLeaderboards([row,{...row,id:'two',ticks:1200},{...row,id:'three',track_hash:'hash2',has_replay:0}],new Map([['hash1','DEFAULT']]));
- assert.equal(boards.length,2);const board=boards.find(b=>b.hash==='hash1')!;assert.equal(board.name,'DEFAULT');assert.deepEqual(board.scores.map(s=>s.ticks),[1200,1234]);assert.equal(board.scores[0].driver,'••••');assert.equal(board.scores[0].car,'Porsche March Indy');assert.equal(board.scores[0].replay,true);assert.equal(board.scores[0].postedAt,100);
+ assert.equal(boards.length,2);const board=boards.find(b=>b.hash==='hash1')!;assert.equal(board.name,'DEFAULT');assert.deepEqual(board.scores.map(s=>s.ticks),[1200]);assert.equal(board.cars[0].scores.length,1);assert.equal(board.scores[0].driver,'••••');assert.equal(board.scores[0].car,'Porsche March Indy');assert.equal(board.scores[0].replay,true);assert.equal(board.scores[0].postedAt,100);
 });

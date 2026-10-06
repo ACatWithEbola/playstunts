@@ -12,7 +12,12 @@ export function createGlobalScoreFileStore(local:Awaited<ReturnType<typeof creat
  return {...local,
   close(){local.close();shared.close();},
   exists(path:string,name:string,extension:string){return isScore(name,extension)?local.exists(path,scoreName(name,extension),'.trk'):local.exists(path,name,extension);},
-  async read(path:string,name:string,extension:string){return isScore(name,extension)?shared.read(await local.read(path,scoreName(name,extension),'.trk')):local.read(path,name,extension);},
+  async read(path:string,name:string,extension:string){
+   if(!isScore(name,extension))return local.read(path,name,extension);
+   const current=context(),car=current?String.fromCharCode(...current.runtime.session.state.memory.slice(0x2d1a0+0x8fc2,0x2d1a0+0x8fc6)):undefined;
+   // Results qualify against the driven car; track selection shows overall.
+   return shared.read(await local.read(path,scoreName(name,extension),'.trk'),car);
+  },
   async write(path:string,name:string,extension:string,bytes:Uint8Array){
    if(!isScore(name,extension))return local.write(path,name,extension,bytes);
    const current=context();if(!current)return;

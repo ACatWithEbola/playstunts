@@ -3,6 +3,7 @@ import {GLOBAL_SCORE_RULES,scoreHash,scoreString} from '@/lib/game/global-score-
 import {verifyGlobalScore} from '@/lib/server/verify-global-score';
 import {globalScoreData} from '@/lib/server/global-score-data';
 import {publicScoreName} from '@/lib/game/public-score-name';
+import {currentCarScoresSQL} from '@/lib/server/leaderboard-ranking';
 const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const bindings=()=>env as unknown as {DB:D1Database;ASSETS:Fetcher};
 export async function GET(request:Request){
@@ -10,11 +11,11 @@ export async function GET(request:Request){
  if((id&&!/^[a-f0-9]{64}$/.test(id))||(track&&!/^[a-f0-9]{64}$/.test(track)))return reply({error:'Invalid replay or track'},400);
  try{
   const db=bindings().DB;
-  if(id){const row=await db.prepare('SELECT r.replay,s.track_hash FROM shared_replays r JOIN global_scores s ON s.id=r.id WHERE r.id=? AND s.rules=?').bind(id,GLOBAL_SCORE_RULES).first<{replay:string;track_hash:string}>();if(!row)return reply({error:'Replay not found'},404);
+  if(id){const row=await db.prepare('SELECT r.replay,s.track_hash FROM shared_replays r JOIN ('+currentCarScoresSQL+') s ON s.id=r.id WHERE r.id=? AND s.rules=?').bind(id,GLOBAL_SCORE_RULES).first<{replay:string;track_hash:string}>();if(!row)return reply({error:'Replay not found'},404);
    const bytes=Uint8Array.from(JSON.parse(row.replay) as number[]),name='T'+row.track_hash.slice(0,7).toUpperCase();bytes.fill(0,13,22);bytes.set(Array.from(name,c=>c.charCodeAt(0)),13);
    return new Response(bytes,{headers:{'Content-Type':'application/octet-stream','Content-Disposition':`attachment; filename="R${id.slice(0,7).toUpperCase()}.RPL"`,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
   }
-  const result=await db.prepare('SELECT s.id,s.track_hash,s.car_code,s.ticks,s.record,r.track_name,r.created_at FROM shared_replays r JOIN global_scores s ON s.id=r.id WHERE s.rules=?'+(track?' AND s.track_hash=?':'')+' ORDER BY r.created_at DESC,s.id LIMIT 50').bind(...(track?[GLOBAL_SCORE_RULES,track]:[GLOBAL_SCORE_RULES])).all<{id:string;track_hash:string;car_code:string;ticks:number;record:string;track_name:string;created_at:number}>();
+  const result=await db.prepare('SELECT s.id,s.track_hash,s.car_code,s.ticks,s.record,r.track_name,r.created_at FROM shared_replays r JOIN ('+currentCarScoresSQL+') s ON s.id=r.id WHERE s.rules=?'+(track?' AND s.track_hash=?':'')+' ORDER BY r.created_at DESC,s.id LIMIT 50').bind(...(track?[GLOBAL_SCORE_RULES,track]:[GLOBAL_SCORE_RULES])).all<{id:string;track_hash:string;car_code:string;ticks:number;record:string;track_name:string;created_at:number}>();
   return reply({replays:result.results.map(row=>({id:row.id,track:row.track_hash,car:scoreString(JSON.parse(row.record),17,41)||row.car_code,ticks:row.ticks,driver:publicScoreName(scoreString(JSON.parse(row.record),0,17)),trackName:publicScoreName(row.track_name),createdAt:row.created_at}))});
  }catch(error){console.error('Replay read failed',error);return reply({error:'Shared replays temporarily unavailable'},503);}
 }
@@ -28,7 +29,7 @@ export async function POST(request:Request){
   // Re-verify the exact accepted proof; never attach an arbitrary .RPL to a score.
   const verified=await verifyGlobalScore(raw,await globalScoreData(assets,url.origin));
   if(verified.replay.length>0x722+12000)return reply({error:'This recording exceeds the original replay viewer’s 10-minute limit; it will not be shortened or published'},422);
-  const ranked=await db.prepare('SELECT id FROM global_scores WHERE id=? AND rules=?').bind(verified.id,GLOBAL_SCORE_RULES).first();if(!ranked)return reply({error:'This score is no longer in the shared top seven'},422);
+  const ranked=await db.prepare('SELECT id FROM ('+currentCarScoresSQL+') WHERE id=? AND rules=?').bind(verified.id,GLOBAL_SCORE_RULES).first();if(!ranked)return reply({error:'This run is no longer a current top-seven car score'},422);
   const original=(raw as {replay:number[]}).replay,name=scoreString(original,13,22),trackName=/^[A-Za-z0-9_-]{1,8}$/.test(name)?name.toUpperCase():verified.trackHash.slice(0,8).toUpperCase();
   await db.prepare('INSERT OR IGNORE INTO shared_replays(id,replay,track_name,created_at) SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM global_scores WHERE id=?)').bind(verified.id,JSON.stringify(Array.from(verified.replay)),trackName,now,verified.id).run();
   return reply({shared:true,id:verified.id});
