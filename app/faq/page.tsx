@@ -6,9 +6,9 @@ import StuntsNavigation from '../StuntsNavigation';
 
 export const metadata:Metadata={
  title:'FAQ — Play Stunts',
- description:'Answers about playing Stunts in the browser, enhanced graphics, sound, tracks, replays, saves and building PlayStunts from GitHub.',
+ description:'Answers about playing Stunts, global high scores, community tracks, enhanced graphics, replays, personal saves and local builds.',
  alternates:{canonical:'/faq'},
- openGraph:{url:'https://playstunts.com/faq',title:'FAQ — Play Stunts',description:'Answers about playing Stunts in the browser, enhanced graphics, sound, tracks, replays, saves and local installation.'},
+ openGraph:{url:'https://playstunts.com/faq',title:'FAQ — Play Stunts',description:'Playing Stunts, global high scores, community tracks, graphics, replays and personal saves.'},
 };
 
 const Section=({id,kicker,title,children}:{id:string;kicker:string;title:string;children:ReactNode})=><section className="faq-section" id={id} aria-labelledby={`${id}-heading`}>
@@ -25,17 +25,17 @@ export default function FaqPage(){return <main className="game-shell stunts-univ
  <header className="stunts-masthead">
   <div className="stunts-masthead-brand"><h1><a href="/" aria-label="Play Stunts home"><StuntsBrand/></a></h1><p className="stunts-developer-credit">BY DISTINCTIVE SOFTWARE, THE DEVELOPERS OF <span style={{whiteSpace:'nowrap'}}>TEST DRIVE™</span> &amp; <span style={{whiteSpace:'nowrap'}}>THE DUEL: TEST DRIVE II™</span></p></div>
   <div className="stunts-masthead-art" aria-hidden="true"><Image unoptimized width={790} height={309} src="/site/manual-red-car.webp" alt=""/></div>
-  <div className="stunts-masthead-copy"><span>PLAYER &amp; PROJECT GUIDE</span><strong>FREQUENTLY&nbsp;ASKED<br/>QUESTIONS</strong><p>Playing, graphics, sound, saves and local installation.</p></div>
+  <div className="stunts-masthead-copy"><span>PLAYER &amp; PROJECT GUIDE</span><strong>FREQUENTLY&nbsp;ASKED<br/>QUESTIONS</strong><p>Playing, global scores, community tracks and personal saves.</p></div>
  </header>
  <StuntsNavigation><a href="/#play">PLAY</a><a href="/#setup">SETUP</a><a href="/#about">THE GAME</a><a href="/?view=cars#play">3D CARS</a><a href="/#roland">MT-32</a><a href="https://pigsgrame.de/downloads/stunts.pdf" target="_blank" rel="noreferrer">MANUAL ↗</a><a href="/#saves">TRACKS &amp; REPLAYS</a><a className="nav-play" href="/faq" aria-current="page">FAQ</a><a href="https://github.com/ACatWithEbola/playstunts" target="_blank" rel="noreferrer">GITHUB ↗</a></StuntsNavigation>
 
  <section className="faq-intro" aria-labelledby="faq-intro-heading">
   <div><span className="rail-kicker">QUICK ANSWERS</span><h2 id="faq-intro-heading">Start driving.<br/>Keep your files.</h2></div>
-  <div><p>PlayStunts brings the 1990 racing and track-building game to a modern browser. The hosted version runs immediately; the open-source reconstruction can also be built locally with a supported original installation.</p><div className="faq-actions"><a className="faq-primary" href="/#play">PLAY STUNTS</a><a href="https://github.com/ACatWithEbola/playstunts#readme" target="_blank" rel="noreferrer">LOCAL INSTALLATION ↗</a></div></div>
+  <div><p>PlayStunts brings the 1990 racing and track-building game to a modern browser. Race for shared high scores and discover community tracks on the hosted site, while keeping your personal files in your browser. The open-source reconstruction can also be built locally with a supported original installation.</p><div className="faq-actions"><a className="faq-primary" href="/#play">PLAY STUNTS</a><a href="https://github.com/ACatWithEbola/playstunts#readme" target="_blank" rel="noreferrer">LOCAL INSTALLATION ↗</a></div></div>
  </section>
 
  <div className="faq-layout">
-  <aside className="faq-index" aria-label="FAQ sections"><span>ON THIS PAGE</span><a href="#getting-started">Getting started</a><a href="#graphics-sound">Graphics &amp; sound</a><a href="#files-saves">Tracks, replays &amp; saves</a><a href="#local-build">GitHub &amp; local builds</a><a href="#project-support">Project &amp; support</a></aside>
+  <aside className="faq-index" aria-label="FAQ sections"><span>ON THIS PAGE</span><a href="#getting-started">Getting started</a><a href="#graphics-sound">Graphics &amp; sound</a><a href="#global-scores">Global high scores</a><a href="#files-saves">Tracks, replays &amp; saves</a><a href="#local-build">GitHub &amp; local builds</a><a href="#project-support">Project &amp; support</a></aside>
   <div className="faq-content">
    <Section id="getting-started" kicker="01" title="Getting started">
     <Answer question="What is PlayStunts?" open><p>PlayStunts is a browser-native reconstruction of <em>Stunts</em>, also released as <em>4D Sports Driving</em>. You can choose from eleven cars, race against the clock or an opponent, build tracks and watch replays.</p></Answer>
@@ -54,14 +54,27 @@ export default function FaqPage(){return <main className="game-shell stunts-univ
     <Answer question="Are the cars in the showroom the same as the cars in the race?"><p>Yes. The 3D showroom and enhanced race renderer use the same decoded models and materials for all eleven cars. In the showroom, drag to rotate, scroll to zoom and choose the available source colours.</p></Answer>
    </Section>
 
-   <Section id="files-saves" kicker="03" title="Tracks, replays &amp; saves">
+   <Section id="global-scores" kicker="03" title="Global high scores">
+    <Answer question="Are high scores shared with everyone?" open><p>Yes. On playstunts.com, the original in-game high-score table shows the seven fastest accepted times for the selected track, shared across players and computers. Times use the original minutes-and-seconds display, with the car and opponent recorded alongside the driver’s name.</p></Answer>
+    <Answer question="How do I submit a time? Do I need an account?"><p>Finish a fresh race and enter your name using the normal in-game high-score screen when your time qualifies. No account or extra in-game menu is needed. Names are public, anonymous and not reserved, so a name does not prove a player’s identity.</p></Answer>
+    <Answer question="What makes a race eligible?"><p>A run must finish and pass server verification using the original game simulation, including its route checks and penalties. Using <strong>Continue driving</strong> from a replay makes that run ineligible, even if you continue from the end of the recording. Choose <strong>Restart</strong> to begin a new eligible race. Simply watching a replay does not submit a score.</p></Answer>
+    <Answer question="How are scores checked for cheating?"><p>The server replays the submitted driving inputs and checks the finish time, car and opponent rather than trusting a typed time. Incomplete runs, invalid recordings and mismatched results are rejected. This is not a guarantee against every form of cheating: a modified client can conceal replay continuation or generate automated driving inputs, and anonymous names can be copied.</p></Answer>
+    <Answer question="Does renaming or changing a track affect its scores?"><p>Boards are identified by the exact track-file contents, not the filename. Renaming the same track keeps the same board; changing its contents creates a separate board. Community tracks use this same system.</p></Answer>
+    <Answer question="What happens if I lose my internet connection?"><p>Pending submissions are kept in this browser and retried when connectivity returns or you next start the game. The website’s score-status message shows pending, accepted or rejected submissions. Keep the browser’s site data until pending times have synchronized. Older local high-score files are not automatically uploaded to the global board.</p></Answer>
+   </Section>
+
+   <Section id="files-saves" kicker="04" title="Tracks, replays &amp; saves">
     <Answer question="Can I import tracks from the original game?" open><p>Yes. Open <strong>Tracks, replays and save backups</strong> on the home page and upload an original <code>.TRK</code> file. Supported tracks are 1,802 bytes.</p></Answer>
     <Answer question="Can I import and watch original replays?"><p>Yes. Upload the <code>.RPL</code> file before starting the game, then load it from the in-game replay menu. Names may contain 1–8 letters, numbers, underscores or hyphens, and supported recordings contain no more than 12,000 frames.</p></Answer>
-    <Answer question="Where are my tracks, replays and settings stored?"><p>They are stored locally by your browser and belong to the exact site address you are using. They are not attached to an account or synchronized online.</p></Answer>
+    <Answer question="How do I share a track with everyone?"><p>Open <strong>Community tracks</strong> on the home page and choose <strong>Share track (.TRK)</strong>. The server validates the original track file and checks that it has one start and a complete route before publishing it. Importing a track into your personal saves does <strong>not</strong> publish it automatically.</p></Answer>
+    <Answer question="How do I play a community track?"><p>Choose <strong>Add to my game</strong> in Community tracks before starting the game, then select it through the original <strong>Track → Load</strong> menu. You can also download its original <code>.TRK</code> file. Sharing the same file again does not create a duplicate public track.</p></Answer>
+    <Answer question="What files can I upload?"><p>Personal imports accept validated original <code>.TRK</code> tracks and <code>.RPL</code> replays. The save-backup restoration feature also accepts the supported JSON backup format, with every contained game file checked. Community sharing accepts only validated <code>.TRK</code> files; unrelated files and malformed data are rejected.</p></Answer>
+    <Answer question="Where are my tracks, replays and settings stored?"><p>Your personal tracks, replays, settings and save backups remain local to your browser and the exact site address you use. They are not attached to an account or automatically synchronized between devices. Global high scores and tracks you explicitly share are stored online and visible to other players.</p></Answer>
     <Answer question="How do I move my saves to another browser or computer?"><p>Export a save backup from the home page before changing browser, computer, hostname or port. Import that backup at the new address. Individual track and replay downloads preserve their original DOS filenames and bytes.</p></Answer>
    </Section>
 
-   <Section id="local-build" kicker="04" title="GitHub &amp; local builds">
+   <Section id="local-build" kicker="05" title="GitHub &amp; local builds">
+    <Answer question="Does a local build also have global scores?"><p>The repository’s <strong>main</strong> branch retains the local-score edition. The hosted online edition is maintained on <a href="https://github.com/ACatWithEbola/playstunts/tree/feature/global-highscores" target="_blank" rel="noreferrer"><strong>feature/global-highscores</strong> ↗</a> and requires its database service. Its local test database is separate from the live site. See the branch’s README and global-high-score documentation for setup details.</p></Answer>
     <Answer question="Are the original game files included on GitHub?" open><p>No. The repository contains the reconstruction source, preparation tools and redistributable dependencies. You must supply your own compatible original game files, and optional Roland ROMs, artwork and box scans are not included.</p></Answer>
     <Answer question="Which original game version is supported?"><p>Use the complete extracted PC installation of Mindscape’s <strong>4D Sports Driving 1.1, finalized 13 December 1990</strong>, identified as <strong>MS 1990</strong> in the <a href="https://wiki.stunts.hu/wiki/Game_versions" target="_blank" rel="noreferrer">Stunts version table ↗</a>. The community archive named <strong>4D Sports Driving 1.1, Dec 13</strong> is a tested input.</p></Answer>
     <Answer question="Will the original copy-protection crash occur locally?"><p>The reconstructed browser game does not execute the original DOS launch programs or their copy-protection path. The current preparation and smoke-check process supports the tested, unmodified original files and verifies that a fresh race continues beyond the original protection interval.</p></Answer>
@@ -69,7 +82,7 @@ export default function FaqPage(){return <main className="game-shell stunts-univ
     <Answer question="Where are the complete installation instructions?"><p>The maintained commands, supported checksums, optional artwork layout and troubleshooting steps are in the <a href="https://github.com/ACatWithEbola/playstunts#readme" target="_blank" rel="noreferrer">GitHub README ↗</a>. Follow the steps in order and do not merge newly generated assets into an older installation.</p></Answer>
    </Section>
 
-   <Section id="project-support" kicker="05" title="Project &amp; support">
+   <Section id="project-support" kicker="06" title="Project &amp; support">
     <Answer question="Is the reconstruction finished?" open><p>Not yet. PlayStunts is a public beta. The main game, Setup, cars, tracks, replays, sound choices and enhanced renderer are available, but visual, audio or simulation differences may still be found.</p></Answer>
     <Answer question="How do I report a problem?"><p><a href="mailto:svenanders@lokaas.net?subject=PlayStunts%20bug%20report">Send a bug report</a> with your browser, selected car, track or replay, sound and display settings, and the steps needed to reproduce it. Do not attach game archives, ROMs or credentials.</p></Answer>
     <Answer question="Can I inspect or contribute to the source?"><p>Yes. The reconstruction is available on <a href="https://github.com/ACatWithEbola/playstunts" target="_blank" rel="noreferrer">GitHub ↗</a>. Original project source is licensed under GPL-3.0-only unless a file states otherwise; third-party components keep their own licences.</p></Answer>
