@@ -1,4 +1,8 @@
 import {integer,sqliteTable,text,index} from 'drizzle-orm/sqlite-core';
+// Compact acceptance receipts survive leaderboard displacement. No replay bytes.
+export const acceptedScores=sqliteTable('accepted_scores',{
+ id:text('id').primaryKey(),rules:text('rules').notNull(),createdAt:integer('created_at').notNull(),
+});
 export const globalScores=sqliteTable('global_scores',{
  id:text('id').primaryKey(),rules:text('rules').notNull(),trackHash:text('track_hash').notNull(),carCode:text('car_code').notNull(),
  ticks:integer('ticks').notNull(),record:text('record').notNull(),createdAt:integer('created_at').notNull(),driverKey:text('driver_key').notNull().default(''),routeAssessment:text('route_assessment').notNull().default('not_assessed'),

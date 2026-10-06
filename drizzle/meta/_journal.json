@@ -43,6 +43,13 @@
       "when": 1791319554508,
       "tag": "0005_dark_silhouette",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1791324360997,
+      "tag": "0006_lazy_colleen_wing",
+      "breakpoints": true
     }
   ]
 }

@@ -30,3 +30,5 @@ export const pruneCarScoresSQL=`DELETE FROM global_scores WHERE rules=? AND trac
  SELECT id FROM (SELECT id,ROW_NUMBER() OVER (PARTITION BY car_code,route_assessment ORDER BY ticks,created_at,id) AS car_rank
  FROM (${categoryCarScoresSQL}) WHERE rules=? AND track_hash=? AND driver_rank=1) WHERE car_rank<=7
 )`;
+/** Preserve server acceptance before pruning; arbitrary replay uploads have no receipt. */
+export const retainAcceptedScoresSQL='INSERT OR IGNORE INTO accepted_scores(id,rules,created_at) SELECT id,rules,created_at FROM global_scores WHERE rules=? AND track_hash=?';

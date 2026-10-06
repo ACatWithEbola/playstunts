@@ -2,10 +2,29 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
-import {driverKey,rankedScoresSQL,pruneCarScoresSQL} from '../lib/server/leaderboard-ranking.ts';
+import {driverKey,rankedScoresSQL,pruneCarScoresSQL,retainAcceptedScoresSQL,currentCarScoresSQL} from '../lib/server/leaderboard-ranking.ts';
 import {publicLeaderboards,type PublicScoreRow} from '../lib/server/public-leaderboards.ts';
 const record=(name:string)=>{const bytes=Array(52).fill(0);Array.from(name,c=>c.charCodeAt(0)).forEach((n,i)=>bytes[i]=n);return bytes;};
 const row=(id:string,name:string,car:string,ticks:number):PublicScoreRow=>({id,track_hash:'track',car_code:car,ticks,record:JSON.stringify(record(name)),created_at:10,track_name:'DEFAULT',has_replay:0});
+test('displaced accepted runs can qualify after reassessment without accepting arbitrary uploads',()=>{
+ const db=new DatabaseSync(':memory:');
+ db.exec("CREATE TABLE global_scores(id TEXT PRIMARY KEY,rules TEXT,track_hash TEXT,car_code TEXT,ticks INTEGER,record TEXT,created_at INTEGER,driver_key TEXT,route_assessment TEXT DEFAULT 'not_assessed')");
+ db.exec(readFileSync(new URL('../drizzle/0006_lazy_colleen_wing.sql',import.meta.url),'utf8'));
+ const insert=db.prepare('INSERT INTO global_scores VALUES (?,?,?,?,?,?,?,?,?)');
+ for(let i=0;i<8;i++)insert.run('run'+i,'rules','track','PMIN',100+i,'[]',10+i,'name:driver'+i,'not_assessed');
+ db.prepare(retainAcceptedScoresSQL).run('rules','track');
+ db.prepare(pruneCarScoresSQL).run('rules','track','rules','track');
+ assert.equal(db.prepare("SELECT id FROM global_scores WHERE id='run7'").get(),undefined);
+ const receipt=db.prepare("SELECT created_at FROM accepted_scores WHERE id='run7' AND rules='rules'").get()!;
+ assert.equal(receipt.created_at,17);
+ assert.equal(db.prepare("SELECT id FROM accepted_scores WHERE id='arbitrary'").get(),undefined);
+ // Only after exact proof re-verification, restore the accepted run into its new category.
+ insert.run('run7','rules','track','PMIN',107,'[]',receipt.created_at,'name:driver7','full_route');
+ db.prepare(pruneCarScoresSQL).run('rules','track','rules','track');
+ const restored=db.prepare('SELECT * FROM ('+currentCarScoresSQL+") WHERE id='run7'").get()!;
+ assert.equal(restored.car_rank,1);assert.equal(restored.route_assessment,'full_route');assert.equal(restored.created_at,17);
+ db.close();
+});
 test('overall shows one place per name; car boards retain each car best independently',()=>{
  const board=publicLeaderboards([row('a','Marco','PMIN',100),row('b',' MARCO ','PMIN',110),row('c','marco','COUN',120),row('d','Sven','PMIN',130)],new Map())[0];
  assert.deepEqual(board.scores.map(s=>s.id),['a','d']);
