@@ -7,6 +7,7 @@ A native browser reconstruction of **Stunts / 4D Sports Driving**, developed by 
 The hosted game at **playstunts.com** now has shared online high scores and a community track library:
 
 - **Global high scores** appear in the original game's seven-row score table, using its existing name-entry screen, time formatting, and car/opponent columns. Each track has its own leaderboard; identical tracks share scores even when their filenames differ, while modified tracks get a separate board.
+- The website's **High Scores** directory (`/high-scores`) shows the same shared records, with server-side search, sorting and twelve-track pages. It refreshes hourly while visible, when you return, or on demand. Common profanity is masked on public score and replay displays without changing verification data.
 - Completed runs are checked on the server by replaying their recorded inputs with the original simulation. **Continue driving** from a replay makes a run ineligible; restarting begins a fresh eligible attempt. Driver names are anonymous, and verification cannot prove which UI actions a modified client used.
 - Offline results are kept in that browser and retried when connectivity returns. Existing local score files are preserved and are not automatically uploaded to the global table.
 - **Community tracks → Share track (.TRK)** publishes a validated original track for everyone. Other players can download it or add it to their game, then select it through the original track menu. Importing a track for personal use does **not** publish it.

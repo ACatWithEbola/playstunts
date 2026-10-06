@@ -1,5 +1,6 @@
 import {env} from 'cloudflare:workers';
-import {GLOBAL_SCORE_RULES,scoreHash,validateScoreSubmission,sharedScoreFile} from '@/lib/game/global-score-format';
+import {GLOBAL_SCORE_RULES,scoreHash,scoreString,validateScoreSubmission,sharedScoreFile} from '@/lib/game/global-score-format';
+import {publicScoreName} from '@/lib/game/public-score-name';
 import {verifyGlobalScore} from '@/lib/server/verify-global-score';
 import {globalScoreData} from '@/lib/server/global-score-data';
 
@@ -7,7 +8,7 @@ const bindings=()=>env as unknown as {DB:D1Database;ASSETS:Fetcher};
 const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 async function board(db:D1Database,hash:string){
  const result=await db.prepare('SELECT record FROM global_scores WHERE rules = ? AND track_hash = ? ORDER BY ticks, created_at, id LIMIT 7').bind(GLOBAL_SCORE_RULES,hash).all<{record:string}>();
- return Array.from(sharedScoreFile(result.results.map(row=>JSON.parse(row.record))));
+ return Array.from(sharedScoreFile(result.results.map(row=>{const record=JSON.parse(row.record) as number[],name=publicScoreName(scoreString(record,0,17));if(name==='••••'){record.fill(0,0,17);record.fill(42,0,4);}return record;})));
 }
 export async function GET(request:Request){
  const hash=new URL(request.url).searchParams.get('track');if(!hash||!/^[a-f0-9]{64}$/.test(hash))return reply({error:'Invalid track'},400);
@@ -25,7 +26,9 @@ export async function POST(request:Request){
   if(!limit||limit.count>20)return reply({error:'Submission limit reached; try later'},429);
   const verified=await verifyGlobalScore(raw,await globalScoreData(assets,url.origin));
   if((raw as {validateOnly?:unknown}).validateOnly===true)return reply({verified:true,ticks:verified.ticks,track:verified.trackHash,car:verified.carCode});
+  const name=scoreString((raw as {replay:number[]}).replay,13,22),trackName=/^[A-Za-z0-9_-]{1,8}$/.test(name)?name.toUpperCase():'Track '+verified.trackHash.slice(0,8).toUpperCase();
   await db.batch([
+   db.prepare('INSERT OR IGNORE INTO score_tracks(hash,name) VALUES (?,?)').bind(verified.trackHash,trackName),
    db.prepare('INSERT OR IGNORE INTO global_scores(id,rules,track_hash,car_code,ticks,record,created_at) VALUES (?,?,?,?,?,?,?)').bind(verified.id,GLOBAL_SCORE_RULES,verified.trackHash,verified.carCode,verified.ticks,JSON.stringify(Array.from(verified.record)),now),
    db.prepare('DELETE FROM global_scores WHERE rules=? AND track_hash=? AND id NOT IN (SELECT id FROM global_scores WHERE rules=? AND track_hash=? ORDER BY ticks,created_at,id LIMIT 7)').bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare('DELETE FROM score_requests WHERE expires_at < ?').bind(now),

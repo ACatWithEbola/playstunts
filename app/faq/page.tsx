@@ -27,7 +27,7 @@ export default function FaqPage(){return <main className="game-shell stunts-univ
   <div className="stunts-masthead-art" aria-hidden="true"><Image unoptimized width={790} height={309} src="/site/manual-red-car.webp" alt=""/></div>
   <div className="stunts-masthead-copy"><span>PLAYER &amp; PROJECT GUIDE</span><strong>FREQUENTLY&nbsp;ASKED<br/>QUESTIONS</strong><p>Playing, global scores, community tracks and personal saves.</p></div>
  </header>
- <StuntsNavigation><a href="/#play">PLAY</a><a href="/#setup">SETUP</a><a href="/#about">THE GAME</a><a href="/?view=cars#play">3D CARS</a><a href="/#roland">MT-32</a><a href="https://pigsgrame.de/downloads/stunts.pdf" target="_blank" rel="noreferrer">MANUAL ↗</a><a href="/#saves">TRACKS &amp; REPLAYS</a><a className="nav-play" href="/faq" aria-current="page">FAQ</a><a href="https://github.com/ACatWithEbola/playstunts" target="_blank" rel="noreferrer">GITHUB ↗</a></StuntsNavigation>
+ <StuntsNavigation><a href="/#play">PLAY</a><a href="/#setup">SETUP</a><a href="/#about">THE GAME</a><a href="/?view=cars#play">3D CARS</a><a href="/high-scores">HIGH SCORES</a><a href="https://pigsgrame.de/downloads/stunts.pdf" target="_blank" rel="noreferrer">MANUAL ↗</a><a href="/#saves">TRACKS &amp; REPLAYS</a><a className="nav-play" href="/faq" aria-current="page">FAQ</a><a href="https://github.com/ACatWithEbola/playstunts" target="_blank" rel="noreferrer">GITHUB ↗</a></StuntsNavigation>
 
  <section className="faq-intro" aria-labelledby="faq-intro-heading">
   <div><span className="rail-kicker">QUICK ANSWERS</span><h2 id="faq-intro-heading">Start driving.<br/>Keep your files.</h2></div>

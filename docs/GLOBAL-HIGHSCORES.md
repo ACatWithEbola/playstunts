@@ -14,7 +14,15 @@ Normal clients retain an explicit replay-continuation marker, including continua
 
 This is not proof of human driving: a modified client can lie about which UI action was used, generate valid inputs, or choose another driver's name. Replay verification checks the race, not a person's identity. No accounts or new game screens have been introduced.
 
-Submissions are limited to twenty per IP bucket per hour and track sharing to ten per day. Requests have bounded byte/input lengths. Expiring rate-limit keys are hashed; raw IP addresses are not stored. Driver names and score records are public. Replay bodies are verified in memory and are not retained in the database.
+Submissions are limited to twenty per IP bucket per hour and track sharing to ten per day. Requests have bounded byte/input lengths. Expiring rate-limit keys are hashed; raw IP addresses are not stored. Driver names and score records are public. Normal score submission verifies replay bodies in memory; only explicit replay sharing stores a public recording.
+
+## Website High Scores directory
+
+`/high-scores` reads the same current-rule top-seven records as the game through `/api/leaderboards`. Driver, car, time, opponent metadata, posting date, track identity and public replay availability are displayed. Bundled track names are resolved by exact content hash; accepted new custom tracks retain their original label in `score_tracks`. Older unknown custom boards use a short hash label rather than inventing a filename.
+
+Search and sorting run on the server. Requests return at most twelve track boards plus global counts; Load more tracks fetches the next page rather than downloading every score upfront. An open, visible page refreshes hourly, on return/focus, or through Refresh scores. This is a fresh database read, not a manually maintained page or scheduled publishing task.
+
+Public names are filtered for common English/Norwegian profanity and basic obfuscation, with checks against innocent substring matches. The directory and shared-replay listings mask such names; public game score files use ASCII asterisks. Stored proof bytes and canonical IDs are not altered. This heuristic is not an exhaustive multilingual moderation system.
 
 ## Offline and personal files
 
@@ -34,6 +42,6 @@ Share track accepts original `.TRK` bytes only and requires a valid original sta
 
 ## Storage and deployment
 
-D1 binding `DB` owns `global_scores`, `shared_tracks`, and `score_requests`. Schema-only migrations are in `drizzle/`; apply them locally with Wrangler `d1 execute --local --persist-to .wrangler/state` using the built config. Sites applies hosted migrations when publishing. The production-preview command uses that same local persistence directory. `ASSETS` supplies immutable original physics resources; deployment does not use direct Wrangler publishing.
+D1 binding `DB` owns `global_scores`, `shared_tracks`, `shared_replays`, `score_tracks`, and `score_requests`. Schema-only migrations are in `drizzle/`; apply them locally with Wrangler `d1 execute --local --persist-to .wrangler/state` using the built config. Sites applies hosted migrations when publishing. The production-preview command uses that same local persistence directory. `ASSETS` supplies immutable original physics resources; deployment does not use direct Wrangler publishing.
 
 Tests cover native finished races, genuine races longer than ten minutes, replay-end continuation and Restart, incorrect times, offline persistence, simultaneous independent submissions, idempotency, terrain identity, shared-track deduplication/downloads, and upload restrictions. Production smoke verification uses `validateOnly: true` on the score endpoint to check a real generated race without inserting test scores.

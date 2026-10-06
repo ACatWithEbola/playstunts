@@ -6,6 +6,9 @@ export const globalScores=sqliteTable('global_scores',{
 export const scoreRequests=sqliteTable('score_requests',{
  bucket:text('bucket').primaryKey(),count:integer('count').notNull(),expiresAt:integer('expires_at').notNull(),
 });
+export const scoreTracks=sqliteTable('score_tracks',{
+ hash:text('hash').primaryKey(),name:text('name').notNull(),
+});
 export const sharedReplays=sqliteTable('shared_replays',{
  id:text('id').primaryKey(),replay:text('replay').notNull(),trackName:text('track_name').notNull(),createdAt:integer('created_at').notNull(),
 });

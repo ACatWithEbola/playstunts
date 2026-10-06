@@ -2,6 +2,7 @@ import {env} from 'cloudflare:workers';
 import {GLOBAL_SCORE_RULES,scoreHash,scoreString} from '@/lib/game/global-score-format';
 import {verifyGlobalScore} from '@/lib/server/verify-global-score';
 import {globalScoreData} from '@/lib/server/global-score-data';
+import {publicScoreName} from '@/lib/game/public-score-name';
 const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const bindings=()=>env as unknown as {DB:D1Database;ASSETS:Fetcher};
 export async function GET(request:Request){
@@ -14,7 +15,7 @@ export async function GET(request:Request){
    return new Response(bytes,{headers:{'Content-Type':'application/octet-stream','Content-Disposition':`attachment; filename="R${id.slice(0,7).toUpperCase()}.RPL"`,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
   }
   const result=await db.prepare('SELECT s.id,s.track_hash,s.car_code,s.ticks,s.record,r.track_name,r.created_at FROM shared_replays r JOIN global_scores s ON s.id=r.id WHERE s.rules=?'+(track?' AND s.track_hash=?':'')+' ORDER BY r.created_at DESC,s.id LIMIT 50').bind(...(track?[GLOBAL_SCORE_RULES,track]:[GLOBAL_SCORE_RULES])).all<{id:string;track_hash:string;car_code:string;ticks:number;record:string;track_name:string;created_at:number}>();
-  return reply({replays:result.results.map(row=>({id:row.id,track:row.track_hash,car:scoreString(JSON.parse(row.record),17,41)||row.car_code,ticks:row.ticks,driver:scoreString(JSON.parse(row.record),0,17),trackName:row.track_name,createdAt:row.created_at}))});
+  return reply({replays:result.results.map(row=>({id:row.id,track:row.track_hash,car:scoreString(JSON.parse(row.record),17,41)||row.car_code,ticks:row.ticks,driver:publicScoreName(scoreString(JSON.parse(row.record),0,17)),trackName:publicScoreName(row.track_name),createdAt:row.created_at}))});
  }catch(error){console.error('Replay read failed',error);return reply({error:'Shared replays temporarily unavailable'},503);}
 }
 export async function POST(request:Request){
