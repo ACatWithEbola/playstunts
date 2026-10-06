@@ -2,6 +2,18 @@
 
 A native browser reconstruction of **Stunts / 4D Sports Driving**, developed by Sven with assistance from OpenAI Codex. [Play the hosted version](https://playstunts.com).
 
+## Live high scores and community tracks
+
+The hosted game at **playstunts.com** now has shared online high scores and a community track library:
+
+- **Global high scores** appear in the original game's seven-row score table, using its existing name-entry screen, time formatting, and car/opponent columns. Each track has its own leaderboard; identical tracks share scores even when their filenames differ, while modified tracks get a separate board.
+- Completed runs are checked on the server by replaying their recorded inputs with the original simulation. **Continue driving** from a replay makes a run ineligible; restarting begins a fresh eligible attempt. Driver names are anonymous, and verification cannot prove which UI actions a modified client used.
+- Offline results are kept in that browser and retried when connectivity returns. Existing local score files are preserved and are not automatically uploaded to the global table.
+- **Community tracks → Share track (.TRK)** publishes a validated original track for everyone. Other players can download it or add it to their game, then select it through the original track menu. Importing a track for personal use does **not** publish it.
+- Uploads are restricted to supported game formats. Community sharing accepts validated `.TRK` files only; personal imports accept validated tracks, replays, and supported save backups. Unrelated or malformed files are rejected.
+
+GitHub **`main` remains the stable local-score edition**. The deployed online edition is developed on [`feature/global-highscores`](https://github.com/ACatWithEbola/playstunts/tree/feature/global-highscores). Cloning the default branch does not connect your local game to the public leaderboard. The online branch uses a separate database for local testing; see its [online-edition documentation](https://github.com/ACatWithEbola/playstunts/blob/feature/global-highscores/docs/GLOBAL-HIGHSCORES.md) for storage, validation, and deployment details.
+
 You can build and run the game from this checkout using your own compatible DOS game files. The preparation tool generates the required images, catalogs, sound states and fresh native startup resources locally. **No original game files, Roland ROMs or captured original sessions are distributed here.**
 
 ## What you need
@@ -110,7 +122,7 @@ The file checker verifies the required runtime files and your installation's has
 - Import original **`.TRK`** files using **Tracks, replays and save backups**. Supported track files are 1,802 bytes.
 - Import original **`.RPL`** recordings with **Upload replay (.RPL)** beside the track upload. Upload before starting the game, then load the file from the in-game replay menu. Names must use 1–8 letters, numbers, underscores or hyphens. Existing files are kept. Recordings must use the supported original format and contain 1–12,000 frames.
 - Export individual files through **Tracks, replays and save backups → Download tracks & replays**. Downloads preserve the binary bytes and DOS filename (`.TRK` or `.RPL`) for use with the original game. The list includes bundled files and files saved or imported in the browser; a browser-local file with the same DOS path and name takes precedence over its bundled counterpart.
-- Saves are browser-local and tied to the hostname/port. Export a backup before changing browser or address. A Git checkout does not contain your hosted-game saves.
+- Personal tracks, replays, settings, and save backups are browser-local and tied to the hostname/port. Export a backup before changing browser or address. High scores on the hosted online edition are shared, and explicitly published community tracks are available to everyone. A Git checkout does not contain your hosted-game personal saves.
 
 ## Updated graphics and audio
 
