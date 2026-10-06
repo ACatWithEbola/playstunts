@@ -15,3 +15,11 @@ test('offline score survives closing/reopening and retries without importing loc
  assert.equal(scoreTicks((await second.read(track)).slice(0,52)),scoreTicks(proof.record));
  await assert.rejects(second.submit({...proof,continued:true}));assert.equal(posted,1);
 });
+test('accepted ranked proofs are retained privately for optional sharing',async()=>{
+ const saved=new Map<string,NativeStoredFile>(),persistence={async all(){return [...saved.values()];},async put(file:NativeStoredFile){saved.set(file.key,file);}};
+ const proof=await finishedScoreFixture(),id='a'.repeat(64);
+ const request:typeof fetch=async()=>Response.json({id,ranked:true,rules:GLOBAL_SCORE_RULES,file:Array.from(sharedScoreFile([proof.record]))});
+ const client=await createGlobalScoreClient(persistence,request);assert.equal(await client.submit(proof),'accepted');
+ assert.deepEqual(JSON.parse(new TextDecoder().decode(saved.get('VERIFIED:'+id)!.bytes)),proof);
+ assert.ok([...saved].filter(([key])=>key.startsWith('PENDING:')).every(([,file])=>file.bytes.length===0));
+});

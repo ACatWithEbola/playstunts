@@ -29,8 +29,10 @@ export async function POST(request:Request){
    db.prepare('INSERT OR IGNORE INTO global_scores(id,rules,track_hash,car_code,ticks,record,created_at) VALUES (?,?,?,?,?,?,?)').bind(verified.id,GLOBAL_SCORE_RULES,verified.trackHash,verified.carCode,verified.ticks,JSON.stringify(Array.from(verified.record)),now),
    db.prepare('DELETE FROM global_scores WHERE rules=? AND track_hash=? AND id NOT IN (SELECT id FROM global_scores WHERE rules=? AND track_hash=? ORDER BY ticks,created_at,id LIMIT 7)').bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare('DELETE FROM score_requests WHERE expires_at < ?').bind(now),
+   db.prepare('DELETE FROM shared_replays WHERE id NOT IN (SELECT id FROM global_scores)'),
   ]);
-  return reply({accepted:true,rules:GLOBAL_SCORE_RULES,file:await board(db,verified.trackHash)});
+  const ranked=!!await db.prepare('SELECT id FROM global_scores WHERE id=?').bind(verified.id).first();
+  return reply({accepted:true,id:verified.id,ranked,rules:GLOBAL_SCORE_RULES,file:await board(db,verified.trackHash)});
  }catch(error){
   if(error instanceof Error&&/Invalid|eligible|verify|Replay|configuration|supported original/i.test(error.message))return reply({error:error.message},422);
   console.error('Shared score submission failed',error);

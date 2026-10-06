@@ -18,7 +18,13 @@ Submissions are limited to twenty per IP bucket per hour and track sharing to te
 
 ## Offline and personal files
 
-`stunts-global-highscores` is a separate browser database containing cached boards and pending submissions. Network failures preserve pending records across reloads; rejected records are removed from the queue. Global score sync does not overwrite `stunts-native-files` `.HIG` data. Tracks, replays and supported JSON backups remain personal unless the player explicitly selects Share track.
+`stunts-global-highscores` is a separate browser database containing cached boards, pending submissions and accepted replay proofs. Network failures preserve pending records across reloads; rejected records are removed from the queue. Global score sync does not overwrite `stunts-native-files` `.HIG` data. Tracks, replays and supported JSON backups remain personal unless the player explicitly selects Share track or Share replay.
+
+## Opt-in high-score replays
+
+After accepting a ranked score, the browser retains its proof under `VERIFIED:<canonical score id>`. The webpage's High-score replays panel offers Share replay; normal score submission never publishes the recording. `/api/replays` re-verifies the proof and requires its canonical id to exist in the current top seven. Only then is the canonical, complete recording stored in the `shared_replays` table. No arbitrary replay upload can be attached to a different score.
+
+Public listings show driver, exact track identity, track label, car and time. Downloads retain the recorded inputs and embed the track; safe hash-derived DOS aliases avoid replacing personal files. Add replay to my game installs both files before game startup, and playback uses Options → Load Replay in the unchanged original viewer. Its existing 12,000-frame limit remains: longer proofs may qualify for scores, but cannot be published as watchable replays and are never silently truncated. Public replays are removed when the associated score drops out of the top seven; the webpage lists the latest 50 shared runs. Sharing is rate-limited and idempotent.
 
 Personal imports validate DOS filenames and original track/replay fields. Backups permit only validated `.TRK`, `.RPL`, 364-byte `.HIG`, and bounded text `SETUP.DAT` records. Unsupported extensions, malformed data, executable/resource payloads and replay trailing bytes are rejected. MIME types are not used as proof of binary format.
 

@@ -35,5 +35,5 @@ export async function verifyGlobalScore(value:unknown,data:NativeDemoData){
  if(configuration[6]){record.set(memory.slice(d+0xaa74,d+0xaa76),42);record[44]=47;record.set(memory.slice(d+0x8019,d+0x801d),45);record[49]=0;}
  else record[42]=32;
  const canonicalReplay=replay.slice(0,0x722+completedInputs);new DataView(canonicalReplay.buffer).setUint16(22,completedInputs,true);canonicalReplay.fill(0,13,21);
- return {record,carCode,ticks:panel.playerTime,trackHash:await scoreHash(Uint8Array.from(track)),id:await scoreHash(Uint8Array.from([...canonicalReplay,...record]))};
+ return {record,carCode,ticks:panel.playerTime,replay:canonicalReplay,trackHash:await scoreHash(Uint8Array.from(track)),id:await scoreHash(Uint8Array.from([...canonicalReplay,...record]))};
 }

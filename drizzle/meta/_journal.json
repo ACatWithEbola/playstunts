@@ -15,6 +15,13 @@
       "when": 1791238641961,
       "tag": "0001_friendly_wolfsbane",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791277156778,
+      "tag": "0002_bitter_joshua_kane",
+      "breakpoints": true
     }
   ]
 }

@@ -81,11 +81,12 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
  const json=async<T>(name:string):Promise<T>=>{const r=await fetch('/game/'+name+'.json');if(!r.ok)throw Error('Original menu resource could not load: '+name);return r.json() as Promise<T>;};
  const binary=async(name:string)=>{const r=await fetch('/game/'+name);if(!r.ok)throw Error('Original menu resource could not load: '+name);return new Uint8Array(await r.arrayBuffer());};
  const enhancedMainMenuPromise=loadEnhancedStaticArtwork(ENHANCED_STATIC_ARTWORK.mainMenuTexture);
+ const enhancedOverviewsPromise=Promise.all(enhancedTrackOverviews.map(loadEnhancedStaticArtwork));
  const [misc,mainText,trackText,materials,font,smallFont,baseline,ground,panoramas,opponentArt,carArt,art,paletteMemory,terrainNames,packedArt,objects,records,metadataVectors,sampleVectors,presets,errorKeys,scores]=await Promise.all([
   json<TextResources>('misc-dialog-text'),json<TextResources>('main-dialog-text'),json<TextResources>('track-menu-text'),json<{palette:number[]}>('track-materials'),binary('fontdef.fnt'),binary('fontn.fnt'),binary('native-render-resources.bin'),json<{resources:NativeTrackMenuHost['groundModels']}>('overview-ground-models'),json<NativeTrackMenuHost['panoramas']>('menu-panorama-art'),json<{resources:NativeOpponentHost['art'];descriptions:NativeOpponentHost['descriptions']}>('opponent-menu-art'),json<{resources:NativeCarMenuHost['art'];descriptions:NativeCarMenuHost['descriptions']}>('car-menu-art'),json<Array<ScreenResources['art'][number]&{labelResource:string}>>('editor-tile-art'),json<{bytes:number[]}>('editor-palette-memory'),json<{names:ScreenResources['terrainNames']}>('editor-terrain-art'),json<{resources:Record<string,{bytes:number[]}>}>('editor-art'),json<ScreenResources['objects']>('track-objects'),json<RouteResources['records']>('route-records'),json<RouteResources['metadataVectors']>('route-vectors'),json<RouteResources['sampleVectors']>('route-sample-vectors'),json<NativeEditorHost['presets']>('editor-terrain-presets'),json<{keys:string[]}>('editor-error-keys'),json<Record<string,{file:string}>>('high-scores/manifest'),
  ]);
 
- const mainMenuArt=await binary('main-menu-art.bin'),enhancedMainMenu=await enhancedMainMenuPromise;
+ const mainMenuArt=await binary('main-menu-art.bin'),enhancedMainMenu=await enhancedMainMenuPromise,enhancedOverviews=await enhancedOverviewsPromise;
  const original=bundledTrackReplays(options.assets.tracks,binary,options.assets.replays);
  for(const [name,entry] of Object.entries(scores))original.set(nativeFileKey('',name,'.hig'),()=>binary('high-scores/'+entry.file));
  const localFiles=await createNativeFileStore(original,await openNativeFilePersistence());
@@ -194,7 +195,7 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
  const selectTrack=async()=>{
   show('track');focusBrowserGameCanvas(canvas);const menuHost:NativeTrackMenuHost={...trackHost,track,configuration,baseline,groundModels:ground.resources,panoramas,loadTrack:async({path,name})=>Array.from(await files.read(path,name,'.trk')),readScores:async(name,path)=>files.exists(path,name,'.hig')?Array.from(await files.read(path,name,'.hig')):null,editTrack:async()=>{await editTrack();show('track');}};
   if(!options.displayMode){
-   const upgraded=new Map(enhancedTrackOverviews.map((source,panorama)=>{const image=new Image();image.decoding='async';image.src=source;return [panorama,image] as const;}));
+   const upgraded=new Map(enhancedOverviews.map((image,panorama)=>[panorama,image] as const));
    const layer=document.createElement('canvas'),layerContext=layer.getContext('2d')!,mask=document.createElement('canvas'),maskContext=mask.getContext('2d')!;mask.width=320;mask.height=200;
    const maskImage=maskContext.createImageData(320,200);let backdrop:Uint8Array|undefined,layout:{horizon:number;height:number}|undefined;
    const presentTrack=()=>{
@@ -209,8 +210,10 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
     layerContext.globalCompositeOperation='destination-in';layerContext.imageSmoothingEnabled=false;layerContext.drawImage(mask,0,0,layer.width,layer.height);layerContext.globalCompositeOperation='source-over';
     context.drawImage(layer,0,0);
    };
-   upgraded.forEach(image=>{image.onload=()=>options.graphics?.refresh?.();});menuHost.captureOverviewBackdrop=(captured,capturedLayout)=>{backdrop=captured;layout=capturedLayout;};menuHost.present=presentTrack;
-   try{return await runNativeTrackMenu(menuHost);}finally{upgraded.forEach(image=>{image.src='';});layer.width=layer.height=1;if(options.graphics?.refresh===presentTrack)options.graphics.refresh=undefined;}
+   menuHost.captureOverviewBackdrop=(captured,capturedLayout)=>{backdrop=captured;layout=capturedLayout;};menuHost.present=presentTrack;
+   // Path editing must use the same compositor as list/hover redraws.
+   menuHost.editPath=(path,length,timeout,field)=>editNativePath({pixels,font,present:presentTrack,counters:input.counters,keyboard:input.keyboard},path,length,timeout,field);
+   try{return await runNativeTrackMenu(menuHost);}finally{layer.width=layer.height=1;if(options.graphics?.refresh===presentTrack)options.graphics.refresh=undefined;}
   }
   const display=await prepareBrowserNativeTrackDisplay({catalog:await loadBrowserOriginalResourceCatalog()},options.displayMode,options.hercules),{owner}=display;
   const present=()=>{pixels.set(display.pixels());paint(display.palette,display);};menuHost.present=present;

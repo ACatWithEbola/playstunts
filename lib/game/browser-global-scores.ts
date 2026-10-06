@@ -13,7 +13,7 @@ export async function createGlobalScoreClient(persistence:NativeFilePersistence,
  const send=async(key:string,submission:GlobalScoreSubmission,hash:string)=>{
   try{
    const response=await request(GLOBAL_SCORE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Score':GLOBAL_SCORE_RULES},body:JSON.stringify(submission),signal:AbortSignal.timeout(30000)});
-   if(response.ok){await put('BOARD:'+hash,await responseFile(response));await put(key,new Uint8Array());notice('High score verified and shared.');return 'accepted';}
+ if(response.ok){const copy=response.clone(),result=await copy.json() as {id?:string;ranked?:boolean};await put('BOARD:'+hash,await responseFile(response));if(result.ranked&&result.id&&/^[a-f0-9]{64}$/.test(result.id)){await put('VERIFIED:'+result.id,encoder.encode(JSON.stringify(submission)));if(typeof window!=='undefined')window.dispatchEvent(new Event('stunts-verified-replays'));}await put(key,new Uint8Array());notice('High score verified and shared. You can optionally share its replay below.');return 'accepted';}
    if([400,403,413,422].includes(response.status)){await put('REJECTED:'+key.slice(8),stored.get(key)??encoder.encode(JSON.stringify({submission,hash})));await put(key,new Uint8Array());notice('This run could not be verified for the global leaderboard. A copy was kept in this browser.');return 'rejected';}
   }catch{/* Keep offline results queued across reloads. */}
   notice('Your high score is waiting to be uploaded. It will retry when this browser is online.');return 'pending';

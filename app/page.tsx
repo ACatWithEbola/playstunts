@@ -11,6 +11,7 @@ import StuntsBrand from './StuntsBrand';
 import SaveBackupPanel from './SaveBackupPanel';
 import SharedTracksPanel from './SharedTracksPanel';
 import GlobalScoreStatus from './GlobalScoreStatus';
+import SharedReplaysPanel from './SharedReplaysPanel';
 import StuntsBox from './StuntsBox';
 import StuntsNavigation from './StuntsNavigation';
 import type {Assets} from '@/lib/game/types';
@@ -89,6 +90,7 @@ export default function Home(){
  <section className="launch-info" aria-label="About this browser edition"><p className="graphics-performance-notice"><strong>IMPORTANT:</strong> When playing in updated graphics mode, please make sure to enable hardware acceleration first for best performance.</p><p><strong>Public beta</strong> · Unofficial Stunts browser reconstruction. Not an official release from the original developers or Roland.</p><p>Best played on a computer with a keyboard. <a href="mailto:svenanders@lokaas.net?subject=PlayStunts%20bug%20report">Report a bug</a> — please include your browser, sound/display settings, and steps to reproduce it.</p><SaveBackupPanel running={running} assets={assets}/></section>
  <SharedTracksPanel running={running}/>
  <GlobalScoreStatus/>
+ <SharedReplaysPanel running={running}/>
  <p className="global-score-note">High scores are shared worldwide in the original game’s score table. Completed runs are checked against their recorded inputs; using “Continue driving” from a replay makes a run ineligible. Offline results wait in this browser until they can be submitted.</p>
  </main>;
 }
