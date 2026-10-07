@@ -4,6 +4,7 @@ import {publicScoreName} from '@/lib/game/public-score-name';
 import {verifyGlobalScore} from '@/lib/server/verify-global-score';
 import {globalScoreData} from '@/lib/server/global-score-data';
 import {retainRunHistorySQL,pruneRunHistorySQL} from '@/lib/server/run-history';
+import {pruneSharedReplaysSQL} from '@/lib/server/shared-replay-retention';
 import {driverKey,rankedScoresSQL,bestCarScoresSQL,categoryCarScoresSQL,categoryScoresSQL,pruneCarScoresSQL,retainAcceptedScoresSQL} from '@/lib/server/leaderboard-ranking';
 
 const bindings=()=>env as unknown as {DB:D1Database;ASSETS:Fetcher};
@@ -39,7 +40,7 @@ export async function POST(request:Request){
    db.prepare(pruneRunHistorySQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare(pruneCarScoresSQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare('DELETE FROM score_requests WHERE expires_at < ?').bind(now),
-   db.prepare('DELETE FROM shared_replays WHERE id NOT IN (SELECT id FROM global_scores)'),
+   db.prepare(pruneSharedReplaysSQL),
   ]);
   const ranked=!!await db.prepare('SELECT id FROM global_scores WHERE id=?').bind(verified.id).first();
   return reply({accepted:true,id:verified.id,ranked,rules:GLOBAL_SCORE_RULES,file:await board(db,verified.trackHash),carFile:await board(db,verified.trackHash,verified.carCode)});

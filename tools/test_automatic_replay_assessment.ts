@@ -50,3 +50,12 @@ test('verification failure or identity mismatch preserves score and retries late
  assert.equal((await reassessNextPublicReplay(db,load,async()=>({...result,id:'different'}) as never)).state,'retry');
  assert.deepEqual(sql.prepare('SELECT * FROM global_scores').get(),before);assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM global_scores').get()!.n,1);sql.close();
 });
+test('history-only slower public replays are reassessed without creating a leaderboard score',async()=>{
+ const {sql,db,result,load}=fixture();
+ sql.exec('INSERT INTO run_history SELECT * FROM global_scores; DELETE FROM global_scores');
+ assert.equal((await reassessNextPublicReplay(db,load,async()=>result as never)).state,'updated');
+ assert.equal(sql.prepare('SELECT route_assessment FROM run_history').get()!.route_assessment,'full_route');
+ assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM global_scores').get()!.n,0);
+ assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM shared_replays').get()!.n,1);
+ sql.close();
+});

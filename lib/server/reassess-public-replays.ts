@@ -4,8 +4,9 @@ import {verifyGlobalScore} from './verify-global-score.ts';
 import {ROUTE_ASSESSMENT_VERSION} from './route-assessment-version.ts';
 import {pruneCarScoresSQL,retainAcceptedScoresSQL} from './leaderboard-ranking.ts';
 import {retainRunHistorySQL,pruneRunHistorySQL} from './run-history.ts';
+import {replayScoresSQL,pruneSharedReplaysSQL} from './shared-replay-retention.ts';
 
-const pendingSQL='SELECT COUNT(*) AS pending FROM shared_replays r JOIN global_scores s ON s.id=r.id WHERE s.rules=? AND r.assessment_version<>?';
+const pendingSQL='SELECT COUNT(*) AS pending FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE s.rules=? AND r.assessment_version<>?';
 /** One public, already accepted recording per request. A database-wide lease
  * prevents concurrent visitors duplicating native replay work. No submissions,
  * private recordings, times, driver identities or posting dates are rewritten. */
@@ -17,7 +18,7 @@ export async function reassessNextPublicReplay(db:D1Database,load:()=>Promise<Na
  if(!lock)return {state:'busy',pending:await pending(),changed:false};
  let selected:string|undefined;
  try{
-  const row=await db.prepare('SELECT r.id,r.replay,s.record,s.ticks,s.track_hash,s.car_code FROM shared_replays r JOIN global_scores s ON s.id=r.id WHERE s.rules=? AND r.assessment_version<>? AND r.assessment_retry_at<=? ORDER BY r.assessment_retry_at,r.created_at,r.id LIMIT 1').bind(GLOBAL_SCORE_RULES,ROUTE_ASSESSMENT_VERSION,now).first<{id:string;replay:string;record:string;ticks:number;track_hash:string;car_code:string}>();
+  const row=await db.prepare('SELECT r.id,r.replay,s.record,s.ticks,s.track_hash,s.car_code FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE s.rules=? AND r.assessment_version<>? AND r.assessment_retry_at<=? ORDER BY r.assessment_retry_at,r.created_at,r.id LIMIT 1').bind(GLOBAL_SCORE_RULES,ROUTE_ASSESSMENT_VERSION,now).first<{id:string;replay:string;record:string;ticks:number;track_hash:string;car_code:string}>();
   if(!row)return {state:'idle',pending:await pending(),changed:false};
   selected=row.id;
   const result=await verify({record:JSON.parse(row.record),replay:JSON.parse(row.replay),rules:GLOBAL_SCORE_RULES,flags:1,continued:false},await load());
@@ -33,7 +34,7 @@ export async function reassessNextPublicReplay(db:D1Database,load:()=>Promise<Na
    db.prepare(retainRunHistorySQL).bind(GLOBAL_SCORE_RULES,row.track_hash),
    db.prepare(pruneRunHistorySQL).bind(GLOBAL_SCORE_RULES,row.track_hash,GLOBAL_SCORE_RULES,row.track_hash),
    db.prepare(pruneCarScoresSQL).bind(GLOBAL_SCORE_RULES,row.track_hash,GLOBAL_SCORE_RULES,row.track_hash),
-   db.prepare('DELETE FROM shared_replays WHERE id NOT IN (SELECT id FROM global_scores)'),
+   db.prepare(pruneSharedReplaysSQL),
   ]);
   return {state:'updated',pending:await pending(),changed:true};
  }catch(error){

@@ -7,6 +7,7 @@ import {currentCarScoresSQL,pruneCarScoresSQL,retainAcceptedScoresSQL,driverKey}
 import {GLOBAL_SCORE_RULES,scoreString} from '../lib/game/global-score-format.ts';
 import {ROUTE_ASSESSMENT_VERSION} from '../lib/server/route-assessment-version.ts';
 import {retainRunHistorySQL,pruneRunHistorySQL} from '../lib/server/run-history.ts';
+import {replayScoresSQL,pruneSharedReplaysSQL} from '../lib/server/shared-replay-retention.ts';
 
 // Execute the production handler against SQLite. Only native verification and
 // asset loading are stubbed here; separate native-fixture tests cover verification.
@@ -17,8 +18,8 @@ test('sharing reassesses before ranking and restores only server-accepted proofs
  const record=Array(52).fill(0);record[0]=77;
  let verified={id:'accepted',trackHash:'track',carCode:'PMIN',ticks:100,record,routeAssessment:'full_route',replay:new Uint8Array(2000)};
  const source=readFileSync(new URL('../app/api/replays/route.ts',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/export async function/g,'async function');
- const create=new Function('env','GLOBAL_SCORE_RULES','scoreHash','scoreString','verifyGlobalScore','globalScoreData','publicScoreName','currentCarScoresSQL','pruneCarScoresSQL','retainAcceptedScoresSQL','driverKey','ROUTE_ASSESSMENT_VERSION','retainRunHistorySQL','pruneRunHistorySQL',stripTypeScriptTypes(source)+';return POST;');
- const post=create({DB:binding,ASSETS:{}},GLOBAL_SCORE_RULES,async()=> 'bucket',scoreString,async()=>verified,async()=>({}),(s:string)=>s,currentCarScoresSQL,pruneCarScoresSQL,retainAcceptedScoresSQL,driverKey,ROUTE_ASSESSMENT_VERSION,retainRunHistorySQL,pruneRunHistorySQL) as (r:Request)=>Promise<Response>;
+ const create=new Function('env','GLOBAL_SCORE_RULES','scoreHash','scoreString','verifyGlobalScore','globalScoreData','publicScoreName','currentCarScoresSQL','pruneCarScoresSQL','retainAcceptedScoresSQL','driverKey','ROUTE_ASSESSMENT_VERSION','retainRunHistorySQL','pruneRunHistorySQL','replayScoresSQL','pruneSharedReplaysSQL',stripTypeScriptTypes(source)+';return POST;');
+ const post=create({DB:binding,ASSETS:{}},GLOBAL_SCORE_RULES,async()=> 'bucket',scoreString,async()=>verified,async()=>({}),(s:string)=>s,currentCarScoresSQL,pruneCarScoresSQL,retainAcceptedScoresSQL,driverKey,ROUTE_ASSESSMENT_VERSION,retainRunHistorySQL,pruneRunHistorySQL,replayScoresSQL,pruneSharedReplaysSQL) as (r:Request)=>Promise<Response>;
  const share=()=>post(new Request('https://example.test/api/replays',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Replay':'share'},body:JSON.stringify({replay:Array(24).fill(0)})}));
  const insert=db.prepare('INSERT INTO global_scores VALUES (?,?,?,?,?,?,?,?,?)');
  for(let i=0;i<7;i++)insert.run('fast'+i,GLOBAL_SCORE_RULES,'track','PMIN',10+i,'[]',1+i,'name:driver'+i,'not_assessed');
@@ -35,8 +36,13 @@ test('sharing reassesses before ranking and restores only server-accepted proofs
  assert.equal((await share()).status,422,'Arbitrary valid replay cannot create a score');
  assert.equal(db.prepare("SELECT id FROM global_scores WHERE id='unsubmitted'").get(),undefined);
  verified={...verified,id:'accepted',routeAssessment:'not_assessed'};
- assert.equal((await share()).status,422,'Reassessment cannot bypass its new category top seven');
- assert.equal(db.prepare("SELECT id FROM shared_replays WHERE id='accepted'").get(),undefined);
+ assert.equal((await share()).status,200,'Recent accepted run can be shared even outside its category top seven');
+ assert.ok(db.prepare("SELECT id FROM shared_replays WHERE id='accepted'").get(),'Recent history replay stays available despite ranking pruning');
+ const getSource=readFileSync(new URL('../app/api/replays/route.ts',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/export async function/g,'async function');
+ const get=new Function('env','GLOBAL_SCORE_RULES','scoreString','publicScoreName','replayScoresSQL',stripTypeScriptTypes(getSource)+';return GET;')({DB:binding},GLOBAL_SCORE_RULES,scoreString,(s:string)=>s,replayScoresSQL);
+ assert.equal((await get(new Request('https://example.test/api/replays'))).status,200,'History-only public replay appears in listings');
+ db.exec("DELETE FROM run_history WHERE id='accepted'");db.exec(pruneSharedReplaysSQL);
+ assert.equal(db.prepare("SELECT id FROM shared_replays WHERE id='accepted'").get(),undefined,'Non-ranking replay expires when its recent history entry expires');
  assert.ok(db.prepare("SELECT id FROM accepted_scores WHERE id='accepted'").get(),'Receipt survives displacement');
  db.close();
 });
