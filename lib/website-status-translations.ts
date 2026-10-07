@@ -1,4 +1,5 @@
 export const statusTranslations:Record<string,readonly [string,string]>={
+ 'Enhanced graphics are unavailable. Using original graphics; browser security settings are unchanged.':['Los gráficos mejorados no están disponibles. Se usan los gráficos originales; no se ha cambiado la configuración de seguridad del navegador.','La grafica migliorata non è disponibile. Viene usata la grafica originale; le impostazioni di sicurezza del browser non sono state modificate.'],
  '1st place — Gold trophy':['Primer puesto — trofeo de oro','Primo posto — coppa d’oro'],
  '2nd place — Silver trophy':['Segundo puesto — trofeo de plata','Secondo posto — coppa d’argento'],
  '3rd place — Bronze trophy':['Tercer puesto — trofeo de bronce','Terzo posto — coppa di bronzo'],

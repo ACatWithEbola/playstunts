@@ -3,7 +3,7 @@ import {bundledTrackReplays} from './bundled-track-replays.ts';
 import showroomMaterials from '../../public/game/track-materials.json';
 import {createUpgradedCarMenu} from './upgraded-car-menu';
 import type {createUpgradedRaceScene} from './upgraded-race-scene';
-export interface BrowserGraphicsSwitch {enabled:boolean;chaseCamera?:0|1|2|3;selectOriginalCamera?:()=>void;refresh?:()=>void;notice?:(message:string)=>void;performanceFrame?:(at:number)=>void;resetPerformance?:()=>void;setPerformancePaused?:(paused:boolean)=>void;}
+export interface BrowserGraphicsSwitch {enabled:boolean;chaseCamera?:0|1|2|3;selectOriginalCamera?:()=>void;refresh?:()=>void;notice?:(message:string)=>void;unavailable?:()=>void;performanceFrame?:(at:number)=>void;resetPerformance?:()=>void;setPerformancePaused?:(paused:boolean)=>void;}
 import {focusBrowserGameCanvas} from './browser-game-focus.ts';
 import {createBrowserHerculesPresenter} from './browser-hercules-presenter.ts';
 import {prepareBrowserNativeMainMenu} from './browser-native-display-race.ts';
