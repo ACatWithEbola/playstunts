@@ -1,7 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createBrowserMenuInput} from '../lib/game/browser-menu-input.ts';
-import {fixtureData,finishedScoreFixture} from './global-score-fixture.ts';
+import {readFileSync} from 'node:fs';
+import {createNativeResourceCatalog} from '../lib/game/native-resource-catalog.ts';
 import {createNativeManualRaceRuntime} from '../lib/game/native-manual-race-runtime.ts';
 import {selectOriginalReplayControl} from '../lib/game/replay-control-selection.ts';
 test('consumed menu activators remain held, but restart waits for physical release',async()=>{
@@ -19,7 +20,11 @@ test('consumed menu activators remain held, but restart waits for physical relea
  input.close();
 });
 test('restart drains menu input before initialization and stays at zero until new driving input',async()=>{
- const proof=await finishedScoreFixture(),runtime=await createNativeManualRaceRuntime(fixtureData,{configuration:proof.replay.slice(0,24),track:proof.replay.slice(24,0x722),name:'GLOBAL',camera:0,graphics:2,soundEnabled:false},{resetMouse(){}});
+ // Main has no website high-score fixture. Use the same original native
+ // resources directly so this regression stays independent of the website.
+ const root=new URL('../public/game/',import.meta.url),json=(name:string)=>JSON.parse(readFileSync(new URL(name+'.json',root),'utf8'));
+ const fixtureData={base:new Uint8Array(readFileSync(new URL('native-resource-base.bin',root))),catalog:createNativeResourceCatalog(json('original-resources/manifest').files,async file=>new Uint8Array(readFileSync(new URL('original-resources/'+file,root)))),cars:json('assets').cars,records:json('route-records'),vectors:json('route-vectors'),samples:json('route-sample-vectors'),objects:json('track-objects'),points:json('route-point-vectors'),indices:json('route-speed-indices'),planes:json('collision-planes'),walls:json('collision-walls').walls};
+ const replay=Array.from(readFileSync(new URL('replays/CTKFIN.RPL',root))),runtime=await createNativeManualRaceRuntime(fixtureData,{configuration:replay.slice(0,24),track:replay.slice(24,0x722),name:'GLOBAL',camera:0,graphics:2,soundEnabled:false},{resetMouse(){}});
  const d=0x2d1a0,devices={mouse:()=>({x:160,y:100,buttons:0}),joystickSteering:()=>0,controls:()=>1,keyDown:()=>0};
  runtime.session.skipIntroduction();for(let i=0;i<30;i++)runtime.tick(devices);runtime.session.seek(runtime.session.length);
  let releases=0;const host={resetCounter(){},resetMouse(){},async dialog(){return 1;},async releaseDrivingInput(){releases++;assert.equal(runtime.session.state.memory[d+0xa3c2],2,'Drain while still in replay, before fresh initialization');},selectControl(_mode:number,selected:number){selectOriginalReplayControl(runtime.session.state.memory,d,selected);}};
