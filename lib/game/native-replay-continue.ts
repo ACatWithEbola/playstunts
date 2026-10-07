@@ -2,6 +2,7 @@ export interface NativeReplayContinueHost {
  memory():Uint8Array;
  /** Legacy host name: source1B21E releases pending input; the browser must await it. */
  resetCounter():void|Promise<void>;initialize(mode:number):void;
+ releaseDrivingInput?():void|Promise<void>;
  dialog(resource:string,mode:number,selected:number,border:number):Promise<number>;
  selectControl(mode:number,selected:number,value:number):void;resetMouse(mode:number):void;
 }
@@ -10,7 +11,7 @@ export interface NativeReplayContinueHost {
 export async function continueNativeReplay(host:NativeReplayContinueHost,d:number,restart:boolean){
  let m=host.memory();
  if(restart){
-  await host.resetCounter();host.initialize(-1);m=host.memory();
+  await host.resetCounter();await host.releaseDrivingInput?.();host.initialize(-1);m=host.memory();
   const v=new DataView(m.buffer,m.byteOffset,m.byteLength);
   v.setUint16(d+0x73b2,0,true);v.setUint16(d+0x8fd8,0,true);m[d+0xa34e]=0;m[d+0x8018]=1;
  }else{
