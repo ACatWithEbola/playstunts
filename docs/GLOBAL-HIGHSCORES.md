@@ -26,6 +26,8 @@ Submissions are limited to twenty per IP bucket per hour and track sharing to te
 
 ## Website High Scores directory
 
+Verifier `road-corridors-2026-10-07-3` accepts either lane of divided roads and original-game inside passage through left/right corkscrews and loops. Gates require ordered longitudinal traversal, bounded lateral/height position and road or bounded airborne contact; grass bypasses and perpendicular crossing cannot prove these pieces. Helical up/down corkscrews still use their 3D geometry. Marco’s accepted DEFAULT/PMIN 1:06.75 replay verifies as Full run with the exact score ID and time unchanged; its previously missing evidence came from one-lane divided-road vectors and corkscrew rotation vectors.
+
 Public badges are **Full run** for `full_route` and **Possibly exploited** otherwise. Underlying `shortcuts_detected` and `not_assessed` evidence stays distinct; details explain whether exploitation was detected or full-route evidence was inconclusive. A replay review can correct classifications without changing time or driver identity.
 
 Public replay retention now includes ranked scores and the five retained recent verified attempts per driver/track. Slower accepted attempts can therefore be shared and downloaded from the history popup without replacing a faster score. Exact proof verification, acceptance receipts, privacy opt-in and the original viewer length limit remain required. Non-ranking recordings expire when their recent-history entry expires. Earlier top-seven-only replay descriptions below describe the previous restriction.

@@ -17,6 +17,22 @@ export function routeEvidenceGates(track:number[],prepared:ReturnType<typeof pre
    return {position:gate.midpoint,radius:Math.min(184,Math.hypot(gate.first[0]-gate.second[0],gate.first[2]-gate.second[2])/2+64)};
   });
   const physics=data.objects[tile].physics;
+  if(physics===10||physics===11||physics===27||physics===35){
+   // These navigation vectors describe one chosen driving line, not the
+   // complete allowed road. Divided roads permit either lane; an l/r cork
+   // permits straight interior travel as well as its twisting surface.
+   // Loops also permit driving through the inside without competition-only
+   // rotation rules. Keep entry-to-exit order and a bounded road corridor.
+   const axis:0|2=data.objects[tile].rotation===0||data.objects[tile].rotation===512?2:0,cross=axis===0?2:0;
+   const terrain=track[901+prepared.route.routeRows[node]*30+prepared.route.columns[node]],ground=terrain===6?450:0;
+   const center=cross===0?prepared.route.columns[node]*1024+512:(29-prepared.route.routeRows[node])*1024+512;
+   const first=points[0]?.position[axis],last=points.at(-1)?.position[axis];if(first===undefined||last===undefined||Math.abs(last-first)<128)return [];
+   const count=Math.ceil(Math.abs(last-first)/128);
+   return Array.from({length:count+1},(_,i)=>{
+    const position=[0,ground+100,0];position[axis]=first+(last-first)*i/count;position[cross]=center;
+    return {position,radius:80,longitudinalAxis:axis,lateralTolerance:physics===35?130:physics===27?440:360,requiresRoad:true,heightTolerance:physics===35?240:physics===27?1100:180,airborneHeightTolerance:physics===35?240:physics===27?300:600,allowGrassExcursion:false};
+   });
+  }
   if(!ordinary.has(physics)){
    const heights=points.filter(p=>p.position[1]!==-1).map(p=>p.position[1]);
    return points.length>=8&&heights.length===points.length&&Math.max(...heights)-Math.min(...heights)>=128?points:[];

@@ -97,6 +97,33 @@ test('collision-height road gates allow bounded jumps but reject bridge underpas
  for(const list of finite)prolonged.observe([list[0].position[0]*64,450*64,512*64],grass);
  assert.equal(prolonged.result(true),false);
 });
+test('divided lanes, inside corks and inside loops are valid ordered road corridors, not mandatory stunt rotations',()=>{
+ const tracks=JSON.parse(readFileSync(new URL('../public/game/assets.json',import.meta.url),'utf8')).tracks;
+ const rotations=new Map<number,Set<number>>();let checked=0;
+ for(const {raw} of tracks){
+  const p=prepareRaceTrack(raw,fixtureData.records,fixtureData.vectors,fixtureData.samples,fixtureData.objects),all=routeEvidenceGates(raw,p,fixtureData);
+  for(let n=0;n<p.route.tiles.length;n++){
+   const object=fixtureData.objects[p.route.tiles[n]],physics=object.physics;if(![10,11,27,35].includes(physics))continue;
+   const list=all[n],axis=list[0].longitudinalAxis!,cross=axis===0?2:0;assert.ok(list.length>2);assert.notEqual(axis,undefined);
+   if(!rotations.has(physics))rotations.set(physics,new Set());rotations.get(physics)!.add(object.rotation);
+   const graph={primary:[1,0],alternate:[65535,65535],columns:[0,1],rows:[0,0],footprints:[0,0]};
+   const pass=(offset:number,height:number,surfaces=road,perpendicular=false)=>{
+    const start=[...list[0].position];start[axis]+=list[0].position[axis]<list.at(-1)!.position[axis]?-300:300;
+    const w=createFullRouteWitness(graph,[[{position:start,radius:80}],list]);w.observe(start.map(v=>v*64),road);
+    for(let i=0;i<list.length;i++){const pos=[...list[i].position];pos[cross]+=offset;pos[1]+=height;if(perpendicular){pos[axis]=(list[0].position[axis]+list.at(-1)!.position[axis])/2;pos[cross]+=i*100-500;}w.observe(pos.map(v=>v*64),surfaces);}
+    return w.result(true);
+   };
+   for(const offset of physics===10||physics===11?[-180,180]:[-50,50])assert.equal(pass(offset,-92),true,'Either allowed line through the piece must count');
+   assert.equal(pass((list[0].lateralTolerance??0)+100,0),false,'Going around must not certify the piece');
+   assert.equal(pass(0,0,grass),false,'Grass bypass cannot witness the corridor');
+   assert.equal(pass(0,0,road,true),false,'Perpendicular crossing cannot prove ordered entry and exit');
+   assert.equal(pass(0,1500),false,'An unrelated road or flight above cannot certify this piece');
+   if(physics===27)assert.equal(pass(0,875),true,'The full loop rotation remains within its evidence bounds');
+   checked++;
+  }
+ }
+ assert.ok(checked>30);for(const physics of [10,11,27,35])assert.deepEqual([...rotations.get(physics)!].sort(),[...new Set(fixtureData.objects.filter((o:{physics:number;rotation:number})=>o.physics===physics).map((o:{rotation:number})=>o.rotation))].sort(),'Check every orientation represented by the original resources');
+});
 test('unordered section visits and perpendicular crossing traffic cannot certify the route',()=>{
  const bent=[gates[0],[{position:[1536,-1,1536],radius:100}],gates[2]],reversed=createFullRouteWitness(proofGraph,bent);
  for(const node of [0,2,1])reversed.observe([bent[node][0].position[0]*64,0,bent[node][0].position[2]*64],road);

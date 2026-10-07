@@ -1,5 +1,5 @@
 import type {PlayerRouteGraph} from '../physics/player-route-lookup.ts';
-export type RouteGate={position:number[];radius:number;requiresRoad?:boolean;heightTolerance?:number;airborneHeightTolerance?:number;allowGrassExcursion?:boolean};
+export type RouteGate={position:number[];radius:number;requiresRoad?:boolean;heightTolerance?:number;airborneHeightTolerance?:number;allowGrassExcursion?:boolean;longitudinalAxis?:0|2;lateralTolerance?:number};
 /** Positive route evidence, not absence of a detected shortcut. A complete
  * directed start-to-finish path must have its ordered geometric gates covered.
  * Flat/unknown-height gates require actual road contact: flying underneath a
@@ -32,9 +32,15 @@ export function createFullRouteWitness(graph:PlayerRouteGraph,gates:RouteGate[][
      const airborne=surfaces.every(s=>s===0),contact=road||gate.requiresRoad&&hasRoadContact&&(airborne||gate.allowGrassExcursion!==false)&&offRoadFrames<=(airborne?80:40);
      if((!height||gate.requiresRoad)&&!contact)break;
      if(gate.heightTolerance!==undefined){
-      const horizontal=distance(gate.position,before,current,false);
+      let horizontal=distance(gate.position,before,current,false);
       const dx=current[0]-before[0],dz=current[2]-before[2],length=dx*dx+dz*dz;
-      const t=length?Math.max(0,Math.min(1,((gate.position[0]-before[0])*dx+(gate.position[2]-before[2])*dz)/length)):0;
+      let t=length?Math.max(0,Math.min(1,((gate.position[0]-before[0])*dx+(gate.position[2]-before[2])*dz)/length)):0;
+      if(gate.longitudinalAxis!==undefined){
+       const axis=gate.longitudinalAxis,cross=axis===0?2:0,delta=current[axis]-before[axis];
+       t=delta?Math.max(0,Math.min(1,(gate.position[axis]-before[axis])/delta)):0;
+       horizontal=Math.abs(before[axis]+t*delta-gate.position[axis]);
+       if(Math.abs(before[cross]+t*(current[cross]-before[cross])-gate.position[cross])>(gate.lateralTolerance??gate.radius))break;
+      }
       const above=before[1]+t*(current[1]-before[1])-gate.position[1];
       if(horizontal>gate.radius||above< -120||above>(airborne?gate.airborneHeightTolerance??gate.heightTolerance:gate.heightTolerance))break;
      }else if(distance(gate.position,before,current,height)>gate.radius)break;
