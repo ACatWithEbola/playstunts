@@ -164,6 +164,6 @@ test('categories independently retain best times for the same driver',()=>{
 });
 test('real native race still verifies with exactly the same score, without trusting client category claims',async()=>{
  const original=await finishedScoreFixture(),result=await verifyGlobalScore({...original,routeAssessment:'full_route'},fixtureData);
- assert.equal(result.ticks,original.record[50]+256*original.record[51]);assert.ok(['full_route','not_assessed','shortcuts_detected'].includes(result.routeAssessment));
+ assert.equal(result.ticks,original.record[50]+256*original.record[51]);assert.equal(result.routeAssessment,'full_route','An original accepted finish is full unless an agreed exception was detected');
  console.log('Native fixture assessment:',result.routeAssessment);
 });
