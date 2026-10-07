@@ -1,5 +1,11 @@
 # Online edition
 
+## Clean-slate reset (7 October 2026)
+
+The current generation is `ms-dec1990-global-reset-20261007`. This is a storage reset, not a physics or competition-rule change. The global browser cache uses `stunts-global-highscores-reset-20261007`; previous queues and private proofs remain in the old browser database as an archive and are not retried or imported. The global in-game score-file service ignores old local `.HIG` files. Reloading is required for already-open clients.
+
+The one-time `/api/leaderboard-maintenance` handler is disabled (404) unless a temporary server-only `LEADERBOARD_RESET_SECRET` is configured. While configured, score submissions, replay sharing, assessments and track uploads pause. It creates an atomic private archive of all eight product tables; a locally downloaded, hash-checked copy must precede purge. Purge transactionally checks that no data changed since backup, then clears only scores, acceptance receipts, history, public replays, request counters and assessment locks. Track metadata and shared track bytes remain. Repeated purge requests do not delete new runs. The secret is removed after completion; archives are not served by any public endpoint.
+
 The stable local edition remains on GitHub `main` at `4c47c246ead21f31a09ca73e7ed8e1edc614c6af`. The online edition lives on `feature/global-highscores`, in a separate working folder, and publishes through the existing Sites project at playstunts.com.
 
 ## Original presentation

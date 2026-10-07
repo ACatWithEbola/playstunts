@@ -1,6 +1,8 @@
 import {createOriginalEmptyHighScores} from './high-score-empty.ts';
 
-export const GLOBAL_SCORE_RULES='ms-dec1990-global-1';
+// New leaderboard generation, not a change to original physics or scoring.
+export const GLOBAL_SCORE_RULES='ms-dec1990-global-reset-20261007';
+export const GLOBAL_SCORE_DATABASE='stunts-global-highscores-reset-20261007';
 export const GLOBAL_SCORE_ENDPOINT='/api/highscores';
 export const MAX_RANKED_FRAMES=30000;
 export type GlobalScoreSubmission={record:number[];replay:number[];continued:boolean;flags:number;rules:string};

@@ -63,6 +63,7 @@ import {createNativeDialogRuntime} from './native-dialog-runtime.ts';
 import {runNativeRaceResults,type NativeRaceResultsState,type NativeRaceResultsHost,type NativeEvaluationResources} from './native-race-results.ts';
 import type {NativeHighScorePreparationHost} from './native-high-score-preparation.ts';
 import {createGlobalScoreClient} from './browser-global-scores.ts';
+import {GLOBAL_SCORE_DATABASE} from './global-score-format.ts';
 import {captureGlobalRace} from './global-race-recording.ts';
 import {createGlobalScoreFileStore} from './global-score-file-store.ts';
 import type {Assets} from './types.ts';
@@ -90,7 +91,7 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
  const original=bundledTrackReplays(options.assets.tracks,binary,options.assets.replays);
  for(const [name,entry] of Object.entries(scores))original.set(nativeFileKey('',name,'.hig'),()=>binary('high-scores/'+entry.file));
  const localFiles=await createNativeFileStore(original,await openNativeFilePersistence());
- const sharedScores=await createGlobalScoreClient(await openNativeFilePersistence('stunts-global-highscores'));
+ const sharedScores=await createGlobalScoreClient(await openNativeFilePersistence(GLOBAL_SCORE_DATABASE));
  const runHistory=new WeakMap<ReturnType<typeof createNativeRaceSession>,ReturnType<typeof captureGlobalRace>>();
  let scoreContext:{runtime:Awaited<ReturnType<typeof createNativeManualRaceRuntime>>;state:NativeRaceResultsState}|undefined;
  const files=createGlobalScoreFileStore(localFiles,sharedScores,()=>scoreContext?{...scoreContext,history:runHistory.get(scoreContext.runtime.session)}:undefined);

@@ -1,4 +1,8 @@
 import {integer,sqliteTable,text,index} from 'drizzle-orm/sqlite-core';
+// Private reset archive, never exposed through public score/replay APIs.
+export const leaderboardResetBackups=sqliteTable('leaderboard_reset_backups',{
+ id:text('id').primaryKey(),payload:text('payload').notNull(),createdAt:integer('created_at').notNull(),purgedAt:integer('purged_at').notNull().default(0),purgeToken:text('purge_token').notNull().default(''),
+});
 // Compact acceptance receipts survive leaderboard displacement. No replay bytes.
 export const acceptedScores=sqliteTable('accepted_scores',{
  id:text('id').primaryKey(),rules:text('rules').notNull(),createdAt:integer('created_at').notNull(),

@@ -56,6 +56,7 @@ export default function FaqPage(){return <main className="game-shell stunts-univ
    </Section>
 
    <Section id="global-scores" kicker="03" title="Global high scores">
+    <Answer question="Why did the old high scores disappear?"><p>The global leaderboards were reset on 7 October 2026 for a fresh start. Tracks were kept, and the old scores and public replays were backed up privately. Reload the webpage before starting a new run; old queued results do not carry over.</p></Answer>
     <Answer question="Are high scores shared with everyone?" open><p>Yes. On playstunts.com, the original in-game high-score table shows the seven fastest named drivers for the selected track, with each driver shown once, shared across players and computers. Times use the original minutes-and-seconds display, with the car and opponent recorded alongside the driver’s name.</p></Answer>
     <Answer question="Can one driver fill the leaderboard?"><p>Each route category shows one best run per named driver overall, plus a top seven for each car. Names are grouped ignoring case and surrounding spaces, not verified accounts; unnamed runs stay separate. Race results qualify against your car and assessed category.</p></Answer>
     <Answer question="How do I submit a time? Do I need an account?"><p>Finish a fresh race and enter your name using the normal in-game high-score screen when your time qualifies. No account or extra in-game menu is needed. Names are public, anonymous and not reserved, so a name does not prove a player’s identity.</p></Answer>
