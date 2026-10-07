@@ -18,7 +18,6 @@ export async function GET(request:Request){
  try{return reply({rules:GLOBAL_SCORE_RULES,file:await board(bindings().DB,hash,car,category)});}catch(error){console.error('Shared score read failed',error);return reply({error:'Shared scores temporarily unavailable'},503);}
 }
 export async function POST(request:Request){
- if((env as unknown as {LEADERBOARD_RESET_SECRET?:string}).LEADERBOARD_RESET_SECRET)return reply({error:'Leaderboard reset in progress; retry shortly'},503);
  const url=new URL(request.url),origin=request.headers.get('origin');
  if((origin&&origin!==url.origin)||request.headers.get('content-type')?.split(';')[0]!=='application/json'||request.headers.get('x-stunts-score')!==GLOBAL_SCORE_RULES)return reply({error:'Invalid score request'},403);
  let raw:unknown;

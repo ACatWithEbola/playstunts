@@ -15,7 +15,6 @@ export async function GET(request:Request){
  }catch(error){console.error('Shared track read failed',error);return reply({error:'Shared tracks temporarily unavailable'},503);}
 }
 export async function POST(request:Request){
- if((env as unknown as {LEADERBOARD_RESET_SECRET?:string}).LEADERBOARD_RESET_SECRET)return reply({error:'Leaderboard maintenance in progress; retry shortly'},503);
  const url=new URL(request.url),origin=request.headers.get('origin');
  if((origin&&origin!==url.origin)||request.headers.get('content-type')?.split(';')[0]!=='application/json'||request.headers.get('x-stunts-track')!=='share')return reply({error:'Invalid track request'},403);
  let value:unknown;try{const body=await request.text();if(body.length>9000)return reply({error:'Track too large'},413);value=JSON.parse(body);}catch{return reply({error:'Invalid track'},400);}

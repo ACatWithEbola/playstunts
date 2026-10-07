@@ -22,7 +22,6 @@ export async function GET(request:Request){
  }catch(error){console.error('Replay read failed',error);return reply({error:'Shared replays temporarily unavailable'},503);}
 }
 export async function POST(request:Request){
- if((env as unknown as {LEADERBOARD_RESET_SECRET?:string}).LEADERBOARD_RESET_SECRET)return reply({error:'Leaderboard reset in progress; retry shortly'},503);
  const url=new URL(request.url),origin=request.headers.get('origin');
  if((origin&&origin!==url.origin)||request.headers.get('content-type')?.split(';')[0]!=='application/json'||request.headers.get('x-stunts-replay')!=='share')return reply({error:'Invalid replay request'},403);
  let raw:unknown;try{const body=await request.text();if(body.length>150000)return reply({error:'Replay request too large'},413);raw=JSON.parse(body);}catch{return reply({error:'Invalid replay request'},400);}

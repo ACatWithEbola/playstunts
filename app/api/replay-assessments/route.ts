@@ -3,7 +3,6 @@ import {globalScoreData} from '@/lib/server/global-score-data';
 import {reassessNextPublicReplay} from '@/lib/server/reassess-public-replays';
 const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export async function POST(request:Request){
- if((env as unknown as {LEADERBOARD_RESET_SECRET?:string}).LEADERBOARD_RESET_SECRET)return reply({state:'idle',pending:0,changed:false});
  const url=new URL(request.url),origin=request.headers.get('origin');
  if(origin&&origin!==url.origin||request.headers.get('x-stunts-assessment')!=='refresh'||request.headers.get('content-type')?.split(';')[0]!=='application/json')return reply({error:'Invalid assessment request'},403);
  try{
