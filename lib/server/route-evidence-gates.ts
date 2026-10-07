@@ -70,7 +70,10 @@ export function routeEvidenceGates(track:number[],prepared:ReturnType<typeof pre
      // stay below half the entry-to-exit span so crossing the other road
      // cannot witness both ends of this route.
      const curve=[2,3,4,5,6,7,8,9,21,26].includes(physics);
-     dense.push({position:[x,y,z],radius:curve?Math.min(a.radius,b?.radius??a.radius)+192:240,requiresRoad:true,heightTolerance:280,airborneHeightTolerance:600});
+     // Open-road excursions may follow the same road within its tile corridor.
+     // Section-transfer detection remains independent. Tunnel evidence must
+     // come from inside/on the structure, never grass beside it.
+     dense.push({position:[x,y,z],radius:curve?Math.min(a.radius,b?.radius??a.radius)+192:240,grassRadius:curve?Math.min(a.radius,b?.radius??a.radius)+192:440,allowGrassExcursion:physics!==28,requiresRoad:true,heightTolerance:280,airborneHeightTolerance:600});
     }catch{return [];}
    }
   }

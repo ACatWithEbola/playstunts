@@ -1,5 +1,5 @@
 import type {PlayerRouteGraph} from '../physics/player-route-lookup.ts';
-export type RouteGate={position:number[];radius:number;requiresRoad?:boolean;heightTolerance?:number;airborneHeightTolerance?:number;allowGrassExcursion?:boolean;longitudinalAxis?:0|2;lateralTolerance?:number};
+export type RouteGate={position:number[];radius:number;grassRadius?:number;requiresRoad?:boolean;heightTolerance?:number;airborneHeightTolerance?:number;allowGrassExcursion?:boolean;longitudinalAxis?:0|2;lateralTolerance?:number};
 /** Positive route evidence, not absence of a detected shortcut. A complete
  * directed start-to-finish path must have its ordered geometric gates covered.
  * Flat/unknown-height gates require actual road contact: flying underneath a
@@ -26,10 +26,11 @@ export function createFullRouteWitness(graph:PlayerRouteGraph,gates:RouteGate[][
    for(let node=0;node<gates.length;node++){
     const list=gates[node];if(!list.length||completed.has(node))continue;
     while(cursors[node]<list.length){const gate=list[cursors[node]],height=gate.position[1]!==-1;
-     // Ordinary road evidence allows the agreed <=2-second curb excursion
-     // and airborne travel, but not sustained grass driving. Keep height
-     // separate from lateral road tolerance so bridge underpasses cannot pass.
-     const airborne=surfaces.every(s=>s===0),contact=road||gate.requiresRoad&&hasRoadContact&&(airborne||gate.allowGrassExcursion!==false)&&offRoadFrames<=(airborne?80:40);
+     // Grass duration is not a disqualifier. An ordinary-road excursion must
+     // still cover the ordered route corridor; protected structures explicitly
+     // disallow grass evidence. Exploit/section-transfer checks run separately.
+     const airborne=surfaces.every(s=>s===0),grass=surfaces.every(s=>s===4),contact=road||gate.requiresRoad&&hasRoadContact&&(airborne?offRoadFrames<=80:grass&&gate.allowGrassExcursion!==false);
+     const radius=grass&&gate.allowGrassExcursion!==false?gate.grassRadius??gate.radius:gate.radius;
      if((!height||gate.requiresRoad)&&!contact)break;
      if(gate.heightTolerance!==undefined){
       let horizontal=distance(gate.position,before,current,false);
@@ -42,8 +43,8 @@ export function createFullRouteWitness(graph:PlayerRouteGraph,gates:RouteGate[][
        if(Math.abs(before[cross]+t*(current[cross]-before[cross])-gate.position[cross])>(gate.lateralTolerance??gate.radius))break;
       }
       const above=before[1]+t*(current[1]-before[1])-gate.position[1];
-      if(horizontal>gate.radius||above< -120||above>(airborne?gate.airborneHeightTolerance??gate.heightTolerance:gate.heightTolerance))break;
-     }else if(distance(gate.position,before,current,height)>gate.radius)break;
+      if(horizontal>radius||above< -120||above>(airborne?gate.airborneHeightTolerance??gate.heightTolerance:gate.heightTolerance))break;
+     }else if(distance(gate.position,before,current,height)>radius)break;
      cursors[node]++;
     }
     if(cursors[node]===list.length){completed.add(node);completedAt[node]=frame;}

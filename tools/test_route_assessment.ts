@@ -69,6 +69,21 @@ test('full-route proof needs a finished connected path with positive gate covera
  const missing=createFullRouteWitness(proofGraph,[gates[0],[],gates[2]]);observeGates(missing);assert.equal(missing.result(true),false);
  const airborne=createFullRouteWitness(proofGraph,gates);observeGates(airborne,[0,0,0,0]);assert.equal(airborne.result(true),false);
 });
+test('a minute on grass followed by returning to the same road does not invalidate the route',()=>{
+ const finite=gates.map(list=>list.map(g=>({...g,position:[g.position[0],0,g.position[2]],requiresRoad:true,heightTolerance:280})));
+ const w=createFullRouteWitness(proofGraph,finite);w.observe([512*64,0,512*64],road);
+ for(let i=0;i<1200;i++)w.observe([512*64,0,5000*64],grass);
+ w.observe([512*64,0,512*64],road);
+ for(const list of finite)w.observe(list[0].position.map(n=>n*64),road);
+ assert.equal(w.result(true),true);
+ const parallel=createFullRouteWitness(proofGraph,finite);parallel.observe([512*64,0,512*64],road);
+ for(let i=0;i<1200;i++)parallel.observe([512*64,0,512*64],grass);
+ for(const list of finite)parallel.observe(list[0].position.map(n=>n*64),grass);
+ assert.equal(parallel.result(true),true,'Time alone must not reject ordinary road-corridor grass evidence');
+ const structure=createFullRouteWitness(proofGraph,finite.map(list=>list.map(g=>({...g,allowGrassExcursion:false}))));structure.observe([512*64,0,512*64],road);
+ for(const list of finite)structure.observe(list[0].position.map(n=>n*64),grass);
+ assert.equal(structure.result(true),false,'Grass cannot certify protected structures');
+});
 test('ground-level bypass cannot certify elevated stunt gates',()=>{
  const witness=createFullRouteWitness(proofGraph,[gates[0],[{position:[1536,975,512],radius:200}],gates[2]]);observeGates(witness);assert.equal(witness.result(true),false);
 });

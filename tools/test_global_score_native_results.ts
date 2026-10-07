@@ -10,6 +10,19 @@ import {runAllocatedRaceResults} from '../lib/game/native-allocated-race-results
 import {enterNativeHighScoreWithPresentation} from '../lib/game/native-high-score-runtime.ts';
 import {verifyGlobalScore} from '../lib/server/verify-global-score.ts';
 import {GLOBAL_SCORE_RULES,sharedScoreFile,scoreString} from '../lib/game/global-score-format.ts';
+import type {NativeStoredFile} from '../lib/game/native-file-store.ts';
+
+test('local scores restore distinct slower runs under the same name without reading or writing the public board',async()=>{
+ const proof=await finishedScoreFixture(),slower={...proof,record:[...proof.record]};slower.record[50]+=10;
+ const saved=new Map<string,NativeStoredFile>([['VERIFIED:a',{key:'VERIFIED:a',bytes:new TextEncoder().encode(JSON.stringify(proof))}],['VERIFIED:b',{key:'VERIFIED:b',bytes:new TextEncoder().encode(JSON.stringify(slower))}]]);
+ const client=await createGlobalScoreClient({async all(){return [...saved.values()];},async put(file){saved.set(file.key,file);}},async()=>{throw Error('Local table must never request the public board');});
+ const privateFiles=new Map<string,NativeStoredFile>();
+ const local=await createNativeFileStore(new Map([[nativeFileKey('','TEST','.TRK'),async()=>Uint8Array.from(proof.replay.slice(24,0x722))]]),{async all(){return [...privateFiles.values()];},async put(file){privateFiles.set(file.key,file);}});
+ const files=createGlobalScoreFileStore(local,client,()=>undefined),restored=await files.read('','TEST','.HIG');
+ assert.deepEqual(Array.from(restored.slice(0,52)),proof.record);assert.deepEqual(Array.from(restored.slice(52,104)),slower.record);
+ assert.deepEqual(await local.read('','TEST','.HIG'),restored,'Restored table is persisted privately');
+ await files.write('','TEST','.HIG',restored);assert.deepEqual(await local.read('','TEST','.HIG'),restored);
+});
 
 test('original allocated name-entry save submits through the production shared-file bridge',async()=>{
  const proof=await finishedScoreFixture(),runtime=await createNativeManualRaceRuntime(fixtureData,{configuration:proof.replay.slice(0,24),track:proof.replay.slice(24,0x722),name:'GLOBAL',camera:0,graphics:2,soundEnabled:false},{resetMouse(){}});

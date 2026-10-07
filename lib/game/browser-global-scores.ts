@@ -29,6 +29,13 @@ export async function createGlobalScoreClient(persistence:NativeFilePersistence,
  return {
   flush,
   close(){persistence.close?.();},
+  async retainedRecords(track:Uint8Array){
+   const hash=await scoreHash(track),records:number[][]=[];
+   for(const [key,bytes] of stored){if(!key.startsWith('VERIFIED:')||!bytes.length)continue;
+    try{const proof=JSON.parse(decoder.decode(bytes)) as GlobalScoreSubmission;validateScoreSubmission(proof);if(await scoreHash(Uint8Array.from(proof.replay.slice(24,0x722)))===hash)records.push(proof.record);}catch{/* Preserve but do not import damaged proofs. */}
+   }
+   return records;
+  },
   async assess(submission:GlobalScoreSubmission):Promise<RouteAssessment|undefined>{
    try{const response=await request(GLOBAL_SCORE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Score':GLOBAL_SCORE_RULES},body:JSON.stringify({...submission,validateOnly:true}),signal:AbortSignal.timeout(30000)});
     if(!response.ok)return undefined;const body=await response.json() as {verified?:boolean;routeAssessment?:string};

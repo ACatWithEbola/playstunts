@@ -20,6 +20,7 @@ const replay=new Uint8Array(await response.arrayBuffer()),record=Array(52).fill(
 [...score.driver].forEach((c,i)=>record[i]=c.charCodeAt(0));record[50]=score.ticks&255;record[51]=score.ticks>>8;
 const verified=await verifyGlobalScore({record,replay:Array.from(replay),rules:GLOBAL_SCORE_RULES,flags:1,continued:false},fixtureData);
 if(verified.id!==id)throw Error('Canonical score mismatch; no association may be inferred');
+if(process.argv.includes('--summary')){console.log(JSON.stringify({id,driver:score.driver,ticks:verified.ticks,routeAssessment:verified.routeAssessment,assessmentReason:verified.assessmentReason,fullRoute:verified.routeEvidence.fullRoute,grassUncertain:verified.routeEvidence.grassUncertain}));process.exit(0);}
 const track=Array.from(replay.slice(24,0x722)),prepared=prepareRaceTrack(track,fixtureData.records,fixtureData.vectors,fixtureData.samples,fixtureData.objects),gates=routeEvidenceGates(track,prepared,fixtureData);
 const incomplete=verified.routeEvidence.gates.filter(g=>g.required>0&&g.covered<g.required).map(g=>({...g,row:prepared.graph.rows[g.node],column:prepared.graph.columns[g.node],primary:prepared.graph.primary[g.node],alternate:prepared.graph.alternate[g.node],gates:gates[g.node]}));
 const race=await createNativeManualRaceSession(fixtureData,{configuration:Array.from(replay.slice(0,24)),track,name:'AUDIT',camera:0,graphics:2,soundEnabled:false},{resetMouse(){}});race.session.skipIntroduction();
