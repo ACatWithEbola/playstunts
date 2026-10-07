@@ -168,3 +168,5 @@
 .scores-route-help{font-family:inherit;cursor:help;background:transparent;border-radius:2px;}
 .scores-route-help:focus-visible{outline:2px solid #fff52b;outline-offset:3px;}
 .scores-route-tooltip{position:fixed;z-index:10000;width:220px;box-sizing:border-box;padding:9px 12px;background:#172d39;color:#edf5f8;border:1px solid #fff52b;border-radius:5px;font:600 13px/1.35 sans-serif;box-shadow:0 5px 20px #0008;pointer-events:none;}
+.private-saves-note{border-left:3px solid #fbf333;padding:10px 14px;background:#12212b;}
+.private-saves-note strong{color:#fbf333;}
