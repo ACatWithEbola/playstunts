@@ -66,6 +66,7 @@ import {createGlobalScoreClient} from './browser-global-scores.ts';
 import {GLOBAL_SCORE_DATABASE} from './global-score-format.ts';
 import {captureGlobalRace} from './global-race-recording.ts';
 import {createGlobalScoreFileStore} from './global-score-file-store.ts';
+import {completedScoreProof,namedCompletedScore,type CompletedScoreOffer} from './completed-score-offer.ts';
 import type {Assets} from './types.ts';
 const ENHANCED_BACKGROUND_ROOT='/site/enhanced-backgrounds';
 const enhancedTrackOverviews=['desert','tropical','alpine','city','country'].map(name=>`${ENHANCED_BACKGROUND_ROOT}/${name}-overview.png`);
@@ -395,6 +396,14 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
    const scoreFiles:NativeHighScorePreparationHost=services.files??{readSavedTrack:()=>read('.trk'),insertTrackDisk:()=>dialogs.dialog('eihd',1,1,4),readScores:()=>read('.hig'),writeScores:async bytes=>{try{await files.write(state.trackPath,state.trackName,'.hig',bytes);return true;}catch{return false;}}};
    const results:NativeRaceResultsHost={...resultHost,playResultMusic:name=>music.play(name),smallFont,counter:input.counter,files:scoreFiles,evaluation:opponent=>json<NativeEvaluationResources>('opponent-evaluation/'+opponent),randomWord:services.randomWord,randomByte:services.randomByte,selectEvaluation:services.selectEvaluation,prepareScores:services.prepareScores?async current=>{const eligibility=await services.prepareScores!(current);return runHistory.get(scoreContext!.runtime.session)?.continued&&eligibility.status===1?{...eligibility,status:0}:eligibility;}:undefined};
    show('results');focusBrowserGameCanvas(canvas);
+   results.scoresPrepared=async(current,eligibility)=>{
+    window.dispatchEvent(new CustomEvent('stunts-completed-score',{detail:null}));
+    if(!scoreContext)return;
+    const proof=await completedScoreProof({...scoreContext,state:current,history:runHistory.get(scoreContext.runtime.session)},eligibility.status);
+    if(!proof)return;
+    const offer:CompletedScoreOffer={track:current.trackName,ticks:current.panel.playerTime,submit:name=>sharedScores.submit(namedCompletedScore(proof,name),true)};
+    window.dispatchEvent(new CustomEvent('stunts-completed-score',{detail:offer}));
+   };
    if(!alternate)return runNativeRaceResults(results,state);
    const owner=alternate.owner,displayHost={...results,present:()=>{pixels.set(alternate.pixels());paint(alternate.palette,undefined,alternate.owner);},editPath:(path:string,length:number,timeout:number,field:{x:number;y:number})=>editNativeDisplayPath({memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,present:()=>{pixels.set(alternate.pixels());paint(alternate.palette,undefined,alternate.owner);},counters:input.counters,keyboard:input.keyboard},path,length,timeout,field,0xe800)};
    return runNativeRaceResults(displayHost,state,createNativeDisplayResultsPresentation(alternate,displayHost,state));

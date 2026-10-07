@@ -24,6 +24,7 @@ export interface NativeRaceResultsHost extends NativeDialogHost {
  randomWord():number;randomByte():number;
  selectEvaluation?(state:NativeRaceResultsState,outcome:number):Promise<ReturnType<typeof selectOriginalEvaluation>>;
  prepareScores?(state:NativeRaceResultsState):Promise<{status:number;candidateTime:number}>;
+ scoresPrepared?(state:NativeRaceResultsState,eligibility:{status:number;candidateTime:number}):Promise<void>;
 }
 export interface NativeRaceResultsState {
  panel:OriginalRaceResultPanelState;track:Uint8Array;trackName:string;trackPath:string;scores:NativeHighScoreState;
@@ -62,6 +63,7 @@ export async function runNativeRaceResults(host:NativeRaceResultsHost,state:Nati
  const selection=evaluation?(host.selectEvaluation?await host.selectEvaluation(state,outcome):selectOriginalEvaluation(state.choices,state.panel.flags,outcome,state.panel.playerTime,state.raceCounter,host.randomWord,host.randomByte)):undefined;
  if(selection)state.choices={current:selection.current,previous:selection.previous};
  const eligibility=host.prepareScores?await host.prepareScores(state):await prepareNativeHighScores(host.files,state.scores,state.track,state.panel.playerTime,state.panel.flags,state.retainedCandidateTime);state.retainedCandidateTime=eligibility.candidateTime;
+ await host.scoresPrepared?.(state,eligibility);
  let flags:Omit<OriginalEndMenuState,'selected'>={evaluationAvailable,evaluationStatus:eligibility.status,showEvaluation:1};
  let animation={phase:30,index:0,drawnIndex:0};
  const art=selection&&evaluation?evaluation.art[selection.mode]:undefined,sequence=selection&&evaluation?evaluation.resources[selection.sequence]:undefined;
