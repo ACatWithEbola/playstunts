@@ -21,6 +21,8 @@ function excursion(to:number,options:{air?:boolean;short?:boolean;partial?:boole
  for(let i=0;i<frames;i++)check.observe(start.map((n,a)=>n+(end[a]-n)*(i+1)/(frames+1)),options.partial?[1,4,4,4]:grass);
  if(options.air)check.observe(position(3),[0,0,0,0]);
  for(let i=0;i<4;i++)check.observe(position(to),road);
+ if(check.result()==='shortcuts_detected')assert.ok(['branch_switch','grass_transfer'].includes(check.reason()));
+ else assert.equal(check.reason(),'');
  return check.result();
 }
 test('substantial grass transfer to a non-neighbouring section is detected',()=>assert.equal(excursion(4),'shortcuts_detected'));

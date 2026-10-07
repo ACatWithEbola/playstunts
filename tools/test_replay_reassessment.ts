@@ -14,6 +14,7 @@ import {replayScoresSQL,pruneSharedReplaysSQL} from '../lib/server/shared-replay
 test('sharing reassesses before ranking and restores only server-accepted proofs',async()=>{
  const db=new DatabaseSync(':memory:');
  for(const name of ['0000_same_the_executioner','0001_friendly_wolfsbane','0002_bitter_joshua_kane','0003_cooing_blue_blade','0004_tricky_aaron_stack','0005_dark_silhouette','0006_lazy_colleen_wing','0007_smooth_puff_adder','0008_past_nova'])db.exec(readFileSync(new URL('../drizzle/'+name+'.sql',import.meta.url),'utf8'));
+ db.exec(readFileSync(new URL('../drizzle/0010_nasty_skullbuster.sql',import.meta.url),'utf8'));
  const binding={prepare(sql:string){let args:unknown[]=[];return {bind(...values:unknown[]){args=values;return this;},async first(){return db.prepare(sql).get(...args as never[]);},async all(){return {results:db.prepare(sql).all(...args as never[])};},run(){return db.prepare(sql).run(...args as never[]);}};},async batch(statements:{run:()=>unknown}[]){db.exec('BEGIN');try{const rows=statements.map(s=>s.run());db.exec('COMMIT');return rows;}catch(e){db.exec('ROLLBACK');throw e;}}};
  const record=Array(52).fill(0);record[0]=77;
  let verified={id:'accepted',trackHash:'track',carCode:'PMIN',ticks:100,record,routeAssessment:'full_route',replay:new Uint8Array(2000)};

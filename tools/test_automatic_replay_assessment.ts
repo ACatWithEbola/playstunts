@@ -11,7 +11,7 @@ function fixture(){
  const db={prepare(query:string){let args:unknown[]=[];return {bind(...values:unknown[]){args=values;return this;},async first(){return sql.prepare(query).get(...args as never[]);},async all(){return {results:sql.prepare(query).all(...args as never[])};},async run(){return sql.prepare(query).run(...args as never[]);}};},async batch(statements:{run:()=>Promise<unknown>}[]){sql.exec('BEGIN');try{const rows=[];for(const s of statements)rows.push(await s.run());sql.exec('COMMIT');return rows;}catch(e){sql.exec('ROLLBACK');throw e;}}} as unknown as D1Database;
  sql.prepare('INSERT INTO global_scores VALUES (?,?,?,?,?,?,?,?,?)').run('accepted',GLOBAL_SCORE_RULES,'track','FGTO',2517,'[77,0]',123,'name:marco','not_assessed');
  sql.prepare('INSERT INTO shared_replays(id,replay,track_name,created_at) VALUES (?,?,?,?)').run('accepted','[1,2,3]','THE_EDGE',124);
- const result={id:'accepted',trackHash:'track',carCode:'FGTO',ticks:2517,routeAssessment:'full_route'};
+ const result={id:'accepted',trackHash:'track',carCode:'FGTO',ticks:2517,routeAssessment:'full_route',assessmentReason:'full_route'};
  return {sql,db,result,load:async()=>({}) as never};
 }
 test('automatic assessment changes only category, runs once per version and never imports a private replay',async()=>{
@@ -20,6 +20,7 @@ test('automatic assessment changes only category, runs once per version and neve
  const before=sql.prepare('SELECT * FROM global_scores').get()!;
  const update=await reassessNextPublicReplay(db,load,verify);
  assert.equal(update.state,'updated');assert.equal(update.pending,0);
+ assert.equal(sql.prepare('SELECT assessment_reason FROM shared_replays WHERE id=?').get('accepted')!.assessment_reason,'full_route');
  const after=sql.prepare('SELECT * FROM global_scores').get()!;
  assert.deepEqual({...after,route_assessment:before.route_assessment},{...before},'Times, record bytes, driver key and posting date must be immutable');
  assert.equal(after.route_assessment,'full_route');

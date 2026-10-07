@@ -38,7 +38,7 @@ export function createShortcutAssessment(graph:PlayerRouteGraph){
  };
  let anchor:{node:number;position:number[]}|null=null,grassFrames=0,grassDistance=0,lastGrass:readonly number[]|null=null,airborne=false;
  let firstReentry:number[]|null=null;
- let candidate:number|null=null,candidateFrames=0,detected=false;
+ let candidate:number|null=null,candidateFrames=0,detected=false,reason='';
  const reset=()=>{grassFrames=0;grassDistance=0;lastGrass=null;airborne=false;candidate=null;candidateFrames=0;firstReentry=null;};
  return {
   observe(position:readonly number[],surfaces:readonly number[]){
@@ -57,10 +57,12 @@ export function createShortcutAssessment(graph:PlayerRouteGraph){
     const travelled=grassDistance+Math.hypot(firstReentry[0]-lastGrass[0],firstReentry[2]-lastGrass[2])/64;
     // Parallel grass travel along the same road is not a section shortcut.
     // Also allow a generous whole-tile margin for ordinary corner cuts.
-    if(switchesArm(anchor.node,node)||!nearby(anchor.node,node)&&path!==null&&path-distance(start,centers[anchor.node])-distance(end,centers[node])-travelled>=1024)detected=true;
+    if(switchesArm(anchor.node,node)){detected=true;reason='branch_switch';}
+    else if(!nearby(anchor.node,node)&&path!==null&&path-distance(start,centers[anchor.node])-distance(end,centers[node])-travelled>=1024){detected=true;reason='grass_transfer';}
    }
    anchor={node,position:[...position]};reset();
   },
   result():RouteAssessment{return detected?'shortcuts_detected':'not_assessed';},
+  reason(){return reason;},
  };
 }

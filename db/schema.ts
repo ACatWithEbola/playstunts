@@ -22,6 +22,7 @@ export const scoreTracks=sqliteTable('score_tracks',{
  hash:text('hash').primaryKey(),name:text('name').notNull(),
 });
 export const sharedReplays=sqliteTable('shared_replays',{
+ assessmentReason:text('assessment_reason').notNull().default(''),
  id:text('id').primaryKey(),replay:text('replay').notNull(),trackName:text('track_name').notNull(),createdAt:integer('created_at').notNull(),
  assessmentVersion:text('assessment_version').notNull().default(''),assessedAt:integer('assessed_at').notNull().default(0),assessmentRetryAt:integer('assessment_retry_at').notNull().default(0),
 });

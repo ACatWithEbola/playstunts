@@ -43,7 +43,7 @@ export async function POST(request:Request){
    db.prepare(pruneRunHistorySQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare(pruneCarScoresSQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare('DELETE FROM score_requests WHERE expires_at < ?').bind(now),
-   db.prepare('INSERT OR IGNORE INTO shared_replays(id,replay,track_name,created_at,assessment_version,assessed_at,assessment_retry_at) VALUES (?,?,?,?,?,?,0)').bind(verified.id,JSON.stringify(Array.from(verified.replay)),trackName,now,ROUTE_ASSESSMENT_VERSION,now),
+   db.prepare('INSERT OR IGNORE INTO shared_replays(id,replay,track_name,created_at,assessment_version,assessed_at,assessment_retry_at,assessment_reason) VALUES (?,?,?,?,?,?,0,?)').bind(verified.id,JSON.stringify(Array.from(verified.replay)),trackName,now,ROUTE_ASSESSMENT_VERSION,now,verified.assessmentReason??''),
    db.prepare(pruneSharedReplaysSQL),
   ]);
   const ranked=!!await db.prepare('SELECT id FROM global_scores WHERE id=?').bind(verified.id).first();

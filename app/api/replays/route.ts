@@ -46,7 +46,7 @@ export async function POST(request:Request){
    db.prepare(pruneCarScoresSQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    ...(!privateCheck?[db.prepare('INSERT OR IGNORE INTO shared_replays(id,replay,track_name,created_at) SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM ('+replayScoresSQL+') WHERE id=?)').bind(verified.id,JSON.stringify(Array.from(verified.replay)),trackName,now,verified.id)]:[]),
    db.prepare(pruneSharedReplaysSQL),
-   db.prepare('UPDATE shared_replays SET assessment_version=?,assessed_at=?,assessment_retry_at=0 WHERE id=?').bind(ROUTE_ASSESSMENT_VERSION,now,verified.id),
+   db.prepare('UPDATE shared_replays SET assessment_version=?,assessed_at=?,assessment_retry_at=0,assessment_reason=? WHERE id=?').bind(ROUTE_ASSESSMENT_VERSION,now,verified.assessmentReason??'',verified.id),
   ]);
   if(privateCheck)return reply({rechecked:true,id:verified.id,routeAssessment:verified.routeAssessment,ranked:!!await db.prepare('SELECT id FROM global_scores WHERE id=?').bind(verified.id).first()});
   if(!await db.prepare('SELECT id FROM shared_replays WHERE id=?').bind(verified.id).first())return reply({error:'Run verified, but it is no longer a ranked score or one of your five most recent verified runs on this track'},422);

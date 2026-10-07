@@ -164,3 +164,7 @@
 .website-language select{min-width:148px;padding-right:66px}.website-language-flag{position:absolute;right:36px;top:50%;transform:translateY(-50%);border-radius:2px;box-shadow:0 0 0 1px #ffffff30;pointer-events:none;overflow:hidden}
 .stunts-navigation>.website-language{margin-left:0;padding:10px 24px}
 .stunts-navigation .website-language select{min-width:0;max-width:none;width:106px;padding-left:8px;padding-right:54px}.website-language-flag{right:29px;width:20px;height:14px}.website-language-chevron{right:7px;width:15px;height:15px}
+/* Portalled assessment hint stays outside scrolling leaderboard tables. */
+.scores-route-help{font-family:inherit;cursor:help;background:transparent;border-radius:2px;}
+.scores-route-help:focus-visible{outline:2px solid #fff52b;outline-offset:3px;}
+.scores-route-tooltip{position:fixed;z-index:10000;width:220px;box-sizing:border-box;padding:9px 12px;background:#172d39;color:#edf5f8;border:1px solid #fff52b;border-radius:5px;font:600 13px/1.35 sans-serif;box-shadow:0 5px 20px #0008;pointer-events:none;}

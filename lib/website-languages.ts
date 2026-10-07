@@ -6,6 +6,13 @@ export type WebsiteLocale='en'|'es'|'it';
 export const websiteTranslations:Record<string,readonly [string,string]>={
  ...faqTranslations,
  ...statusTranslations,
+ 'Full route confirmed':['Recorrido completo confirmado','Percorso completo confermato'],
+ 'Grass-speed exploit':['Exploit de velocidad sobre hierba','Exploit di velocità sull’erba'],
+ 'Switched route branches':['Cambio entre ramales del recorrido','Cambio tra rami del percorso'],
+ 'Crossed grass to skip sections':['Cruzó hierba para saltar tramos','Attraversamento dell’erba per saltare tratti'],
+ 'Shortcut or exploit detected':['Atajo o exploit detectado','Scorciatoia o exploit rilevato'],
+ 'Grass-speed evidence inconclusive':['Pruebas de velocidad sobre hierba inconcluyentes','Prove di velocità sull’erba inconcludenti'],
+ 'Full route not confirmed':['Recorrido completo no confirmado','Percorso completo non confermato'],
  'Submission saved in this browser. Verification continues in the background.':['Envío guardado en este navegador. La verificación continúa en segundo plano.','Invio salvato in questo browser. La verifica continua in background.'],
  'The leaderboard keeps your best qualifying time. Your five most recent verified submissions can appear in recent runs with their public replays, including slower attempts. Full run is an assessed category, not a selectable racing mode.':['La clasificación conserva tu mejor tiempo válido. Tus cinco envíos verificados más recientes pueden aparecer con sus repeticiones públicas, incluidos los intentos más lentos. Carrera completa es una categoría evaluada, no un modo seleccionable.','La classifica conserva il tuo miglior tempo valido. I tuoi cinque invii verificati più recenti possono apparire con i replay pubblici, inclusi i tentativi più lenti. Gara completa è una categoria valutata, non una modalità selezionabile.'],
  'Submitting your high score also publishes your replay. Continue?':['Enviar tu récord también publica tu repetición. ¿Continuar?','Inviare il tuo record pubblica anche il replay. Continuare?'],

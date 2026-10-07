@@ -1,0 +1,1 @@
+ALTER TABLE `shared_replays` ADD `assessment_reason` text DEFAULT '' NOT NULL;
