@@ -22,6 +22,7 @@ test('offline score survives closing/reopening and retries without importing loc
  const first=await createGlobalScoreClient(persistence,request);assert.equal(await first.submit(proof),'pending');first.close();
  const second=await createGlobalScoreClient(persistence,request),track=Uint8Array.from(proof.replay.slice(24,0x722));
  assert.equal(scoreTicks((await second.read(track)).slice(0,52)),scoreTicks(proof.record));
+ await second.flush(); // Finish the offline background attempt before reconnecting.
  online=true;await second.flush();assert.equal(posted,1);await second.flush();assert.equal(posted,1);
  assert.equal(scoreTicks((await second.read(track)).slice(0,52)),scoreTicks(proof.record));
  await assert.rejects(second.submit({...proof,continued:true}));assert.equal(posted,1);

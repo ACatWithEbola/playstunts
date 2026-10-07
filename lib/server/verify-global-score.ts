@@ -49,6 +49,10 @@ export async function verifyGlobalScore(value:unknown,data:NativeDemoData){
  else record[42]=32;
  const canonicalReplay=replay.slice(0,0x722+completedInputs);new DataView(canonicalReplay.buffer).setUint16(22,completedInputs,true);canonicalReplay.fill(0,13,21);
  const routeAssessment=assessment.result()==='shortcuts_detected'||grassExploit.result()?'shortcuts_detected':!grassExploit.uncertain()&&witness.result(!!panel.playerTime)?'full_route':'not_assessed';
- const assessmentReason=grassExploit.result()?'grass_speed':assessment.reason()||(!grassExploit.uncertain()&&witness.result(!!panel.playerTime)?'full_route':grassExploit.uncertain()?'grass_speed_uncertain':'route_unconfirmed');
+ const missing=witness.missing(),progress=witness.progress();
+ // Only describe blocked route-frontier sections, never an unused fork arm.
+ // This diagnoses missing proof; it does not invent a shortcut accusation.
+ const incompleteReason=missing.length&&missing.every(node=>data.objects[preparedRoute.route.tiles[node]].physics===28)?'tunnel_unconfirmed':missing.length&&missing.every(node=>progress[node].required>0&&progress[node].covered>0)?'checkpoint_unconfirmed':'route_unconfirmed';
+ const assessmentReason=grassExploit.result()?'grass_speed':assessment.reason()||(!grassExploit.uncertain()&&witness.result(!!panel.playerTime)?'full_route':grassExploit.uncertain()?'grass_speed_uncertain':incompleteReason);
  return {record,carCode,ticks:panel.playerTime,replay:canonicalReplay,routeAssessment,assessmentReason,routeEvidence:{gates:witness.progress(),fullRoute:witness.result(!!panel.playerTime),grassUncertain:grassExploit.uncertain()},trackHash:await scoreHash(Uint8Array.from(track)),id:await scoreHash(Uint8Array.from([...canonicalReplay,...record]))};
 }

@@ -6,6 +6,8 @@ export type WebsiteLocale='en'|'es'|'it';
 export const websiteTranslations:Record<string,readonly [string,string]>={
  ...faqTranslations,
  ...statusTranslations,
+ 'Tunnel passage not confirmed':['Paso por el túnel no confirmado','Passaggio nel tunnel non confermato'],
+ 'Road checkpoint not covered':['Punto de control de la carretera no cubierto','Punto di controllo stradale non coperto'],
  'Private — only in this browser':['Privado — solo en este navegador','Privato — solo in questo browser'],
  'Files imported here are for your own game. They are not shared with other players or synced between devices. Clearing browser data can erase them; download a backup to keep a copy.':['Los archivos importados aquí son para tu propio juego. No se comparten con otros jugadores ni se sincronizan entre dispositivos. Borrar los datos del navegador puede eliminarlos; descarga una copia de seguridad para conservarlos.','I file importati qui sono per il tuo gioco personale. Non vengono condivisi con altri giocatori né sincronizzati tra dispositivi. Cancellare i dati del browser può eliminarli; scarica una copia di sicurezza per conservarli.'],
  'Want everyone to play your track? Open':['¿Quieres que todos jueguen en tu pista? Abre','Vuoi che tutti possano giocare sulla tua pista? Apri'],

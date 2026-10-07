@@ -62,5 +62,15 @@ export function createFullRouteWitness(graph:PlayerRouteGraph,gates:RouteGate[][
    return false;
   },
   progress(){return gates.map((list,node)=>({node,covered:cursors[node],required:list.length,completedAt:completedAt[node]}));},
+  missing(){
+   if(!completed.has(0))return [0];
+   const seen=new Set([0]),queue=[0],blocked=new Set<number>();
+   for(let i=0;i<queue.length;i++)for(const next of [graph.primary[queue[i]],graph.alternate[queue[i]]]){
+    if(next<=0||next>=gates.length||seen.has(next))continue;
+    if(completed.has(next)&&(queue[i]===0||completedAt[next]>=completedAt[queue[i]])){seen.add(next);queue.push(next);}
+    else blocked.add(next);
+   }
+   return [...blocked];
+  },
  };
 }

@@ -21,6 +21,8 @@ test('two public labels preserve the distinction between evidence and uncertaint
  assert.equal(assessmentReasonText('shortcuts_detected','grass_transfer'),'Crossed grass to skip sections');
  assert.equal(assessmentReasonText('not_assessed','grass_speed'),'Full route not confirmed','Unconfirmed runs never display a confirmed exploit reason');
  assert.equal(assessmentReasonText('not_assessed','grass_speed_uncertain'),'Grass-speed evidence inconclusive');
+ assert.equal(assessmentReasonText('not_assessed','checkpoint_unconfirmed'),'Road checkpoint not covered');
+ assert.equal(assessmentReasonText('not_assessed','tunnel_unconfirmed'),'Tunnel passage not confirmed');
  for(const assessment of ['full_route','shortcuts_detected','not_assessed'] as const)for(const reason of ['grass_speed','branch_switch','grass_transfer','grass_speed_uncertain','']){
   const label=assessmentReasonText(assessment,reason);for(const locale of ['es','it'] as const)assert.notEqual(translateWebsite(label,locale),label);
  }

@@ -28,6 +28,7 @@ test('original allocated name-entry save submits through the production shared-f
   await enterNativeHighScoreWithPresentation({drawTable(){},present(){},async editName(){return 'QA DRIVER';},async save(bytes){await services.files.writeScores(bytes);}},state.scores,{time:eligibility.candidateTime,classification:0,carName:state.carName,opponentSelected:state.panel.opponentSelected,opponentCode:state.opponentCode,opponentCarCode:state.opponentCarCode},[],4);
   return 2;
  }});
+ await client.flush();
  assert.equal(posted,1);assert.equal(scoreString(board.slice(0,52),0,17),'QA DRIVER');
  assert.ok(!reads.some(url=>url.includes('&category=')),'No pre-submission category assessment is necessary');
  assert.equal((await files.read('',name,'.HIG')).length,364);
