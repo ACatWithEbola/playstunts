@@ -2,7 +2,7 @@ import {env} from 'cloudflare:workers';
 import {GLOBAL_SCORE_RULES} from '@/lib/game/global-score-format';
 import {createTrackLabelCatalog} from '@/lib/server/track-label-catalog';
 import {publicLeaderboards,type PublicScoreRow} from '@/lib/server/public-leaderboards';
-import {currentCarScoresSQL} from '@/lib/server/leaderboard-ranking';
+import {combinedCarScoresSQL} from '@/lib/server/leaderboard-ranking';
 const bindings=()=>env as unknown as {DB:D1Database;ASSETS:Fetcher};
 let names:ReturnType<typeof createTrackLabelCatalog>|undefined;
 function bundledNames(assets:Fetcher,origin:string){names??=createTrackLabelCatalog(async()=>{const response=await assets.fetch(new Request(new URL('/game/assets.json',origin)));if(!response.ok)throw Error('Track catalog unavailable');return response.json() as Promise<{tracks:{name:string;raw:number[]}[]}>;},error=>console.warn('Optional track labels unavailable; using stored labels and content IDs',error));return names();}
@@ -20,7 +20,7 @@ export async function GET(request:Request){
   const selected=tracks.results.slice(0,12),hashes=selected.map(track=>track.track_hash);
   const rows=hashes.length?await DB.prepare('SELECT s.id,s.track_hash,s.car_code,s.ticks,s.record,s.created_at,s.route_assessment,COALESCE(t.name,m.name) AS track_name,EXISTS(SELECT 1 FROM shared_replays r WHERE r.id=s.id) AS has_replay FROM global_scores s LEFT JOIN shared_tracks t ON t.hash=s.track_hash LEFT JOIN score_tracks m ON m.hash=s.track_hash WHERE s.rules=? AND s.track_hash IN ('+hashes.map(()=>'?').join(',')+') ORDER BY s.track_hash,s.ticks,s.created_at,s.id').bind(GLOBAL_SCORE_RULES,...hashes).all<PublicScoreRow>():{results:[]};
   const mapped=new Map(publicLeaderboards(rows.results,bundled).map(board=>[board.hash,board])),boards=selected.map(track=>mapped.get(track.track_hash)).filter(Boolean);
-  const summary=await DB.prepare('SELECT COUNT(DISTINCT track_hash) AS tracks,COUNT(*) AS scores,SUM(EXISTS(SELECT 1 FROM shared_replays r WHERE r.id=s.id)) AS replays FROM ('+currentCarScoresSQL+') s WHERE rules=?').bind(GLOBAL_SCORE_RULES).first<{tracks:number;scores:number;replays:number}>();
+  const summary=await DB.prepare('SELECT COUNT(DISTINCT track_hash) AS tracks,COUNT(*) AS scores,SUM(EXISTS(SELECT 1 FROM shared_replays r WHERE r.id=s.id)) AS replays FROM ('+combinedCarScoresSQL+') s WHERE rules=?').bind(GLOBAL_SCORE_RULES).first<{tracks:number;scores:number;replays:number}>();
   return Response.json({boards,checkedAt:Date.now(),totalTracks:total?.tracks??0,hasMore:tracks.results.length>12,page,summary},{headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
  }catch(error){console.error('Leaderboard directory unavailable',error);return Response.json({error:'High scores are temporarily unavailable. Please try again.'},{status:503,headers:{'Cache-Control':'no-store'}});}
 }

@@ -2,6 +2,12 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {publicScoreName} from '../lib/game/public-score-name.ts';
 import {publicLeaderboards,type PublicScoreRow} from '../lib/server/public-leaderboards.ts';
+test('combined tables keep each driver’s fastest time across categories, with the correct badge and car',()=>{
+ const row=(id:string,name:string,ticks:number,category:string,car='PMIN'):PublicScoreRow=>{const record=Array(52).fill(0);[...name].forEach((c,i)=>record[i]=c.charCodeAt(0));[...car].forEach((c,i)=>record[17+i]=c.charCodeAt(0));return {id,track_hash:'track',car_code:car,ticks,record:JSON.stringify(record),created_at:1,track_name:'DEFAULT',has_replay:0,route_assessment:category};};
+ const [board]=publicLeaderboards([row('a','Marco',1300,'full_route'),row('b','Marco',1100,'shortcuts_detected'),row('c','Nico',1200,'not_assessed'),row('d','Marco',1400,'full_route','FGTO')],new Map());
+ assert.deepEqual(board.scores.map(s=>[s.driver,s.ticks,s.routeAssessment]),[['Marco',1100,'shortcuts_detected'],['Nico',1200,'not_assessed']]);
+ assert.equal(board.cars.find(c=>c.code==='FGTO')!.scores[0].routeAssessment,'full_route');assert.deepEqual(board.cars.find(c=>c.code==='PMIN')!.scores.map(s=>s.id),['b','c']);
+});
 test('public names mask common profanity and simple disguises without innocent substring matches',()=>{
  for(const name of ['FUCK','f.u.c.k','F U C K','F4GG0T','shit','SHITHEAD','BULLSHIT','ASSHOLE','faen'])assert.equal(publicScoreName(name),'••••',name);
  for(const name of ['Scunthorpe','Dickinson','Dick','Assistant','Marco'])assert.equal(publicScoreName(name),name);

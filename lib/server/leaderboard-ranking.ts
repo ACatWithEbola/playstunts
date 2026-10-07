@@ -19,6 +19,10 @@ export const bestCarScoresSQL=`SELECT s.*, ROW_NUMBER() OVER (
 export const categoryCarScoresSQL=`SELECT s.*, ROW_NUMBER() OVER (
  PARTITION BY rules,track_hash,car_code,route_assessment,${resolvedDriverSQL} ORDER BY ticks,created_at,id
 ) AS driver_rank FROM global_scores s`;
+/** Website car board combines categories without changing server retention. */
+export const combinedCarScoresSQL=`SELECT * FROM (SELECT s.*, ROW_NUMBER() OVER (
+ PARTITION BY rules,track_hash,car_code ORDER BY ticks,created_at,id
+) AS car_rank FROM (${bestCarScoresSQL}) s WHERE driver_rank=1) WHERE car_rank<=7`;
 export const categoryScoresSQL=`SELECT s.*, ROW_NUMBER() OVER (
  PARTITION BY rules,track_hash,route_assessment,${resolvedDriverSQL} ORDER BY ticks,created_at,id
 ) AS driver_rank FROM global_scores s`;
