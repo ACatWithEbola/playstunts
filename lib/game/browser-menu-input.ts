@@ -83,6 +83,9 @@ export function createBrowserMenuInput(element:HTMLCanvasElement,options:{joysti
   async keyboard(){await wait();const ticks=counter();return {key:takeKey(),input:ticks>>>0,game:Math.floor(ticks/ORIGINAL_GAME_TIMER_DIVIDER)>>>0};},
   async gameCounter(){await wait();return Math.floor(counter()/ORIGINAL_GAME_TIMER_DIVIDER)>>>0;},
   async release(){for(;;){if(gamepad().mask&48){await wait();continue;}const sample=await read();if(!sample.key&&!(sample.mouseActive&&sample.buttons&3))return;}},
+  // A consumed menu key can still be physically held. Restart must drain
+  // those driving activators before initializing the fresh recording.
+  async releaseDrivingInput(){for(;;){await read();if(!originalDrivingKeyControls(options.drivingBindings?.()??[57,28,71,72,73,77,81,80,79,75],scan=>scanHeld(scan)||(scan===57&&scanHeld(30))||(scan===28&&scanHeld(44)),()=>gamepad().mask)&&!scanHeld(30)&&!scanHeld(44)&&!(buttons&3)&&!(gamepad().mask&48))return;}},
   close(){if(disposed)return;const ownedCursor=active;disposed=true;active=false;clear();page?.removeEventListener('visibilitychange',visibility);page?.removeEventListener('fullscreenchange',clear);cancelAnimationFrame(request);rejectWait?.(new DOMException('Native menu closed','AbortError'));element.removeEventListener('keydown',keyboard);element.removeEventListener('keyup',keyup);element.removeEventListener('blur',clear);element.removeEventListener('pointerdown',down);element.removeEventListener('pointermove',pointer);element.removeEventListener('pointerup',pointer);element.removeEventListener('pointercancel',leave);element.removeEventListener('lostpointercapture',leave);element.removeEventListener('pointerleave',leave);element.removeEventListener('contextmenu',contextMenu);window.removeEventListener('blur',clear);window.removeEventListener('keyup',keyup,true);if(ownedCursor)element.style.cursor='';},
  };
 }
