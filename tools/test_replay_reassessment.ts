@@ -24,9 +24,9 @@ test('sharing reassesses before ranking and restores only server-accepted proofs
  const share=()=>post(new Request('https://example.test/api/replays',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Replay':'share'},body:JSON.stringify({replay:Array(24).fill(0)})}));
  const recheck=()=>post(new Request('https://example.test/api/replays',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Replay':'recheck'},body:JSON.stringify({replay:Array(24).fill(0)})}));
  const insert=db.prepare('INSERT INTO global_scores VALUES (?,?,?,?,?,?,?,?,?)');
- for(let i=0;i<7;i++)insert.run('fast'+i,GLOBAL_SCORE_RULES,'track','PMIN',10+i,'[]',1+i,'name:driver'+i,'not_assessed');
+ for(let i=0;i<10;i++)insert.run('fast'+i,GLOBAL_SCORE_RULES,'track','PMIN',10+i,'[]',1+i,'name:driver'+i,'not_assessed');
  insert.run('accepted',GLOBAL_SCORE_RULES,'track','PMIN',100,JSON.stringify(record),9,'name:m','not_assessed');
- assert.equal(db.prepare('SELECT id FROM ('+currentCarScoresSQL+") WHERE id='accepted'").get(),undefined,'Old category rank is outside seven');
+ assert.equal(db.prepare('SELECT id FROM ('+currentCarScoresSQL+") WHERE id='accepted'").get(),undefined,'Old category rank is outside ten');
  const checked=await recheck();assert.equal(checked.status,200);assert.equal((await checked.json() as {rechecked:boolean}).rechecked,true);
  assert.equal(db.prepare("SELECT route_assessment FROM global_scores WHERE id='accepted'").get()!.route_assessment,'full_route');
  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM shared_replays').get()!.n,0,'Private recheck never publishes a recording');

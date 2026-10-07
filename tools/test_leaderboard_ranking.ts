@@ -11,18 +11,18 @@ test('displaced accepted runs can qualify after reassessment without accepting a
  db.exec("CREATE TABLE global_scores(id TEXT PRIMARY KEY,rules TEXT,track_hash TEXT,car_code TEXT,ticks INTEGER,record TEXT,created_at INTEGER,driver_key TEXT,route_assessment TEXT DEFAULT 'not_assessed')");
  db.exec(readFileSync(new URL('../drizzle/0006_lazy_colleen_wing.sql',import.meta.url),'utf8'));
  const insert=db.prepare('INSERT INTO global_scores VALUES (?,?,?,?,?,?,?,?,?)');
- for(let i=0;i<8;i++)insert.run('run'+i,'rules','track','PMIN',100+i,'[]',10+i,'name:driver'+i,'not_assessed');
+ for(let i=0;i<11;i++)insert.run('run'+i,'rules','track','PMIN',100+i,'[]',10+i,'name:driver'+i,'not_assessed');
  db.prepare(retainAcceptedScoresSQL).run('rules','track');
  db.prepare(pruneCarScoresSQL).run('rules','track','rules','track');
- assert.equal(db.prepare("SELECT id FROM global_scores WHERE id='run7'").get(),undefined);
- const receipt=db.prepare("SELECT created_at FROM accepted_scores WHERE id='run7' AND rules='rules'").get()!;
- assert.equal(receipt.created_at,17);
+ assert.equal(db.prepare("SELECT id FROM global_scores WHERE id='run10'").get(),undefined);
+ const receipt=db.prepare("SELECT created_at FROM accepted_scores WHERE id='run10' AND rules='rules'").get()!;
+ assert.equal(receipt.created_at,20);
  assert.equal(db.prepare("SELECT id FROM accepted_scores WHERE id='arbitrary'").get(),undefined);
  // Only after exact proof re-verification, restore the accepted run into its new category.
- insert.run('run7','rules','track','PMIN',107,'[]',receipt.created_at,'name:driver7','full_route');
+ insert.run('run10','rules','track','PMIN',110,'[]',receipt.created_at,'name:driver10','full_route');
  db.prepare(pruneCarScoresSQL).run('rules','track','rules','track');
- const restored=db.prepare('SELECT * FROM ('+currentCarScoresSQL+") WHERE id='run7'").get()!;
- assert.equal(restored.car_rank,1);assert.equal(restored.route_assessment,'full_route');assert.equal(restored.created_at,17);
+ const restored=db.prepare('SELECT * FROM ('+currentCarScoresSQL+") WHERE id='run10'").get()!;
+ assert.equal(restored.car_rank,1);assert.equal(restored.route_assessment,'full_route');assert.equal(restored.created_at,20);
  db.close();
 });
 test('overall shows one place per name; car boards retain each car best independently',()=>{
@@ -49,13 +49,13 @@ test('schema-only migration preserves old scores while ranking legacy names corr
  assert.deepEqual(db.prepare('SELECT id FROM shared_replays').all().map(r=>r.id),['a','b']);
  assert.deepEqual(db.prepare('SELECT id FROM ('+rankedScoresSQL+') WHERE driver_rank=1 ORDER BY ticks').all().map(r=>r.id),['a','d','e']);db.close();
 });
-test('retention keeps seven drivers per car, not seven runs across every car; faster improvements replace older runs',()=>{
+test('retention keeps ten drivers per car, not ten runs across every car; faster improvements replace older runs',()=>{
  const db=new DatabaseSync(':memory:');db.exec("CREATE TABLE global_scores(id TEXT PRIMARY KEY,rules TEXT,track_hash TEXT,car_code TEXT,ticks INTEGER,record TEXT,created_at INTEGER,driver_key TEXT,route_assessment TEXT DEFAULT 'not_assessed')");
  const insert=db.prepare('INSERT INTO global_scores(id,rules,track_hash,car_code,ticks,record,created_at,driver_key) VALUES (?,?,?,?,?,?,?,?)');
- for(let i=0;i<9;i++)for(const car of ['PMIN','COUN'])insert.run(car+i,'rules','track',car,100+i+(car==='COUN'?100:0),'[]',i,'name:driver'+i);
+ for(let i=0;i<12;i++)for(const car of ['PMIN','COUN'])insert.run(car+i,'rules','track',car,100+i+(car==='COUN'?100:0),'[]',i,'name:driver'+i);
  insert.run('better','rules','track','PMIN',99,'[]',20,'name:driver0');
  db.prepare(pruneCarScoresSQL).run('rules','track','rules','track');
- assert.equal(db.prepare('SELECT COUNT(*) AS n FROM global_scores').get()!.n,14);
+ assert.equal(db.prepare('SELECT COUNT(*) AS n FROM global_scores').get()!.n,20);
  assert.ok(db.prepare("SELECT id FROM global_scores WHERE id='better'").get());assert.equal(db.prepare("SELECT id FROM global_scores WHERE id='PMIN0'").get(),undefined);
- assert.equal(db.prepare('SELECT COUNT(*) AS n FROM ('+rankedScoresSQL+') WHERE driver_rank=1').get()!.n,7);db.close();
+ assert.equal(db.prepare('SELECT COUNT(*) AS n FROM ('+rankedScoresSQL+') WHERE driver_rank=1').get()!.n,10);db.close();
 });

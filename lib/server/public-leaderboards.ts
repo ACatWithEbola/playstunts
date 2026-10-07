@@ -13,7 +13,7 @@ export function publicLeaderboards(rows:PublicScoreRow[],bundled:Map<string,stri
   const record=JSON.parse(row.record) as number[];keys.set(row.id,driverKey(record,row.id));board.updatedAt=Math.max(board.updatedAt,row.created_at);
   board.scores.push({id:row.id,driver:publicScoreName(scoreString(record,0,17)),car:scoreString(record,17,41)||row.car_code,carCode:row.car_code,ticks:row.ticks,opponent:scoreString(record,42,50).trim(),opponentAhead:record[41]===1,postedAt:row.created_at,replay:!!row.has_replay,assessmentReason:row.assessment_reason,routeAssessment:row.route_assessment==='shortcuts_detected'?'shortcuts_detected':row.route_assessment==='full_route'?'full_route':'not_assessed'});
  }
- const unique=(scores:LeaderboardScore[])=>{const seen=new Set<string>();return scores.filter(score=>{const key=keys.get(score.id)!;if(seen.has(key))return false;seen.add(key);return true;}).slice(0,7);};
+ const unique=(scores:LeaderboardScore[])=>{const seen=new Set<string>();return scores.filter(score=>{const key=keys.get(score.id)!;if(seen.has(key))return false;seen.add(key);return true;}).slice(0,10);};
  for(const board of boards.values()){
   board.scores.sort((a,b)=>a.ticks-b.ticks||a.postedAt-b.postedAt||a.id.localeCompare(b.id));
   const group=(scores:LeaderboardScore[]):RankingGroup=>{const cars=new Map<string,LeaderboardScore[]>();for(const score of scores){const list=cars.get(score.carCode)??[];list.push(score);cars.set(score.carCode,list);}return {scores:unique(scores),cars:[...cars].map(([code,scores])=>({code,name:scores[0].car,scores:unique(scores)})).sort((a,b)=>a.name.localeCompare(b.name))};};
