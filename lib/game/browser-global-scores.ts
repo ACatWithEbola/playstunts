@@ -1,7 +1,8 @@
 import {GLOBAL_SCORE_ENDPOINT,GLOBAL_SCORE_RULES,scoreHash,scoreTicks,sharedScoreFile,validateScoreSubmission,type GlobalScoreSubmission} from './global-score-format.ts';
 import type {NativeFilePersistence} from './native-file-store.ts';
 import type {RouteAssessment} from '../server/shortcut-assessment.ts';
-export async function createGlobalScoreClient(persistence:NativeFilePersistence,request:typeof fetch=fetch){
+import {autoShareReplaysEnabled} from './replay-sharing-preference.ts';
+export async function createGlobalScoreClient(persistence:NativeFilePersistence,request:typeof fetch=fetch,sharingEnabled=autoShareReplaysEnabled){
  const stored=new Map((await persistence.all()).map(file=>[file.key,file.bytes]));
  const decoder=new TextDecoder(),encoder=new TextEncoder();
  const put=async(key:string,bytes:Uint8Array)=>{await persistence.put({key,bytes});stored.set(key,bytes);};
@@ -11,16 +12,25 @@ export async function createGlobalScoreClient(persistence:NativeFilePersistence,
   if(value.rules!==GLOBAL_SCORE_RULES||!Array.isArray(value.file)||value.file.length!==364||value.file.some(n=>!Number.isInteger(n)||n<0||n>255))throw Error('Invalid shared leaderboard');
   return Uint8Array.from(value.file);
  };
+ const share=async(id:string,proof:GlobalScoreSubmission)=>{
+  const key='SHARE_PENDING:'+id;if(!sharingEnabled()){await put(key,new Uint8Array());return;}
+  try{
+   const response=await request('/api/replays',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Replay':'share'},body:JSON.stringify(proof),signal:AbortSignal.timeout(30000)});
+   if(response.ok){await put('SHARED:'+id,encoder.encode('true'));await put(key,new Uint8Array());notice('Your qualifying replay was automatically shared publicly.');if(typeof window!=='undefined')window.dispatchEvent(new Event('stunts-public-replay-shared'));return;}
+   if([400,403,413,422].includes(response.status)){await put(key,new Uint8Array());notice('Your score is verified, but this replay could not be shared. The recording remains private.');return;}
+  }catch{/* Retry only while the player keeps automatic sharing enabled. */}
+  notice('Your score is verified. Automatic replay sharing will retry while enabled.');
+ };
  const send=async(key:string,submission:GlobalScoreSubmission,hash:string)=>{
   try{
    const response=await request(GLOBAL_SCORE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Score':GLOBAL_SCORE_RULES},body:JSON.stringify(submission),signal:AbortSignal.timeout(30000)});
- if(response.ok){const copy=response.clone(),result=await copy.json() as {id?:string;ranked?:boolean};await put('BOARD:'+hash,await responseFile(response));if(result.ranked&&result.id&&/^[a-f0-9]{64}$/.test(result.id)){await put('VERIFIED:'+result.id,encoder.encode(JSON.stringify(submission)));if(typeof window!=='undefined')window.dispatchEvent(new Event('stunts-verified-replays'));}await put(key,new Uint8Array());notice('High score verified and shared. You can optionally share its replay below.');return 'accepted';}
+ if(response.ok){const copy=response.clone(),result=await copy.json() as {id?:string;ranked?:boolean};await put('BOARD:'+hash,await responseFile(response));if(result.id&&/^[a-f0-9]{64}$/.test(result.id)){await put('VERIFIED:'+result.id,encoder.encode(JSON.stringify(submission)));if(typeof window!=='undefined')window.dispatchEvent(new Event('stunts-verified-replays'));}await put(key,new Uint8Array());notice(result.ranked===false?'Run verified, but it did not improve your category/car ranking. Its recording was kept privately in this browser.':'High score verified and shared. You can optionally share its replay below.');if(result.ranked===true&&result.id&&/^[a-f0-9]{64}$/.test(result.id)&&sharingEnabled()&&!stored.get('SHARED:'+result.id)?.length){await put('SHARE_PENDING:'+result.id,encoder.encode(JSON.stringify(submission)));await share(result.id,submission);}return 'accepted';}
    if([400,403,413,422].includes(response.status)){await put('REJECTED:'+key.slice(8),stored.get(key)??encoder.encode(JSON.stringify({submission,hash})));await put(key,new Uint8Array());notice('This run could not be verified for the global leaderboard. A copy was kept in this browser.');return 'rejected';}
   }catch{/* Keep offline results queued across reloads. */}
   notice('Your high score is waiting to be uploaded. It will retry when this browser is online.');return 'pending';
  };
  let flushing:Promise<void>|undefined;
- const flush=()=>flushing??=(async()=>{for(const [key,bytes] of [...stored]){if(!key.startsWith('PENDING:')||!bytes.length)continue;try{const pending=JSON.parse(decoder.decode(bytes)) as {submission:GlobalScoreSubmission;hash:string};await send(key,pending.submission,pending.hash);}catch{await put(key,new Uint8Array());}}})().finally(()=>{flushing=undefined;});
+ const flush=()=>flushing??=(async()=>{for(const [key,bytes] of [...stored]){if(!key.startsWith('PENDING:')||!bytes.length)continue;try{const pending=JSON.parse(decoder.decode(bytes)) as {submission:GlobalScoreSubmission;hash:string};await send(key,pending.submission,pending.hash);}catch{await put(key,new Uint8Array());}}for(const [key,bytes] of [...stored]){if(!key.startsWith('SHARE_PENDING:')||!bytes.length)continue;try{await share(key.slice(14),JSON.parse(decoder.decode(bytes)) as GlobalScoreSubmission);}catch{await put(key,new Uint8Array());}}})().finally(()=>{flushing=undefined;});
  return {
   flush,
   close(){persistence.close?.();},

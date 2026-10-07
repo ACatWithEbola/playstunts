@@ -5,6 +5,7 @@ import {globalScoreData} from '@/lib/server/global-score-data';
 import {publicScoreName} from '@/lib/game/public-score-name';
 import {currentCarScoresSQL,pruneCarScoresSQL,retainAcceptedScoresSQL,driverKey} from '@/lib/server/leaderboard-ranking';
 import {ROUTE_ASSESSMENT_VERSION} from '@/lib/server/route-assessment-version';
+import {retainRunHistorySQL,pruneRunHistorySQL} from '@/lib/server/run-history';
 const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const bindings=()=>env as unknown as {DB:D1Database;ASSETS:Fetcher};
 export async function GET(request:Request){
@@ -38,6 +39,9 @@ export async function POST(request:Request){
   await db.batch([
    db.prepare('INSERT INTO global_scores(id,rules,track_hash,car_code,ticks,record,created_at,driver_key,route_assessment) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET route_assessment=excluded.route_assessment').bind(verified.id,GLOBAL_SCORE_RULES,verified.trackHash,verified.carCode,verified.ticks,JSON.stringify(Array.from(verified.record)),accepted.created_at,driverKey(verified.record,verified.id),verified.routeAssessment),
    db.prepare(retainAcceptedScoresSQL).bind(GLOBAL_SCORE_RULES,verified.trackHash),
+   db.prepare('UPDATE run_history SET route_assessment=? WHERE id=?').bind(verified.routeAssessment,verified.id),
+   db.prepare(retainRunHistorySQL).bind(GLOBAL_SCORE_RULES,verified.trackHash),
+   db.prepare(pruneRunHistorySQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare(pruneCarScoresSQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare('INSERT OR IGNORE INTO shared_replays(id,replay,track_name,created_at) SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM global_scores WHERE id=?)').bind(verified.id,JSON.stringify(Array.from(verified.replay)),trackName,now,verified.id),
    db.prepare('DELETE FROM shared_replays WHERE id NOT IN (SELECT id FROM global_scores)'),

@@ -3,6 +3,7 @@ import {GLOBAL_SCORE_RULES,scoreHash,scoreString,validateScoreSubmission,sharedS
 import {publicScoreName} from '@/lib/game/public-score-name';
 import {verifyGlobalScore} from '@/lib/server/verify-global-score';
 import {globalScoreData} from '@/lib/server/global-score-data';
+import {retainRunHistorySQL,pruneRunHistorySQL} from '@/lib/server/run-history';
 import {driverKey,rankedScoresSQL,bestCarScoresSQL,categoryCarScoresSQL,categoryScoresSQL,pruneCarScoresSQL,retainAcceptedScoresSQL} from '@/lib/server/leaderboard-ranking';
 
 const bindings=()=>env as unknown as {DB:D1Database;ASSETS:Fetcher};
@@ -33,6 +34,9 @@ export async function POST(request:Request){
    db.prepare('INSERT OR IGNORE INTO score_tracks(hash,name) VALUES (?,?)').bind(verified.trackHash,trackName),
    db.prepare('INSERT INTO global_scores(id,rules,track_hash,car_code,ticks,record,created_at,driver_key,route_assessment) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET route_assessment=excluded.route_assessment').bind(verified.id,GLOBAL_SCORE_RULES,verified.trackHash,verified.carCode,verified.ticks,JSON.stringify(Array.from(verified.record)),now,driverKey(verified.record,verified.id),verified.routeAssessment),
    db.prepare(retainAcceptedScoresSQL).bind(GLOBAL_SCORE_RULES,verified.trackHash),
+   db.prepare('UPDATE run_history SET route_assessment=? WHERE id=?').bind(verified.routeAssessment,verified.id),
+   db.prepare(retainRunHistorySQL).bind(GLOBAL_SCORE_RULES,verified.trackHash),
+   db.prepare(pruneRunHistorySQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare(pruneCarScoresSQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare('DELETE FROM score_requests WHERE expires_at < ?').bind(now),
    db.prepare('DELETE FROM shared_replays WHERE id NOT IN (SELECT id FROM global_scores)'),

@@ -3,6 +3,7 @@ import {GLOBAL_SCORE_RULES} from '../game/global-score-format.ts';
 import {verifyGlobalScore} from './verify-global-score.ts';
 import {ROUTE_ASSESSMENT_VERSION} from './route-assessment-version.ts';
 import {pruneCarScoresSQL,retainAcceptedScoresSQL} from './leaderboard-ranking.ts';
+import {retainRunHistorySQL,pruneRunHistorySQL} from './run-history.ts';
 
 const pendingSQL='SELECT COUNT(*) AS pending FROM shared_replays r JOIN global_scores s ON s.id=r.id WHERE s.rules=? AND r.assessment_version<>?';
 /** One public, already accepted recording per request. A database-wide lease
@@ -28,6 +29,9 @@ export async function reassessNextPublicReplay(db:D1Database,load:()=>Promise<Na
    db.prepare('UPDATE global_scores SET route_assessment=? WHERE id=? AND rules=? AND EXISTS (SELECT 1 FROM replay_assessment_lock WHERE key=? AND token=?)').bind(result.routeAssessment,row.id,GLOBAL_SCORE_RULES,'public-replays',token),
    db.prepare('UPDATE shared_replays SET assessment_version=?,assessed_at=?,assessment_retry_at=0 WHERE id=? AND EXISTS (SELECT 1 FROM replay_assessment_lock WHERE key=? AND token=?)').bind(ROUTE_ASSESSMENT_VERSION,finished,row.id,'public-replays',token),
    db.prepare(retainAcceptedScoresSQL).bind(GLOBAL_SCORE_RULES,row.track_hash),
+   db.prepare('UPDATE run_history SET route_assessment=? WHERE id=?').bind(result.routeAssessment,row.id),
+   db.prepare(retainRunHistorySQL).bind(GLOBAL_SCORE_RULES,row.track_hash),
+   db.prepare(pruneRunHistorySQL).bind(GLOBAL_SCORE_RULES,row.track_hash,GLOBAL_SCORE_RULES,row.track_hash),
    db.prepare(pruneCarScoresSQL).bind(GLOBAL_SCORE_RULES,row.track_hash,GLOBAL_SCORE_RULES,row.track_hash),
    db.prepare('DELETE FROM shared_replays WHERE id NOT IN (SELECT id FROM global_scores)'),
   ]);

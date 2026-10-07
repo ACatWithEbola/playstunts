@@ -7,6 +7,10 @@ export const globalScores=sqliteTable('global_scores',{
  id:text('id').primaryKey(),rules:text('rules').notNull(),trackHash:text('track_hash').notNull(),carCode:text('car_code').notNull(),
  ticks:integer('ticks').notNull(),record:text('record').notNull(),createdAt:integer('created_at').notNull(),driverKey:text('driver_key').notNull().default(''),routeAssessment:text('route_assessment').notNull().default('not_assessed'),
 },table=>[index('global_scores_track_time').on(table.rules,table.trackHash,table.ticks,table.createdAt,table.id),index('global_scores_driver_car').on(table.rules,table.trackHash,table.carCode,table.driverKey,table.ticks)]);
+export const runHistory=sqliteTable('run_history',{
+ id:text('id').primaryKey(),rules:text('rules').notNull(),trackHash:text('track_hash').notNull(),carCode:text('car_code').notNull(),
+ ticks:integer('ticks').notNull(),record:text('record').notNull(),createdAt:integer('created_at').notNull(),driverKey:text('driver_key').notNull(),routeAssessment:text('route_assessment').notNull().default('not_assessed'),
+},table=>[index('run_history_driver_track').on(table.rules,table.trackHash,table.driverKey,table.createdAt,table.id)]);
 export const scoreRequests=sqliteTable('score_requests',{
  bucket:text('bucket').primaryKey(),count:integer('count').notNull(),expiresAt:integer('expires_at').notNull(),
 });

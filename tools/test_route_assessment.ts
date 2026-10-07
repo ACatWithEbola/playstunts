@@ -10,6 +10,9 @@ import {fixtureData,finishedScoreFixture} from './global-score-fixture.ts';
 import {createGrassSpeedExploit} from '../lib/server/grass-speed-exploit.ts';
 import {stepEngine,type EngineState} from '../lib/physics/engine.ts';
 import {stepGrip} from '../lib/physics/grip.ts';
+import {readFileSync} from 'node:fs';
+import {prepareRaceTrack} from '../lib/game/prepare-race-track.ts';
+import {routeEvidenceGates} from '../lib/server/route-evidence-gates.ts';
 const graph={primary:[1,2,3,4,5,6,7,0],alternate:Array(8).fill(65535),columns:[0,0,0,1,2,2,2,1],rows:[0,1,2,2,2,1,0,0],footprints:Array(8).fill(0)};
 const position=(node:number)=>[(graph.columns[node]+.5)*65536,0,(29-graph.rows[node]+.5)*65536],road=[1,1,1,1],grass=[4,4,4,4];
 function excursion(to:number,options:{air?:boolean;short?:boolean;partial?:boolean}={}){
@@ -66,6 +69,19 @@ test('full-route proof needs a finished connected path with positive gate covera
 });
 test('ground-level bypass cannot certify elevated stunt gates',()=>{
  const witness=createFullRouteWitness(proofGraph,[gates[0],[{position:[1536,975,512],radius:200}],gates[2]]);observeGates(witness);assert.equal(witness.result(true),false);
+});
+test('DEFAULT supplies evidence for both overpass layers and every pipe section',()=>{
+ const raw=JSON.parse(readFileSync(new URL('../public/game/assets.json',import.meta.url),'utf8')).tracks.find((t:{name:string})=>t.name==='DEFAULT').raw;
+ const prepared=prepareRaceTrack(raw,fixtureData.records,fixtureData.vectors,fixtureData.samples,fixtureData.objects),all=routeEvidenceGates(raw,prepared,fixtureData);
+ assert.ok(all.every(g=>g.length>0),'DEFAULT must not be blocked by an unsupported mandatory piece');
+ const overpasses=prepared.route.tiles.flatMap((tile,node)=>fixtureData.objects[tile].physics===22?[all[node]]:[]);
+ assert.ok(overpasses.some(g=>g.every(p=>p.position[1]<100)));
+ assert.ok(overpasses.some(g=>g.every(p=>p.position[1]>400)));
+ const pipe=prepared.route.tiles.findIndex(tile=>fixtureData.objects[tile].physics===30),pipeGates=all[pipe];
+ assert.equal(pipeGates[0].allowGrassExcursion,false);assert.equal(pipeGates[0].airborneHeightTolerance,200);
+ const pipeGraph={primary:[1,0],alternate:[65535,65535],columns:[0,1],rows:[0,0],footprints:[0,0]},start=[{position:[pipeGates[0].position[0],-1,pipeGates[0].position[2]+1024],radius:100}];
+ const pass=(dy:number,dx:number)=>{const w=createFullRouteWitness(pipeGraph,[start,pipeGates]);w.observe(start[0].position.map((v,i)=>i===1?127*64:v*64),road);for(const g of pipeGates)w.observe(g.position.map((v,i)=>(v+(i===0?dx:i===1?dy:0))*64),road);return w.result(true);};
+ assert.equal(pass(0,0),true);assert.equal(pass(500,0),false,'Driving above a pipe cannot prove going through it');assert.equal(pass(0,500),false,'Going around the pipe must not certify it');
 });
 test('collision-height road gates allow bounded jumps but reject bridge underpasses and prolonged grass',()=>{
  const finite=gates.map((list,node)=>list.map(g=>({...g,position:[g.position[0],450,g.position[2]],radius:240,requiresRoad:true,heightTolerance:280,airborneHeightTolerance:600})));

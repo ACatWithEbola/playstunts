@@ -1,5 +1,5 @@
 import type {PlayerRouteGraph} from '../physics/player-route-lookup.ts';
-export type RouteGate={position:number[];radius:number;requiresRoad?:boolean;heightTolerance?:number;airborneHeightTolerance?:number};
+export type RouteGate={position:number[];radius:number;requiresRoad?:boolean;heightTolerance?:number;airborneHeightTolerance?:number;allowGrassExcursion?:boolean};
 /** Positive route evidence, not absence of a detected shortcut. A complete
  * directed start-to-finish path must have its ordered geometric gates covered.
  * Flat/unknown-height gates require actual road contact: flying underneath a
@@ -29,7 +29,7 @@ export function createFullRouteWitness(graph:PlayerRouteGraph,gates:RouteGate[][
      // Ordinary road evidence allows the agreed <=2-second curb excursion
      // and airborne travel, but not sustained grass driving. Keep height
      // separate from lateral road tolerance so bridge underpasses cannot pass.
-     const airborne=surfaces.every(s=>s===0),contact=road||gate.requiresRoad&&hasRoadContact&&offRoadFrames<=(airborne?80:40);
+     const airborne=surfaces.every(s=>s===0),contact=road||gate.requiresRoad&&hasRoadContact&&(airborne||gate.allowGrassExcursion!==false)&&offRoadFrames<=(airborne?80:40);
      if((!height||gate.requiresRoad)&&!contact)break;
      if(gate.heightTolerance!==undefined){
       const horizontal=distance(gate.position,before,current,false);
