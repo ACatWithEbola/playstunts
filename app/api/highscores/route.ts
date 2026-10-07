@@ -5,6 +5,7 @@ import {verifyGlobalScore} from '@/lib/server/verify-global-score';
 import {globalScoreData} from '@/lib/server/global-score-data';
 import {retainRunHistorySQL,pruneRunHistorySQL} from '@/lib/server/run-history';
 import {pruneSharedReplaysSQL} from '@/lib/server/shared-replay-retention';
+import {ROUTE_ASSESSMENT_VERSION} from '@/lib/server/route-assessment-version';
 import {driverKey,rankedScoresSQL,bestCarScoresSQL,categoryCarScoresSQL,categoryScoresSQL,pruneCarScoresSQL,retainAcceptedScoresSQL} from '@/lib/server/leaderboard-ranking';
 
 const bindings=()=>env as unknown as {DB:D1Database;ASSETS:Fetcher};
@@ -24,12 +25,14 @@ export async function POST(request:Request){
  let raw:unknown;
  try{const body=await request.text();if(body.length>150000)return reply({error:'Score request too large'},413);raw=JSON.parse(body);validateScoreSubmission(raw);}catch(error){return reply({error:error instanceof Error?error.message:'Invalid score'},400);}
  const {DB:db,ASSETS:assets}=bindings(),now=Math.floor(Date.now()/1000);
+ if((raw as {validateOnly?:unknown}).validateOnly!==true&&(raw as {publicReplayConsent?:unknown}).publicReplayConsent!==true)return reply({error:'Public replay consent is required to submit a high score'},422);
  try{
   const bucket=((raw as {validateOnly?:unknown}).validateOnly===true?'assessment:':'')+await scoreHash(new TextEncoder().encode((request.headers.get('cf-connecting-ip')??'local')+':'+Math.floor(now/3600)));
   const limit=await db.prepare('INSERT INTO score_requests(bucket,count,expires_at) VALUES (?,1,?) ON CONFLICT(bucket) DO UPDATE SET count=count+1 RETURNING count').bind(bucket,now+7200).first<{count:number}>();
   if(!limit||limit.count>20)return reply({error:'Submission limit reached; try later'},429);
   const verified=await verifyGlobalScore(raw,await globalScoreData(assets,url.origin));
   if((raw as {validateOnly?:unknown}).validateOnly===true)return reply({verified:true,ticks:verified.ticks,track:verified.trackHash,car:verified.carCode,routeAssessment:verified.routeAssessment});
+  if(verified.replay.length>0x722+12000)return reply({error:'This recording exceeds the original replay viewer’s 10-minute limit; it will not be shortened or published'},422);
   const name=scoreString((raw as {replay:number[]}).replay,13,22),trackName=/^[A-Za-z0-9_-]{1,8}$/.test(name)?name.toUpperCase():'Track '+verified.trackHash.slice(0,8).toUpperCase();
   await db.batch([
    db.prepare('INSERT OR IGNORE INTO score_tracks(hash,name) VALUES (?,?)').bind(verified.trackHash,trackName),
@@ -40,6 +43,7 @@ export async function POST(request:Request){
    db.prepare(pruneRunHistorySQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare(pruneCarScoresSQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare('DELETE FROM score_requests WHERE expires_at < ?').bind(now),
+   db.prepare('INSERT OR IGNORE INTO shared_replays(id,replay,track_name,created_at,assessment_version,assessed_at,assessment_retry_at) VALUES (?,?,?,?,?,?,0)').bind(verified.id,JSON.stringify(Array.from(verified.replay)),trackName,now,ROUTE_ASSESSMENT_VERSION,now),
    db.prepare(pruneSharedReplaysSQL),
   ]);
   const ranked=!!await db.prepare('SELECT id FROM global_scores WHERE id=?').bind(verified.id).first();

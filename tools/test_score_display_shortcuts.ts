@@ -1,9 +1,11 @@
 import {test} from 'node:test';
+import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {isFpsToggle} from '../lib/game/enhanced-shortcuts.ts';
 import {routeDisplay} from '../lib/server/route-display.ts';
 import {originalKeyboardScanWord} from '../lib/game/keyboard-scan-word.ts';
 test('FPS requires Ctrl+F; plain F remains available for names',()=>{
+ assert.match(readFileSync(new URL('../app/OpeningSequence.tsx',import.meta.url),'utf8'),/\[performanceVisible,setPerformanceVisible\]=useState\(false\)/,'FPS overlay starts hidden');
  const event={code:'KeyF',ctrlKey:false,metaKey:false,altKey:false,shiftKey:false,repeat:false};
  assert.equal(isFpsToggle(event),false);assert.equal(isFpsToggle({...event,ctrlKey:true}),true);
  for(const modifier of ['metaKey','altKey','shiftKey','repeat'])assert.equal(isFpsToggle({...event,ctrlKey:true,[modifier]:true}),false);

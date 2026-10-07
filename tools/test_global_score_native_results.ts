@@ -29,7 +29,6 @@ test('original allocated name-entry save submits through the production shared-f
   return 2;
  }});
  assert.equal(posted,1);assert.equal(scoreString(board.slice(0,52),0,17),'QA DRIVER');
- assert.ok(reads.some(url=>url.includes('&car=PMIN')),'Results must qualify by car even with seven faster overall scores');
- assert.ok(reads.some(url=>url.includes('&category=not_assessed')),'Results must qualify by assessed category even with seven faster combined car times');
+ assert.ok(!reads.some(url=>url.includes('&category=')),'No pre-submission category assessment is necessary');
  assert.equal((await files.read('',name,'.HIG')).length,364);
 });
