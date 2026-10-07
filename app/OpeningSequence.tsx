@@ -1,5 +1,6 @@
 'use client';
 import introMaterials from '@/public/game/track-materials.json';
+import {isFpsToggle} from '@/lib/game/enhanced-shortcuts';
 import {applyNativeStartupAudio} from '@/lib/game/native-launch-profile';
 import {useEffect,useRef,useState,type KeyboardEvent as ReactKeyboardEvent} from 'react';
 import {createBrowserNativeMt32Music,type BrowserNativeMt32Device,type BrowserMt32Power} from '@/lib/game/browser-native-mt32-music';
@@ -77,11 +78,11 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
  const [audioUpgraded,setAudioUpgraded]=useState(true),[audioNotice,setAudioNotice]=useState('Remixed music enabled');
  const toggleAudioUpdate=()=>{const enabled=!audioUpdate.current.enabled;audioUpdate.current.enabled=enabled;audioUpdate.current.controller?.setEnabled(enabled);setAudioUpgraded(enabled);setAudioNotice(enabled?'Remixed music enabled':'Original music');if(started)focusBrowserGameCanvas(canvas.current!);};
  const enhancedShortcut=(event:ReactKeyboardEvent<HTMLCanvasElement>)=>{
-  if(event.repeat||event.ctrlKey||event.metaKey||event.altKey||event.shiftKey||!graphics.current.enabled)return;
-  if(event.code==='KeyF'){
+  if(!graphics.current.enabled)return;
+  if(isFpsToggle(event)){
    event.preventDefault();event.stopPropagation();event.nativeEvent.stopImmediatePropagation();const visible=!performanceVisible;setPerformanceVisible(visible);setGraphicsNotice(visible?'FPS counter shown':'FPS counter hidden');return;
   }
-  if(!performanceRunning.current)return;
+  if(event.repeat||event.ctrlKey||event.metaKey||event.altKey||event.shiftKey||!performanceRunning.current)return;
   if(event.code==='KeyV'){
    event.preventDefault();event.stopPropagation();event.nativeEvent.stopImmediatePropagation();const level=nextEnhancedChaseCameraLevel((graphics.current.chaseCamera??0) as EnhancedChaseCameraLevel);graphics.current.chaseCamera=level;setGraphicsNotice(level?`Enhanced chase camera · ${ENHANCED_CHASE_CAMERA_LABELS[level]}`:'Original Stunts camera');graphics.current.refresh?.();return;
   }
