@@ -1,4 +1,7 @@
 export const statusTranslations:Record<string,readonly [string,string]>={
+ '1st place — Gold trophy':['Primer puesto — trofeo de oro','Primo posto — coppa d’oro'],
+ '2nd place — Silver trophy':['Segundo puesto — trofeo de plata','Secondo posto — coppa d’argento'],
+ '3rd place — Bronze trophy':['Tercer puesto — trofeo de bronce','Terzo posto — coppa di bronzo'],
  'Ready to play Stunts':['Listo para jugar a Stunts','Pronto per giocare a Stunts'],
  'Upgraded graphics · experimental':['Gráficos mejorados · experimental','Grafica migliorata · sperimentale'],
  'Original Stunts camera':['Cámara original de Stunts','Camera originale di Stunts'],
