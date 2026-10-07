@@ -1,3 +1,4 @@
+import {boundedRequestText} from '../lib/server/bounded-request-body.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
@@ -9,7 +10,7 @@ test('withdrawal hides only the exact shared track, blocks download and resharin
  const hash=withdrawnCommunityTracks[0],other='f'.repeat(64);for(const id of [hash,other])db.prepare('INSERT INTO shared_tracks VALUES (?,?,?,?)').run(id,id===hash?'TEST':'OTHER','[1,2,3]',1);
  const binding={prepare(sql:string){let args:unknown[]=[];return {bind(...v:unknown[]){args=v;return this;},async first(){return db.prepare(sql).get(...args as never[]);},async all(){return {results:db.prepare(sql).all(...args as never[])};}};},async batch(){throw Error('Withdrawal must not write track data');}};
  const source=readFileSync(new URL('../app/api/tracks/route.ts',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/export async function/g,'async function');
- const deps={env:{DB:binding,ASSETS:{}},withdrawnCommunityTracks,communityTrackWithdrawn,scoreHash:async()=> 'bucket',validateSharedTrack:async()=>({hash,name:'TEST',bytes:new Uint8Array(1802)}),globalScoreData:async()=>({})};
+ const deps={boundedRequestText,env:{DB:binding,ASSETS:{}},withdrawnCommunityTracks,communityTrackWithdrawn,scoreHash:async()=> 'bucket',validateSharedTrack:async()=>({hash,name:'TEST',bytes:new Uint8Array(1802)}),globalScoreData:async()=>({})};
  const {GET,POST}=new Function(...Object.keys(deps),stripTypeScriptTypes(source)+';return {GET,POST};')(...Object.values(deps));
  assert.equal((await GET(new Request('https://example.test/api/tracks?id='+hash))).status,404);
  const list=await(await GET(new Request('https://example.test/api/tracks'))).json();assert.deepEqual(list.tracks.map((t:{hash:string})=>t.hash),[other]);

@@ -1,3 +1,4 @@
+import {boundedRequestText} from '../lib/server/bounded-request-body.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
@@ -17,7 +18,7 @@ test('score submission requires consent and atomically retains its public record
  const record=Array(52).fill(0);record[0]=65;record[50]=100;
  let verified={id:'a'.repeat(64),trackHash:'b'.repeat(64),carCode:'PMIN',ticks:100,record,routeAssessment:'full_route',replay:new Uint8Array(2000)};
  const source=readFileSync(new URL('../app/api/highscores/route.ts',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/export async function/g,'async function');
- const deps={env:{DB:binding,ASSETS:{}},GLOBAL_SCORE_RULES,scoreHash:async()=> 'bucket',scoreString,validateScoreSubmission:()=>{},sharedScoreFile,publicScoreName:(s:string)=>s,verifyGlobalScore:async()=>verified,globalScoreData:async()=>({}),retainRunHistorySQL,pruneRunHistorySQL,pruneSharedReplaysSQL,ROUTE_ASSESSMENT_VERSION,...ranking};
+ const deps={boundedRequestText,env:{DB:binding,ASSETS:{}},GLOBAL_SCORE_RULES,scoreHash:async()=> 'bucket',scoreString,validateScoreSubmission:()=>{},sharedScoreFile,publicScoreName:(s:string)=>s,verifyGlobalScore:async()=>verified,globalScoreData:async()=>({}),retainRunHistorySQL,pruneRunHistorySQL,pruneSharedReplaysSQL,ROUTE_ASSESSMENT_VERSION,...ranking};
  const post=new Function(...Object.keys(deps),stripTypeScriptTypes(source)+';return POST;')(...Object.values(deps)) as (r:Request)=>Promise<Response>;
  const send=(consent:boolean)=>post(new Request('https://example.test/api/highscores',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Score':GLOBAL_SCORE_RULES},body:JSON.stringify({replay:Array(24).fill(0),publicReplayConsent:consent})}));
  assert.equal((await send(false)).status,422);assert.equal(db.prepare('SELECT COUNT(*) AS n FROM global_scores').get()!.n,0);

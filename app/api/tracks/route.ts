@@ -1,3 +1,4 @@
+import {boundedRequestText} from '@/lib/server/bounded-request-body';
 import {env} from 'cloudflare:workers';
 import {scoreHash} from '@/lib/game/global-score-format';
 import {validateSharedTrack} from '@/lib/server/shared-track-validation';
@@ -19,7 +20,7 @@ export async function GET(request:Request){
 export async function POST(request:Request){
  const url=new URL(request.url),origin=request.headers.get('origin');
  if((origin&&origin!==url.origin)||request.headers.get('content-type')?.split(';')[0]!=='application/json'||request.headers.get('x-stunts-track')!=='share')return reply({error:'Invalid track request'},403);
- let value:unknown;try{const body=await request.text();if(body.length>9000)return reply({error:'Track too large'},413);value=JSON.parse(body);}catch{return reply({error:'Invalid track'},400);}
+ let value:unknown;try{const body=await boundedRequestText(request,9000);if(body.length>9000)return reply({error:'Track too large'},413);value=JSON.parse(body);}catch{return reply({error:'Invalid track'},400);}
  const {DB:db,ASSETS:assets}=bindings(),now=Math.floor(Date.now()/1000);
  try{
   const bucket=await scoreHash(new TextEncoder().encode('track:'+ (request.headers.get('cf-connecting-ip')??'local')+':'+Math.floor(now/86400)));

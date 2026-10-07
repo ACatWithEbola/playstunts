@@ -1,3 +1,4 @@
+import {boundedRequestText} from '../lib/server/bounded-request-body.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
@@ -13,7 +14,7 @@ test('replay filters apply before pagination, with deterministic fastest and new
  for(let i=0;i<65;i++){const id=i.toString(16).padStart(64,'0'),track=(i===64?'b':'a').repeat(64),car=i===64?'FGTO':'PMIN';db.prepare('INSERT INTO global_scores(id,rules,track_hash,car_code,ticks,record,created_at,driver_key,route_assessment) VALUES (?,?,?,?,?,?,?,?,?)').run(id,GLOBAL_SCORE_RULES,track,car,100+i,JSON.stringify(record),i,'name:'+i,'full_route');db.prepare('INSERT INTO shared_replays(id,track_name,replay,created_at) VALUES (?,?,?,?)').run(id,i===64?'CUSTOM':'DEFAULT','[]',i);}
  const binding={prepare(sql:string){let args:unknown[]=[];return {bind(...v:unknown[]){args=v;return this;},async first(){return db.prepare(sql).get(...args as never[]);},async all(){return {results:db.prepare(sql).all(...args as never[])};}};}};
  const source=readFileSync(new URL('../app/api/replays/route.ts',import.meta.url),'utf8').split('export async function POST')[0].replace(/^import .*;\n/gm,'').replace('export async function','async function');
- const deps={env:{DB:binding},GLOBAL_SCORE_RULES,scoreString,publicScoreName,replayScoresSQL};const GET=new Function(...Object.keys(deps),stripTypeScriptTypes(source)+';return GET;')(...Object.values(deps));
+ const deps={boundedRequestText,env:{DB:binding},GLOBAL_SCORE_RULES,scoreString,publicScoreName,replayScoresSQL};const GET=new Function(...Object.keys(deps),stripTypeScriptTypes(source)+';return GET;')(...Object.values(deps));
  const get=async(q:string)=>(await GET(new Request('https://example.test/api/replays'+q))).json();
  const first=await get('');assert.equal(first.replays.length,50);assert.equal(first.hasMore,true);assert.equal(first.replays[0].ticks,100);assert.equal(first.tracks.length,2);
  const second=await get('?page=1');assert.equal(second.replays.length,15);assert.equal(second.hasMore,false);assert.equal(second.replays[0].ticks,150);

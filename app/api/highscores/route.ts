@@ -1,3 +1,4 @@
+import {boundedRequestText} from '@/lib/server/bounded-request-body';
 import {env} from 'cloudflare:workers';
 import {GLOBAL_SCORE_RULES,scoreHash,scoreString,validateScoreSubmission,sharedScoreFile} from '@/lib/game/global-score-format';
 import {publicScoreName} from '@/lib/game/public-score-name';
@@ -23,7 +24,7 @@ export async function POST(request:Request){
  const url=new URL(request.url),origin=request.headers.get('origin');
  if((origin&&origin!==url.origin)||request.headers.get('content-type')?.split(';')[0]!=='application/json'||request.headers.get('x-stunts-score')!==GLOBAL_SCORE_RULES)return reply({error:'Invalid score request'},403);
  let raw:unknown;
- try{const body=await request.text();if(body.length>150000)return reply({error:'Score request too large'},413);raw=JSON.parse(body);validateScoreSubmission(raw);}catch(error){return reply({error:error instanceof Error?error.message:'Invalid score'},400);}
+ try{const body=await boundedRequestText(request,150000);if(body.length>150000)return reply({error:'Score request too large'},413);raw=JSON.parse(body);validateScoreSubmission(raw);}catch(error){return reply({error:error instanceof Error?error.message:'Invalid score'},400);}
  const {DB:db,ASSETS:assets}=bindings(),now=Math.floor(Date.now()/1000);
  if((raw as {validateOnly?:unknown}).validateOnly!==true&&(raw as {publicReplayConsent?:unknown}).publicReplayConsent!==true)return reply({error:'Public replay consent is required to submit a high score'},422);
  try{
