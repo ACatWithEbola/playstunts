@@ -21,10 +21,14 @@ test('sharing reassesses before ranking and restores only server-accepted proofs
  const create=new Function('env','GLOBAL_SCORE_RULES','scoreHash','scoreString','verifyGlobalScore','globalScoreData','publicScoreName','currentCarScoresSQL','pruneCarScoresSQL','retainAcceptedScoresSQL','driverKey','ROUTE_ASSESSMENT_VERSION','retainRunHistorySQL','pruneRunHistorySQL','replayScoresSQL','pruneSharedReplaysSQL',stripTypeScriptTypes(source)+';return POST;');
  const post=create({DB:binding,ASSETS:{}},GLOBAL_SCORE_RULES,async()=> 'bucket',scoreString,async()=>verified,async()=>({}),(s:string)=>s,currentCarScoresSQL,pruneCarScoresSQL,retainAcceptedScoresSQL,driverKey,ROUTE_ASSESSMENT_VERSION,retainRunHistorySQL,pruneRunHistorySQL,replayScoresSQL,pruneSharedReplaysSQL) as (r:Request)=>Promise<Response>;
  const share=()=>post(new Request('https://example.test/api/replays',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Replay':'share'},body:JSON.stringify({replay:Array(24).fill(0)})}));
+ const recheck=()=>post(new Request('https://example.test/api/replays',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Replay':'recheck'},body:JSON.stringify({replay:Array(24).fill(0)})}));
  const insert=db.prepare('INSERT INTO global_scores VALUES (?,?,?,?,?,?,?,?,?)');
  for(let i=0;i<7;i++)insert.run('fast'+i,GLOBAL_SCORE_RULES,'track','PMIN',10+i,'[]',1+i,'name:driver'+i,'not_assessed');
  insert.run('accepted',GLOBAL_SCORE_RULES,'track','PMIN',100,JSON.stringify(record),9,'name:m','not_assessed');
  assert.equal(db.prepare('SELECT id FROM ('+currentCarScoresSQL+") WHERE id='accepted'").get(),undefined,'Old category rank is outside seven');
+ const checked=await recheck();assert.equal(checked.status,200);assert.equal((await checked.json() as {rechecked:boolean}).rechecked,true);
+ assert.equal(db.prepare("SELECT route_assessment FROM global_scores WHERE id='accepted'").get()!.route_assessment,'full_route');
+ assert.equal(db.prepare('SELECT COUNT(*) AS n FROM shared_replays').get()!.n,0,'Private recheck never publishes a recording');
  assert.equal((await share()).status,200,'Current accepted row may move into full route before rank check');
  assert.equal(db.prepare("SELECT route_assessment,created_at FROM global_scores WHERE id='accepted'").get()!.route_assessment,'full_route');
  assert.equal(db.prepare("SELECT created_at FROM accepted_scores WHERE id='accepted'").get()!.created_at,9);
@@ -33,6 +37,7 @@ test('sharing reassesses before ranking and restores only server-accepted proofs
  assert.equal(db.prepare("SELECT assessment_version FROM shared_replays WHERE id='accepted'").get()!.assessment_version,ROUTE_ASSESSMENT_VERSION,'Manual sharing already verified this version');
  assert.equal(db.prepare("SELECT created_at FROM global_scores WHERE id='accepted'").get()!.created_at,9);
  verified={...verified,id:'unsubmitted'};
+ assert.equal((await recheck()).status,422,'Private recheck cannot create an arbitrary new score');
  assert.equal((await share()).status,422,'Arbitrary valid replay cannot create a score');
  assert.equal(db.prepare("SELECT id FROM global_scores WHERE id='unsubmitted'").get(),undefined);
  verified={...verified,id:'accepted',routeAssessment:'not_assessed'};

@@ -5,7 +5,8 @@ import {publicLeaderboards,type PublicScoreRow} from '@/lib/server/public-leader
 import {combinedCarScoresSQL} from '@/lib/server/leaderboard-ranking';
 const bindings=()=>env as unknown as {DB:D1Database;ASSETS:Fetcher};
 let names:ReturnType<typeof createTrackLabelCatalog>|undefined;
-function bundledNames(assets:Fetcher,origin:string){names??=createTrackLabelCatalog(async()=>{const response=await assets.fetch(new Request(new URL('/game/assets.json',origin)));if(!response.ok)throw Error('Track catalog unavailable');return response.json() as Promise<{tracks:{name:string;raw:number[]}[]}>;},error=>console.warn('Optional track labels unavailable; using stored labels and content IDs',error));return names();}
+import {ORIGINAL_STARTER_TRACKS} from '@/lib/game/original-starter-tracks';
+function bundledNames(assets:Fetcher,origin:string){names??=createTrackLabelCatalog(async()=>{const response=await assets.fetch(new Request(new URL('/game/assets.json',origin)));if(!response.ok)throw Error('Track catalog unavailable');const data=await response.json() as {tracks:{name:string;raw:number[]}[]};return {tracks:[...data.tracks,...ORIGINAL_STARTER_TRACKS]};},error=>console.warn('Optional track labels unavailable; using stored labels and content IDs',error));return names();}
 export async function GET(request:Request){
  try{const {DB,ASSETS}=bindings(),url=new URL(request.url),page=Number(url.searchParams.get('page')??0),query=(url.searchParams.get('q')??'').trim(),sort=url.searchParams.get('sort')??'recent';
   if(!Number.isInteger(page)||page<0||page>100000||query.length>80||!['name','recent'].includes(sort))return Response.json({error:'Invalid leaderboard search'},{status:400});

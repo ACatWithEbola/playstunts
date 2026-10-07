@@ -23,15 +23,15 @@ export async function GET(request:Request){
  }catch(error){console.error('Replay read failed',error);return reply({error:'Shared replays temporarily unavailable'},503);}
 }
 export async function POST(request:Request){
- const url=new URL(request.url),origin=request.headers.get('origin');
- if((origin&&origin!==url.origin)||request.headers.get('content-type')?.split(';')[0]!=='application/json'||request.headers.get('x-stunts-replay')!=='share')return reply({error:'Invalid replay request'},403);
+ const url=new URL(request.url),origin=request.headers.get('origin'),action=request.headers.get('x-stunts-replay'),privateCheck=action==='recheck';
+ if((origin&&origin!==url.origin)||request.headers.get('content-type')?.split(';')[0]!=='application/json'||!['share','recheck'].includes(action??''))return reply({error:'Invalid replay request'},403);
  let raw:unknown;try{const body=await request.text();if(body.length>150000)return reply({error:'Replay request too large'},413);raw=JSON.parse(body);}catch{return reply({error:'Invalid replay request'},400);}
  try{
   const {DB:db,ASSETS:assets}=bindings(),now=Math.floor(Date.now()/1000),bucket='replay:'+await scoreHash(new TextEncoder().encode((request.headers.get('cf-connecting-ip')??'local')+':'+Math.floor(now/3600)));
   const limit=await db.prepare('INSERT INTO score_requests(bucket,count,expires_at) VALUES (?,1,?) ON CONFLICT(bucket) DO UPDATE SET count=count+1 RETURNING count').bind(bucket,now+7200).first<{count:number}>();if(!limit||limit.count>20)return reply({error:'Sharing limit reached; try later'},429);
   // Re-verify the exact accepted proof; never attach an arbitrary .RPL to a score.
   const verified=await verifyGlobalScore(raw,await globalScoreData(assets,url.origin));
-  if(verified.replay.length>0x722+12000)return reply({error:'This recording exceeds the original replay viewer’s 10-minute limit; it will not be shortened or published'},422);
+  if(!privateCheck&&verified.replay.length>0x722+12000)return reply({error:'This recording exceeds the original replay viewer’s 10-minute limit; it will not be shortened or published'},422);
   // Acceptance, not its old category rank, authorizes reassessment. The hash
   // binds the exact record and recording; a renamed/arbitrary upload cannot pass.
   const accepted=await db.prepare('SELECT created_at FROM global_scores WHERE id=? AND rules=? UNION ALL SELECT created_at FROM accepted_scores WHERE id=? AND rules=? LIMIT 1').bind(verified.id,GLOBAL_SCORE_RULES,verified.id,GLOBAL_SCORE_RULES).first<{created_at:number}>();
@@ -44,10 +44,11 @@ export async function POST(request:Request){
    db.prepare(retainRunHistorySQL).bind(GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare(pruneRunHistorySQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare(pruneCarScoresSQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
-   db.prepare('INSERT OR IGNORE INTO shared_replays(id,replay,track_name,created_at) SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM ('+replayScoresSQL+') WHERE id=?)').bind(verified.id,JSON.stringify(Array.from(verified.replay)),trackName,now,verified.id),
+   ...(!privateCheck?[db.prepare('INSERT OR IGNORE INTO shared_replays(id,replay,track_name,created_at) SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM ('+replayScoresSQL+') WHERE id=?)').bind(verified.id,JSON.stringify(Array.from(verified.replay)),trackName,now,verified.id)]:[]),
    db.prepare(pruneSharedReplaysSQL),
    db.prepare('UPDATE shared_replays SET assessment_version=?,assessed_at=?,assessment_retry_at=0 WHERE id=?').bind(ROUTE_ASSESSMENT_VERSION,now,verified.id),
   ]);
+  if(privateCheck)return reply({rechecked:true,id:verified.id,routeAssessment:verified.routeAssessment,ranked:!!await db.prepare('SELECT id FROM global_scores WHERE id=?').bind(verified.id).first()});
   if(!await db.prepare('SELECT id FROM shared_replays WHERE id=?').bind(verified.id).first())return reply({error:'Run verified, but it is no longer a ranked score or one of your five most recent verified runs on this track'},422);
   return reply({shared:true,id:verified.id});
  }catch(error){if(error instanceof Error&&/Invalid|eligible|verify|Replay|configuration|supported original/i.test(error.message))return reply({error:error.message},422);console.error('Replay sharing failed',error);return reply({error:'Shared replays temporarily unavailable'},503);}
