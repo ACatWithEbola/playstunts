@@ -136,6 +136,8 @@ The file checker verifies the required runtime files and your installation's has
 
 ## Updated graphics and audio
 
+Route assessment follows original-game driving options: both divided-road lanes and inside passage through loops and left/right corkscrews can count as Full run. It does not impose extra competition-only stunt-rotation rules. Substantial road-to-road cuts and confirmed grass-speed exploits remain separately detected.
+
 - Enhanced graphics is the launch default and uses a separate website renderer with full colour, source signs and clouds, detailed vehicles, and live steering and suspension movement. Setup still selects MCGA, EGA, CGA, Tandy or Hercules for original graphics. Only the website graphics control switches between enhanced graphics and the selected original display mode; in-game menus preserve that selection.
 - With enhanced graphics enabled, **Ctrl+F** shows or hides the driving/replay performance display: current FPS, session average and 1% low. **V** cycles the current Stunts camera → close → standard → far → the current Stunts camera; C, F1–F4 or a replay camera-button selection returns immediately to the selected original camera. Both enhanced overlays are inactive outside driving and replay playback.
 - Remixed opening/title, menu, victory and game-over music is enabled by default while the original engine and sound effects remain unchanged. The website control switches between remixed and original music, while the in-game Options menu turns music on or off.
