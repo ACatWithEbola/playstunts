@@ -8,7 +8,8 @@
   "scripts": {
     "db:generate": "drizzle-kit generate",
     "dev": "vinext dev",
-    "build": "vinext build",
+    "build": "node tools/test_website_languages.ts && vinext build",
+    "test:languages": "node tools/test_website_languages.ts",
     "start": "wrangler dev --config dist/server/wrangler.json --persist-to .wrangler/state",
     "lint": "oxlint",
     "format": "oxfmt",

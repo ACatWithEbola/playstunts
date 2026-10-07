@@ -1,4 +1,5 @@
 'use client';
+import {WebsiteText,WebsiteElement} from '@/app/WebsiteLanguage';
 
 import {useEffect,useRef,type KeyboardEvent as ReactKeyboardEvent,type PointerEvent as ReactPointerEvent} from 'react';
 import Image from 'next/image';
@@ -44,9 +45,9 @@ export default function StuntsBox(){
   const movement:{x:number;y:number}|undefined={ArrowLeft:{x:0,y:-8},ArrowRight:{x:0,y:8},ArrowUp:{x:5,y:0},ArrowDown:{x:-5,y:0}}[event.key];
   if(!movement)return;event.preventDefault();rotation.current.x=Math.max(-38,Math.min(38,rotation.current.x+movement.x));rotation.current.y+=movement.y;apply();
  };
- return <button className="stunts-box-viewer" type="button" aria-label="Rotate the 3D Stunts game box. Drag it or use the arrow keys." onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} onKeyDown={keyDown}>
+ return <WebsiteElement as="button" className="stunts-box-viewer" type="button" aria-label="Rotate the 3D Stunts game box. Drag it or use the arrow keys." onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} onKeyDown={keyDown}>
   <div className="stunts-box-model" ref={box}>
    {(Object.keys(FACE_IMAGE) as Array<keyof typeof FACE_IMAGE>).map(face=>{const image=FACE_IMAGE[face];return <div className={`stunts-box-face stunts-box-face-${face}`} key={face}><Image unoptimized alt="" draggable={false} src={image.src} width={image.width} height={image.height}/></div>;})}
   </div>
- </button>;
+ </WebsiteElement>;
 }

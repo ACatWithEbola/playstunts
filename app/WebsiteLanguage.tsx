@@ -1,0 +1,20 @@
+'use client';
+import {createContext,createElement,useContext,useEffect,useState,type ReactNode,type JSX} from 'react';
+import {translateWebsite,type WebsiteLocale} from '@/lib/website-languages';
+import Image from 'next/image';
+import type {ComponentProps} from 'react';
+const LanguageContext=createContext<{locale:WebsiteLocale;change:(locale:WebsiteLocale)=>void}>({locale:'en',change:()=>{}});
+export function WebsiteLanguageProvider({children}:{children:ReactNode}){
+ const [locale,setLocale]=useState<WebsiteLocale>('en');
+ useEffect(()=>{try{const saved=localStorage.getItem('playstunts-website-language');if(saved==='es'||saved==='it')setLocale(saved);}catch{}},[]);
+ useEffect(()=>{document.documentElement.lang=locale;const path=location.pathname;const kind=path==='/faq'?'FAQ':path==='/high-scores'?'High Scores':path==='/setup'?'Setup':'Play Stunts';const titles={en:{FAQ:'FAQ — Play Stunts','High Scores':'High Scores — Play Stunts',Setup:'Setup — Play Stunts','Play Stunts':'Play Stunts — The classic racing game in your browser'},es:{FAQ:'Preguntas frecuentes — Play Stunts','High Scores':'Récords — Play Stunts',Setup:'Configuración — Play Stunts','Play Stunts':'Play Stunts — El juego clásico de carreras en tu navegador'},it:{FAQ:'Domande frequenti — Play Stunts','High Scores':'Record — Play Stunts',Setup:'Configurazione — Play Stunts','Play Stunts':'Play Stunts — Il gioco di corse classico nel browser'}};document.title=titles[locale][kind];},[locale]);
+ const change=(value:WebsiteLocale)=>{setLocale(value);try{localStorage.setItem('playstunts-website-language',value);}catch{}};
+ return <LanguageContext.Provider value={{locale,change}}>{children}</LanguageContext.Provider>;
+}
+export function WebsiteText({text}:{text:string|undefined}){const {locale}=useContext(LanguageContext);return translateWebsite(text??'',locale);}
+export function useWebsiteLocale(){return useContext(LanguageContext).locale;}
+export function WebsiteImage(props:ComponentProps<typeof Image>){const {locale}=useContext(LanguageContext);return <Image {...props} alt={translateWebsite(props.alt,locale)}/>;}
+// Translate presentation attributes only. Values, filenames, driver names,
+// native keyboard inputs, canvas contents and score data are never rewritten.
+export function WebsiteElement<T extends keyof JSX.IntrinsicElements>({as,...props}:{as:T}&JSX.IntrinsicElements[T]){const {locale}=useContext(LanguageContext);const translated:Record<string,unknown>={...props};for(const key of ['aria-label','title','placeholder','alt'])if(typeof translated[key]==='string')translated[key]=translateWebsite(translated[key] as string,locale);return createElement(as,translated);}
+export function WebsiteLanguageSelector(){const {locale,change}=useContext(LanguageContext);return <label className="website-language"><svg className="website-language-globe" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg><span className="website-language-select"><select aria-label={translateWebsite('Website language',locale)} value={locale} onChange={event=>change(event.target.value as WebsiteLocale)}><option value="en" lang="en">English</option><option value="es" lang="es">Español</option><option value="it" lang="it">Italiano</option></select><svg className="website-language-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg></span></label>;}

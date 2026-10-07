@@ -4,6 +4,18 @@ A native browser reconstruction of **Stunts / 4D Sports Driving**, developed by 
 
 ## Live high scores and community tracks
 
+### Website languages
+
+The language selector after GitHub offers English (default), Spanish and Italian.
+The choice is remembered in the browser and does not restart the game. Website
+copy, controls and messages are translated; original in-game text, track/car/driver
+names, filenames and recorded data are unchanged. The original linked manual and
+developer workbench routes remain in their source language.
+
+Every website-copy change must include both translations. Maintain the catalogues
+in `lib/website-languages.ts` and `lib/website-*-translations.ts`; run
+`npm run test:languages`. The production build also checks translation coverage.
+
 The hosted game at **playstunts.com** now has shared online high scores and a community track library:
 
 - **Global high scores** use the original seven-row table and name-entry screen. Track selection shows one fastest run per named driver; race results qualify against the driven car and server-assessed route category. The server retains each driver’s best run per track/car/category, up to seven drivers per car in each category. Identical tracks share scores even when filenames differ; modified tracks get a separate board.

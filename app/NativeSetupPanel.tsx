@@ -1,4 +1,5 @@
 'use client';
+import {WebsiteText,WebsiteElement,WebsiteImage} from '@/app/WebsiteLanguage';
 import Image from 'next/image';
 import {useEffect,useRef,useState} from 'react';
 import {playBrowserSetupBell} from '@/lib/game/browser-setup-bell';
@@ -21,12 +22,12 @@ export default function NativeSetupPanel({onClosed}:{onClosed?:()=>void|Promise<
   }catch(reason){if(mounted.current){setStatus(controller.signal.aborted?'Setup closed':'Setup could not finish');if(!controller.signal.aborted)setError(reason instanceof Error?reason.message:String(reason));}}
   finally{await audio?.close().catch(()=>{});if(active.current===controller)active.current=null;if(mounted.current)setRunning(false);}
  };
- return <section className="native-setup-panel" data-running={running?"true":"false"} aria-label="Stunts Setup">
-  <div className="game-toolbar"><output>{status}</output><button disabled={running} onClick={()=>void start()}>Open Setup</button></div>
+ return <WebsiteElement as="section" className="native-setup-panel" data-running={running?"true":"false"} aria-label="Stunts Setup">
+  <div className="game-toolbar"><output>{<WebsiteText text={status}/>}</output><button disabled={running} onClick={()=>void start()}><WebsiteText text={"Open Setup"}/></button></div>
   <div className="launcher-screen" style={{display:!running&&previewMissing?"none":undefined}}>
-   <canvas ref={canvas} width={720} height={400} tabIndex={0} aria-label="Stunts Setup display and sound menu" style={{width:'100%',height:'100%',aspectRatio:'4 / 3',background:'black',imageRendering:'pixelated'}}/>
-   {!running&&<Image onError={()=>setPreviewMissing(true)} className="setup-menu-preview" src="/site/setup-menu.png" alt="Stunts Setup menu: display, sound and exit" width={720} height={400} unoptimized style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"contain",objectPosition:"center"}}/>}
+   <WebsiteElement as="canvas" ref={canvas} width={720} height={400} tabIndex={0} aria-label="Stunts Setup display and sound menu" style={{width:'100%',height:'100%',aspectRatio:'4 / 3',background:'black',imageRendering:'pixelated'}}/>
+   {!running&&<WebsiteImage onError={()=>setPreviewMissing(true)} className="setup-menu-preview" src="/site/setup-menu.png" alt="Stunts Setup menu: display, sound and exit" width={720} height={400} unoptimized style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"contain",objectPosition:"center"}}/>}
   </div>
-  {error&&<p role="alert" className="error">{error}</p>}
- </section>;
+  {error&&<p role="alert" className="error">{<WebsiteText text={error}/>}</p>}
+ </WebsiteElement>;
 }
