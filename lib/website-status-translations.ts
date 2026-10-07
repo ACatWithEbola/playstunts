@@ -18,6 +18,7 @@ export const statusTranslations:Record<string,readonly [string,string]>={
  'Invalid score':['Resultado no válido','Risultato non valido'],
  'Invalid track':['Circuito no válido','Pista non valida'],
  'Track not found':['Circuito no encontrado','Pista non trovata'],
+ 'This track has been withdrawn from community sharing.':['Esta pista se ha retirado de la comunidad.','Questa pista è stata ritirata dalla condivisione nella community.'],
  'Invalid page':['Página no válida','Pagina non valida'],
  'Shared tracks temporarily unavailable':['Los circuitos compartidos no están disponibles temporalmente','Le piste condivise sono temporaneamente non disponibili'],
  'Invalid track request':['Solicitud de circuito no válida','Richiesta della pista non valida'],
