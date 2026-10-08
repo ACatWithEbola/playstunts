@@ -401,7 +401,7 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
     if(!scoreContext)return;
     const proof=await completedScoreProof({...scoreContext,state:current,history:runHistory.get(scoreContext.runtime.session)},eligibility.status);
     if(!proof)return;
-    const offer:CompletedScoreOffer={track:current.trackName,ticks:current.panel.playerTime,submit:name=>sharedScores.submit(namedCompletedScore(proof,name),true)};
+    const offer:CompletedScoreOffer={track:current.trackName,car:current.carName,ticks:current.panel.playerTime,submit:name=>sharedScores.submit(namedCompletedScore(proof,name),true)};
     window.dispatchEvent(new CustomEvent('stunts-completed-score',{detail:offer}));
    };
    if(!alternate)return runNativeRaceResults(results,state);

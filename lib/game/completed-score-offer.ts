@@ -1,7 +1,7 @@
 import {prepareOriginalHighScoreRecord,nameOriginalHighScoreRecord} from './high-score-record.ts';
 import {GLOBAL_SCORE_RULES,type GlobalScoreSubmission} from './global-score-format.ts';
 import type {GlobalScoreContext} from './global-score-file-store.ts';
-export type CompletedScoreOffer={track:string;ticks:number;submit(name:string):Promise<string>};
+export type CompletedScoreOffer={track:string;car?:string;ticks:number;submit(name:string):Promise<string>};
 /** Snapshot a non-ranking finish without altering the original local table. */
 export async function completedScoreProof(context:GlobalScoreContext,localStatus:number):Promise<GlobalScoreSubmission|undefined>{
  const {state,runtime,history}=context;
