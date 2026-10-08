@@ -245,6 +245,9 @@
 .scores-car-record-driver{font-weight:700;overflow-wrap:anywhere}
 .scores-car-record-grid strong{color:#fff536;font-family:monospace;font-size:23px;font-variant-numeric:tabular-nums}
 .scores-car-record-link{font-size:11px;color:#fff536;margin-top:3px}
+.scores-car-record-grid>button{flex-direction:row;align-items:center;justify-content:space-between;gap:12px}
+.scores-car-record-copy{display:flex;flex-direction:column;gap:7px;min-width:0;flex:1}
+.scores-car-blueprint{width:45%;max-width:180px;height:auto;flex-shrink:0;pointer-events:none;object-fit:contain}
 @media(max-width:650px){.scores-car-record-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.scores-car-records{padding:16px}}
 @media(max-width:380px){.scores-car-record-grid{grid-template-columns:1fr}}
 .leader-trophy{flex-shrink:0;color:#fbf333;animation:leader-trophy-glow 4s ease-in-out infinite}
