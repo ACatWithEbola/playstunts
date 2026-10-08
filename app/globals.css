@@ -226,6 +226,12 @@
 @media(min-width:1001px){.stunts-universe .launcher-grid{align-items:stretch}.stunts-universe .stunts-manual-rail{display:flex;align-self:stretch}.stunts-manual-rail .recent-races-panel{flex:1;min-height:0}.stunts-universe .stunts-play-station{display:flex;flex-direction:column;padding-bottom:8px}.stunts-universe .stunts-play-station>.launcher-roland{margin-top:auto;padding-top:16px}.stunts-universe .stunts-setup-column{align-self:stretch}.stunts-universe .stunts-shortcuts{flex:1}}
 .scores-record-driver>strong{display:inline-flex;align-items:center;justify-content:flex-end;gap:10px}
 .scores-car-records{padding:20px 24px;border-bottom:1px solid #365362}
+.scores-car-records>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none;color:#fff536}
+.scores-car-records>summary::-webkit-details-marker{display:none}
+.scores-car-records>summary>svg{flex:none;color:#fff536}
+.scores-car-records[open]>summary>svg{transform:rotate(180deg)}
+.scores-car-records>summary:focus-visible{outline:2px solid #fff536;outline-offset:6px}
+.scores-car-records[open]>p{margin-top:14px}
 .scores-car-records h4{margin:0;color:#fff536;font-family:Archivo,sans-serif;font-size:14px;font-style:normal;letter-spacing:.08em}
 .scores-car-records>p{margin:8px 0 16px;color:#9bb5c3;font-size:13px}
 .scores-car-record-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
