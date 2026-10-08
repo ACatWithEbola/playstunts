@@ -10,7 +10,7 @@ SELECT a.*,
  (SELECT MIN(b.ticks) FROM visible b WHERE b.track_hash=a.track_hash AND b.route_assessment='full_route' AND b.created_at<a.created_at) AS previous_record,
  (SELECT MIN(b.ticks) FROM visible b WHERE b.track_hash=a.track_hash AND b.route_assessment='full_route') AS current_record,
  COALESCE((SELECT name FROM shared_tracks t WHERE t.hash=a.track_hash),(SELECT name FROM score_tracks t WHERE t.hash=a.track_hash)) AS track_name
-FROM visible a ORDER BY a.created_at DESC,a.id DESC LIMIT 5`;
+FROM visible a ORDER BY a.created_at DESC,a.id DESC LIMIT 8`;
 export type RecentRaceRow={id:string;track_hash:string;car_code:string;ticks:number;record:string;created_at:number;driver_key:string;route_assessment:string;previous_best:number|null;previous_record:number|null;current_record:number|null;track_name:string|null};
 export function recentRace(row:RecentRaceRow){
  const record=JSON.parse(row.record) as number[],valid=row.route_assessment==='full_route';

@@ -14,7 +14,7 @@ export const websiteTranslations:Record<string,readonly [string,string]>={
 "Loading recent races…":["Cargando carreras recientes…","Caricamento delle gare recenti…"],
 "Recent races are temporarily unavailable.":["Las carreras recientes no están disponibles temporalmente.","Le gare recenti non sono temporaneamente disponibili."],
 "No public races yet.":["Aún no hay carreras públicas.","Non ci sono ancora gare pubbliche."],
-"Latest five public submissions":["Los cinco últimos envíos públicos","Gli ultimi cinque invii pubblici"],
+"Latest eight public submissions":["Los ocho últimos envíos públicos","Gli ultimi otto invii pubblici"],
 "View leaderboards":["Ver clasificaciones","Vedi le classifiche"],
 "VALID TRACK RECORD":["RÉCORD VÁLIDO DEL CIRCUITO","RECORD VALIDO DELLA PISTA"],
 "Valid runs only, fastest first.":["Solo carreras válidas, de más rápida a más lenta.","Solo gare valide, dalla più veloce alla più lenta."],
