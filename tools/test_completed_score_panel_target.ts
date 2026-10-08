@@ -11,4 +11,6 @@ test('completed run prompt and focus target the game session, never the setup pr
  assert.match(game,/embedded\?"launcher-game-session"/);
  assert.match(source,/setConsent\(true\)/,'Publishing is checked for every new offer');
  assert.doesNotMatch(source,/window\.location|router\.push|location\.assign/,'Submitting never navigates away from the game');
+ const client=readFileSync(new URL('../lib/game/browser-global-scores.ts',import.meta.url),'utf8');
+ assert.doesNotMatch(client,/window\.confirm/,'The submission panel is the only public-sharing prompt');
 });

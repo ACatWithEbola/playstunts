@@ -229,7 +229,7 @@
 @media(min-width:1001px){.stunts-universe .launcher-grid{align-items:stretch}.stunts-universe .stunts-manual-rail{display:flex;align-self:stretch}.stunts-manual-rail .recent-races-panel{flex:1;min-height:0}.stunts-universe .stunts-play-station{display:flex;flex-direction:column;padding-bottom:8px}.stunts-universe .stunts-play-station>.launcher-roland{margin-top:0;padding-top:16px}.stunts-universe .stunts-setup-column{align-self:stretch}.stunts-universe .stunts-shortcuts{flex:1}.stunts-manual-rail .recent-races-panel li{padding:9px 0}.stunts-manual-rail .recent-races-panel li p{margin-bottom:4px}.stunts-manual-rail .recent-race-result{margin-top:5px}.stunts-universe .stunts-shortcuts dl{gap:8px 14px}}
 .scores-record-driver>strong{display:inline-flex;align-items:center;justify-content:flex-end;gap:10px}
 .scores-car-records{padding:20px 24px;border-bottom:1px solid #365362}
-.scores-car-records>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none;color:#fff536}
+.scores-car-records>summary{display:flex;align-items:center;justify-content:flex-start;gap:12px;cursor:pointer;list-style:none;color:#fff536}
 .scores-car-records>summary::-webkit-details-marker{display:none}
 .scores-car-records>summary>svg{flex:none;color:#fff536}
 .scores-car-records[open]>summary>svg{transform:rotate(180deg)}

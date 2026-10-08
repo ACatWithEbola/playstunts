@@ -1,12 +1,8 @@
 import {GLOBAL_SCORE_ENDPOINT,GLOBAL_SCORE_RULES,scoreHash,scoreTicks,sharedScoreFile,validateScoreSubmission,type GlobalScoreSubmission} from './global-score-format.ts';
 import type {NativeFilePersistence} from './native-file-store.ts';
 import type {RouteAssessment} from '../server/shortcut-assessment.ts';
-import {translateWebsite,type WebsiteLocale} from '../website-languages.ts';
-export async function createGlobalScoreClient(persistence:NativeFilePersistence,request:typeof fetch=fetch,confirmSharing=()=>{
- if(typeof window==='undefined')return true;
- let locale:WebsiteLocale='en';try{const saved=localStorage.getItem('playstunts-website-language');if(saved==='es'||saved==='it')locale=saved;}catch{/* English notice remains available. */}
- return window.confirm(translateWebsite('Submitting your high score also publishes your replay. Continue?',locale));
-}){
+// The submission panel collects public-sharing consent before calling this client.
+export async function createGlobalScoreClient(persistence:NativeFilePersistence,request:typeof fetch=fetch,confirmSharing=()=>true){
  const stored=new Map((await persistence.all()).map(file=>[file.key,file.bytes]));
  const decoder=new TextDecoder(),encoder=new TextEncoder();
  const put=async(key:string,bytes:Uint8Array)=>{await persistence.put({key,bytes});stored.set(key,bytes);};

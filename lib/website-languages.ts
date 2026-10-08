@@ -4,6 +4,7 @@ export type WebsiteLocale='en'|'es'|'it';
 // Each entry must include both translations. Keep keys identical to the
 // English website copy; game/driver/track names are not translation keys.
 export const websiteTranslations:Record<string,readonly [string,string]>={
+"You confirm sharing in the submission panel; no extra browser confirmation appears.":["Confirmas la publicación en el panel de envío; no aparece ninguna confirmación adicional del navegador.","Confermi la condivisione nel pannello di invio; non appare alcuna conferma aggiuntiva del browser."],
 "Track:":["Circuito:","Pista:"],
 "Car:":["Coche:","Auto:"],
 "RECENT RACES":["CARRERAS RECIENTES","GARE RECENTI"],
