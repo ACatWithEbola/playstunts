@@ -4,6 +4,8 @@ export type WebsiteLocale='en'|'es'|'it';
 // Each entry must include both translations. Keep keys identical to the
 // English website copy; game/driver/track names are not translation keys.
 export const websiteTranslations:Record<string,readonly [string,string]>={
+"Track:":["Circuito:","Pista:"],
+"Car:":["Coche:","Auto:"],
 "RECENT RACES":["CARRERAS RECIENTES","GARE RECENTI"],
 "set a new valid track record":["estableció un nuevo récord válido del circuito","ha stabilito un nuovo record valido della pista"],
 "improved their time":["mejoró su tiempo","ha migliorato il proprio tempo"],
