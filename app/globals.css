@@ -202,3 +202,15 @@
 @media(max-width:480px){.stunts-universe .stunts-game-idle .launcher-play{gap:0;min-height:56px;padding:10px 22px}}
 
 .stunts-universe .stunts-game-idle .launcher-play:hover{background:#0b0b0b;transform:none}
+.stunts-navigation>.website-language{padding:0;gap:0;align-items:stretch;margin-left:0}
+.stunts-navigation .website-language-dropdown{height:100%}
+.stunts-navigation .website-language-dropdown summary{height:100%;min-height:48px;padding:0 24px;border:0;border-radius:0;background:transparent;color:#edf5f8;font:800 14px/1.25 Archivo,Arial,sans-serif;letter-spacing:.075em;text-transform:uppercase;gap:8px}
+.stunts-navigation .website-language-dropdown summary:hover,.stunts-navigation .website-language-dropdown[open] summary{background:#233b4b}
+.stunts-navigation .website-language-options{top:100%;right:0;margin-top:0;padding:0;border:1px solid #557585;background:#0c141c;min-width:190px}
+.stunts-navigation .website-language-options button{padding:13px 16px;font:500 14px/1.3 Archivo,Arial,sans-serif}
+.stunts-navigation .website-language-options button[aria-checked=true]{color:#edf5f8}
+.website-language-options button>span:last-child{min-width:14px;color:#fbf333}
+@media(max-width:1250px){.stunts-navigation>.website-language{width:100%;border-top:1px solid #243745}.stunts-navigation .website-language-dropdown{width:100%}.stunts-navigation .website-language-dropdown summary,.stunts-navigation .website-language-dropdown[open] summary{width:100%;justify-content:flex-start;padding:13px 18px;min-height:50px}.stunts-navigation .website-language-options{position:static;width:100%;margin-top:0;box-shadow:none;border-inline:0;border-bottom:0}.stunts-navigation .website-language-options button{padding-left:18px}}
+.stunts-navigation .website-language-options button{display:grid;grid-template-columns:minmax(0,1fr) 20px 14px;align-items:center;gap:12px}
+.stunts-navigation .website-language-options button>.website-language-flag{justify-self:center}
+.stunts-navigation .website-language-options button>span:last-child{text-align:center}
