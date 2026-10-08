@@ -235,3 +235,4 @@
 .nav-highscores-label{display:inline-block;animation:stunts-launch-pulse 2.6s ease-in-out infinite}
 .stunts-navigation a.nav-highscores:hover .nav-highscores-label,.stunts-navigation a.nav-highscores:focus-visible .nav-highscores-label{animation:none}
 @media(prefers-reduced-motion:reduce){.nav-highscores-label{animation:none}}
+.scores-expand{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:12px;padding:18px;border-top:1px solid #294251}.scores-expand>span{font-size:13px;color:#91adbf}.scores-expand button{padding:10px 16px;border:1px solid #52748b;background:#142532;color:#fbf333;cursor:pointer;font:700 13px Archivo,Arial,sans-serif}.scores-expand button:hover{background:#233b4b}.scores-expand button:focus-visible{outline:2px solid #fbf333;outline-offset:3px}
