@@ -19,9 +19,14 @@ export default function TrackLeaderboard({board}:{board:Leaderboard}){
  const car=board.cars.find(car=>car.code===code)??board.cars[0];
  const group=board.categories?.[category];
  const record=board.categories?.full_route.scores[0];
+ const carRecords=(board.categories?.full_route.cars??[]).filter(item=>item.scores.length).map(item=>({code:item.code,name:item.name,score:item.scores[0]})).sort((a,b)=>a.score.ticks-b.score.ticks||a.name.localeCompare(b.name));
  const scores=mode==='car'?(group?.cars.find(item=>item.code===car?.code)?.scores??[]):(group?.scores??[]),fastest=scores[0];
  return <article className="scores-board" aria-labelledby={'track-'+board.hash}>
   <header><div><span className="scores-track-label"><Flag size={12} aria-hidden="true"/><WebsiteText text={" TRACK LEADERBOARD"}/></span><h3 id={'track-'+board.hash}>{board.name}</h3></div><div className="scores-record"><div className="scores-record-driver">{record&&<><strong><Trophy className="leader-trophy" size={22} aria-hidden="true"/>{record.driver}</strong><span>{record.car}</span></>}</div><span className="scores-best"><small><WebsiteText text="VALID TRACK RECORD"/></small><strong className={record?'leader-time':undefined}>{record?time(record.ticks):'—'}</strong>{record&&<RouteBadge assessment="full_route"/>}</span></div></header>
+  {!!carRecords.length&&<section className="scores-car-records" aria-labelledby={'car-records-'+board.hash}>
+   <h4 id={'car-records-'+board.hash}><WebsiteText text="CAR RECORDS"/></h4><p><WebsiteText text="Best valid time for each car · fastest first"/></p>
+   <div className="scores-car-record-grid">{carRecords.map(item=><button type="button" key={item.code} aria-pressed={mode==='car'&&category==='full_route'&&car?.code===item.code} onClick={()=>{setCategory('full_route');setMode('car');setCode(item.code);setVisible(10);}}><span className="scores-car-record-name">{item.name}</span><span className="scores-car-record-driver">{item.score.driver}</span><strong>{time(item.score.ticks)}</strong><span className="scores-car-record-link"><WebsiteText text="View ranking"/> →</span></button>)}</div>
+  </section>}
   <div className="scores-ranking-controls">
    <WebsiteElement as="div" className="scores-category-switch" role="group" aria-label="Run category">
     {categories.map(([value,label])=><button key={value} type="button" aria-pressed={category===value} onClick={()=>setCategory(value)}><WebsiteText text={label}/></button>)}
