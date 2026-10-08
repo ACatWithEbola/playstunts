@@ -49,7 +49,6 @@ export default function Leaderboards(){
   <div className="scores-boards">{filtered.map(board=><TrackLeaderboard key={board.hash} board={board} query={query}/>)}</div>
   {assessmentMessage&&assessmentMessage!=='Checking saved replay routes…'&&<p className="scores-fair"><WebsiteText text={assessmentMessage}/></p>}
   {hasMore&&<button disabled={busy} className="scores-more" onClick={()=>void refresh(page+1)}><WebsiteText text={"Load more tracks ("}/>{Math.max(0,total-boards.length)}<WebsiteText text={" remaining)"}/></button>}
-  <p className="scores-fair"><WebsiteText text={"One place per named driver in each ranking. Names are grouped ignoring letter case and surrounding spaces, not verified accounts; unnamed runs remain separate. Fresh, completed races only. Replay continuation is not eligible. Common profanity is masked. "}/><a href="/faq#global-scores"><WebsiteText text={"Read the scoring rules ↗"}/></a></p>
   </WebsiteElement>
  </>;
 }
