@@ -11,7 +11,8 @@ test('slower completed run gets a verified proof without replacing local scores'
  const proof=await completedScoreProof(context,0);assert.ok(proof);
  const verified=await verifyGlobalScore(namedCompletedScore(proof,'SLOW DRIVER'),fixtureData);
  assert.equal(verified.ticks,scoreTicks(fixture.record));assert.equal(scoreString(verified.record,0,17),'SLOW DRIVER');assert.deepEqual(table,before);
- assert.equal(await completedScoreProof(context,1),undefined);
+ const rankingProof=await completedScoreProof(context,1);assert.ok(rankingProof,'Top-seven finishes receive the same public submission offer');
+ assert.deepEqual(rankingProof.record,proof.record);assert.deepEqual(table,before);
  context.history!.continued=true;assert.equal(await completedScoreProof(context,0),undefined);
  context.history!.continued=false;context.state.panel.playerTime=0;assert.equal(await completedScoreProof(context,0),undefined);
  context.state.panel.playerTime=scoreTicks(fixture.record);context.state.panel.flags=2;assert.equal(await completedScoreProof(context,0),undefined);
