@@ -10,7 +10,7 @@ for(const car of assets.cars){
  const model=createShowroomCarModel(shapes.car0,shapes.car1,{...materials,paint:0});model.updateMatrixWorld(true);
  const bounds=new THREE.Box3().setFromObject(model),center=bounds.getCenter(new THREE.Vector3()),size=bounds.getSize(new THREE.Vector3());
  const extent=Math.max(size.x,size.y,size.z),camera=new THREE.OrthographicCamera(-extent,extent,extent*.6,-extent*.6,.01,extent*10);
- camera.position.copy(center).add(new THREE.Vector3(1,.52,1.4).normalize().multiplyScalar(extent*3));camera.lookAt(center);camera.updateMatrixWorld(true);
+ camera.position.copy(center).add(new THREE.Vector3(1.8,.3,1).normalize().multiplyScalar(extent*3));camera.lookAt(center);camera.updateMatrixWorld(true);
  const meshes:THREE.Mesh[]=[];model.traverse(n=>{if(n instanceof THREE.Mesh&&!('isLineSegments2' in n))meshes.push(n);});
  const lines:number[][]=[];const ray=new THREE.Raycaster();
  for(const mesh of meshes){
@@ -19,7 +19,9 @@ for(const car of assets.cars){
    const a=new THREE.Vector3().fromBufferAttribute(points,i).applyMatrix4(mesh.matrixWorld),b=new THREE.Vector3().fromBufferAttribute(points,i+1).applyMatrix4(mesh.matrixWorld);
    const mid=a.clone().add(b).multiplyScalar(.5),direction=mid.clone().sub(camera.position).normalize();ray.set(camera.position,direction);
    const hit=ray.intersectObjects(meshes,false)[0];if(hit&&hit.distance<camera.position.distanceTo(mid)-extent*.004)continue;
-   a.project(camera);b.project(camera);lines.push([a.x,a.y,b.x,b.y]);
+   // Undo the orthographic viewport normalization before fitting the drawing.
+   // A single world-space scale preserves circular wheels and body proportions.
+   a.project(camera);b.project(camera);lines.push([a.x*extent,a.y*extent*.6,b.x*extent,b.y*extent*.6]);
   }edges.dispose();
  }
  const xs=lines.flatMap(l=>[l[0],l[2]]),ys=lines.flatMap(l=>[l[1],l[3]]),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
