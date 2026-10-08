@@ -250,10 +250,10 @@
 @keyframes leader-time-shimmer{0%,76%{background-position:100% 0}94%,100%{background-position:0% 0}}
 @keyframes leader-trophy-glow{0%,100%{filter:drop-shadow(0 0 1px #fbf33320)}50%{filter:drop-shadow(0 0 6px #fbf33380)}}
 @media(prefers-reduced-motion:reduce){.leader-trophy,.scores-winner>td:first-child>svg,.scores-winner>td:first-child .rank-trophy,.leader-time,.scores-winner .scores-time>strong{animation:none;filter:none}.leader-time,.scores-winner .scores-time>strong{background-image:none;color:#fbf333}}
-.stunts-navigation a.nav-highscores{background:#0c141c;color:var(--stunts-yellow);box-shadow:none}
+.stunts-navigation a.nav-highscores{background:#0c141c;color:#fff;box-shadow:none}
 .stunts-navigation a.nav-highscores:hover{background:#233b4b}
 .nav-highscores-label{display:inline-block;animation:nav-highscores-pulse 2.2s ease-in-out infinite}
-@keyframes nav-highscores-pulse{0%,100%{filter:drop-shadow(0 0 2px #fbf33330);transform:scale(1)}50%{filter:drop-shadow(0 0 14px #fbf333cc);transform:scale(1.065)}}
+@keyframes nav-highscores-pulse{0%,100%{filter:drop-shadow(0 0 2px #ffffff30);transform:scale(1)}50%{filter:drop-shadow(0 0 14px #ffffffcc);transform:scale(1.065)}}
 .stunts-navigation a.nav-highscores:hover .nav-highscores-label,.stunts-navigation a.nav-highscores:focus-visible .nav-highscores-label{animation:none}
 @media(prefers-reduced-motion:reduce){.nav-highscores-label{animation:none}}
 .scores-expand{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:12px;padding:18px;border-top:1px solid #294251}.scores-expand>span{font-size:13px;color:#91adbf}.scores-expand button{padding:10px 16px;border:1px solid #52748b;background:#142532;color:#fbf333;cursor:pointer;font:700 13px Archivo,Arial,sans-serif}.scores-expand button:hover{background:#233b4b}.scores-expand button:focus-visible{outline:2px solid #fbf333;outline-offset:3px}
