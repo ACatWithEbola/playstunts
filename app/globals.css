@@ -191,3 +191,15 @@
 @media(max-width:1250px){.website-language-dropdown[open]{width:100%}.website-language-dropdown[open] summary{width:max-content}.website-language-dropdown .website-language-options{position:static;margin-top:8px;min-width:170px;width:100%;box-shadow:none}.stunts-navigation>.website-language{align-items:flex-start}.website-language-globe{margin-top:7px}}
 .stunts-universe .stunts-manual-rail{padding-top:0}
 .stunts-manual-rail .recent-races-panel h3{font-style:normal}
+.stunts-launch-frame{display:inline-flex;width:max-content;max-width:90%;filter:drop-shadow(0 0 5px #fbf33340);animation:stunts-launch-pulse 3s ease-in-out infinite}
+.stunts-universe .stunts-game-idle .launcher-play{position:relative;isolation:isolate;display:inline-flex;align-items:center;justify-content:center;gap:18px;min-height:76px;max-width:100%;padding:14px 28px 14px 18px;border:0;border-radius:0;background:var(--stunts-yellow);color:var(--stunts-yellow);box-shadow:none;clip-path:polygon(18px 0,calc(100% - 18px) 0,100% 18px,100% calc(100% - 18px),calc(100% - 18px) 100%,18px 100%,0 calc(100% - 18px),0 18px);font:900 normal clamp(16px,2vw,24px)/1.25 Archivo,Arial,sans-serif;letter-spacing:.06em;transform:none}
+.stunts-universe .stunts-game-idle .launcher-play::before{content:"";position:absolute;inset:2px;z-index:-1;background:linear-gradient(135deg,#142532,#071019);clip-path:polygon(17px 0,calc(100% - 17px) 0,100% 17px,100% calc(100% - 17px),calc(100% - 17px) 100%,17px 100%,0 calc(100% - 17px),0 17px)}
+.stunts-universe .stunts-game-idle .launcher-play .stunts-launch-icon{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border:1px solid #fbf33350;border-radius:4px;background:#fbf3330c}
+.stunts-universe .stunts-game-idle .launcher-play .stunts-launch-label{font:inherit;color:inherit;white-space:nowrap}
+.stunts-universe .stunts-game-idle .launcher-play:hover::before{background:#1b3242}
+.stunts-launch-frame:has(button:hover),.stunts-launch-frame:has(button:focus-visible),.stunts-launch-frame:has(button:disabled){animation:none}
+.stunts-universe .stunts-game-idle .launcher-play:focus-visible{outline:none}
+.stunts-launch-frame:has(button:focus-visible){outline:2px solid var(--stunts-yellow);outline-offset:6px}
+@keyframes stunts-launch-pulse{0%,100%{filter:drop-shadow(0 0 4px #fbf33330)}50%{filter:drop-shadow(0 0 13px #fbf33380)}}
+@media(prefers-reduced-motion:reduce){.stunts-launch-frame{animation:none}}
+@media(max-width:480px){.stunts-universe .stunts-game-idle .launcher-play{gap:12px;min-height:66px;padding:10px 22px 10px 14px}}
