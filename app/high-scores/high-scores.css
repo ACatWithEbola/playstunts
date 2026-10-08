@@ -34,6 +34,16 @@
 .scores-board tr.scores-search-match{background:#fff53614}
 .scores-board tr.scores-search-match>td:first-child{box-shadow:inset 3px 0 #fff536}
 .scores-board tr.scores-search-match .scores-driver,.scores-board tr.scores-search-match .scores-car{color:#fff536}
+.scores-track-toggle{position:relative;display:block;list-style:none;cursor:pointer;background:#172b38}
+.scores-track-toggle::-webkit-details-marker{display:none}
+.scores-track-toggle>header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:25px 54px 22px 24px;min-width:0}
+.scores-track-toggle>header>div:first-child{min-width:0}
+.scores-track-chevron{position:absolute;right:20px;top:50%;transform:translateY(-50%);color:#fbf333;pointer-events:none}
+.scores-board[open]>.scores-track-toggle{border-bottom:1px solid #35536a}
+.scores-board[open]>.scores-track-toggle>.scores-track-chevron{transform:translateY(-50%) rotate(180deg)}
+.scores-track-toggle:hover{background:#1c3240}
+.scores-track-toggle:focus-visible{outline:2px solid #fbf333;outline-offset:4px}
+@media(max-width:680px){.scores-track-toggle>header{padding:20px 44px 20px 15px;flex-wrap:wrap}.scores-track-chevron{right:14px}.scores-track-toggle .scores-record{max-width:100%;flex-wrap:wrap}.scores-track-toggle .scores-record-driver{min-width:0}}
 .scores-update{margin:0 0 14px}
 .scores-tools{margin-bottom:18px}
 .scores-tools .scores-refresh{height:48px;border:1px solid #35536a;background:#111d26;color:#eef3f6;padding:0 14px;font:400 16px Archivo,Arial,sans-serif;gap:14px;border-radius:0}
