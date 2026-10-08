@@ -4,6 +4,8 @@ export type WebsiteLocale='en'|'es'|'it';
 // Each entry must include both translations. Keep keys identical to the
 // English website copy; game/driver/track names are not translation keys.
 export const websiteTranslations:Record<string,readonly [string,string]>={
+"How does leaderboard search work?":["¿Cómo funciona la búsqueda de clasificaciones?","Come funziona la ricerca nelle classifiche?"],
+"Search by track, driver or car. Matching ranking rows are highlighted and revealed beyond the first ten places, without changing their ranks. A relevant car ranking is selected when needed. Clear the search to remove highlights.":["Busca por circuito, piloto o coche. Las filas coincidentes se resaltan y se muestran incluso después de los diez primeros puestos, sin cambiar su posición. Cuando es necesario, se selecciona la clasificación del coche correspondiente. Borra la búsqueda para quitar los resaltados.","Cerca per pista, pilota o auto. Le righe corrispondenti vengono evidenziate e mostrate anche oltre i primi dieci posti, senza modificarne la posizione. Quando necessario, viene selezionata la classifica dell'auto pertinente. Cancella la ricerca per rimuovere le evidenziazioni."],
 "You confirm sharing in the submission panel; no extra browser confirmation appears.":["Confirmas la publicación en el panel de envío; no aparece ninguna confirmación adicional del navegador.","Confermi la condivisione nel pannello di invio; non appare alcuna conferma aggiuntiva del browser."],
 "Track:":["Circuito:","Pista:"],
 "Car:":["Coche:","Auto:"],

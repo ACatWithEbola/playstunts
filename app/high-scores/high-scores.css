@@ -31,6 +31,9 @@
 .scores-ranking-controls .scores-category-switch,.scores-ranking-controls .scores-ranking-switch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0;border:0;background:transparent;align-items:stretch}
 .scores-ranking-controls .scores-category-switch button,.scores-ranking-controls .scores-ranking-switch button{box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-width:0;height:48px;min-height:48px;padding:8px 10px;border:1px solid #36596b;border-radius:0;background:#10232e;color:#b8cbd4;font:700 13px Archivo,Arial,sans-serif;line-height:1.2;text-align:center}
 .scores-ranking-controls .scores-category-switch button[aria-pressed=true],.scores-ranking-controls .scores-ranking-switch button[aria-pressed=true]{background:#fff52b;border-color:#fff52b;color:#081219}
+.scores-board tr.scores-search-match{background:#fff53614}
+.scores-board tr.scores-search-match>td:first-child{box-shadow:inset 3px 0 #fff536}
+.scores-board tr.scores-search-match .scores-driver,.scores-board tr.scores-search-match .scores-car{color:#fff536}
 .scores-update{margin:0 0 14px}
 .scores-tools{margin-bottom:18px}
 .scores-tools .scores-refresh{height:48px;border:1px solid #35536a;background:#111d26;color:#eef3f6;padding:0 14px;font:400 16px Archivo,Arial,sans-serif;gap:14px;border-radius:0}
