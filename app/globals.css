@@ -231,3 +231,7 @@
 @keyframes leader-time-shimmer{0%,76%{background-position:100% 0}94%,100%{background-position:0% 0}}
 @keyframes leader-trophy-glow{0%,100%{filter:drop-shadow(0 0 1px #fbf33320)}50%{filter:drop-shadow(0 0 6px #fbf33380)}}
 @media(prefers-reduced-motion:reduce){.leader-trophy,.scores-winner>td:first-child>svg,.scores-winner>td:first-child .rank-trophy,.leader-time,.scores-winner .scores-time>strong{animation:none;filter:none}.leader-time,.scores-winner .scores-time>strong{background-image:none;color:#fbf333}}
+.stunts-navigation a.nav-highscores:not(.nav-play){background:#000;color:var(--stunts-yellow);box-shadow:inset 0 0 0 1px #fbf33360}
+.nav-highscores-label{display:inline-block;animation:stunts-launch-pulse 2.6s ease-in-out infinite}
+.stunts-navigation a.nav-highscores:hover .nav-highscores-label,.stunts-navigation a.nav-highscores:focus-visible .nav-highscores-label{animation:none}
+@media(prefers-reduced-motion:reduce){.nav-highscores-label{animation:none}}
