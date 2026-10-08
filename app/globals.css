@@ -192,6 +192,7 @@
 .stunts-universe .stunts-manual-rail{padding-top:0}
 .stunts-manual-rail .recent-races-panel{background:#0b151e}
 .recent-race-result{flex-direction:column;align-items:flex-start;justify-content:flex-start}
+.stunts-universe .stunts-play-station>.launcher-roland{padding-bottom:8px}
 .stunts-manual-rail .recent-races-panel h3{font-style:normal;background:#142532}
 .stunts-launch-frame{display:inline-flex;width:max-content;max-width:90%;filter:drop-shadow(0 0 5px #fbf33340);animation:stunts-launch-pulse 2.6s ease-in-out infinite}
 .stunts-universe .stunts-game-idle .launcher-play{position:relative;isolation:isolate;display:inline-flex;align-items:center;justify-content:center;gap:0;min-height:64px;max-width:100%;padding:14px 28px;border:1px solid #52748b;border-radius:8px;background:#000;color:var(--stunts-yellow);box-shadow:none;font:900 normal clamp(16px,2vw,24px)/1.25 Archivo,Arial,sans-serif;letter-spacing:.06em;transform:none}
