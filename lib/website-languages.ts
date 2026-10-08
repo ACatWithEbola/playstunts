@@ -4,6 +4,16 @@ export type WebsiteLocale='en'|'es'|'it';
 // Each entry must include both translations. Keep keys identical to the
 // English website copy; game/driver/track names are not translation keys.
 export const websiteTranslations:Record<string,readonly [string,string]>={
+"RECENT RACES":["CARRERAS RECIENTES","GARE RECENTI"],
+"set a new valid track record":["estableció un nuevo récord válido del circuito","ha stabilito un nuovo record valido della pista"],
+"improved their time":["mejoró su tiempo","ha migliorato il proprio tempo"],
+"completed a valid run":["completó una carrera válida","ha completato una gara valida"],
+"submitted a run":["envió una carrera","ha inviato una gara"],
+"Loading recent races…":["Cargando carreras recientes…","Caricamento delle gare recenti…"],
+"Recent races are temporarily unavailable.":["Las carreras recientes no están disponibles temporalmente.","Le gare recenti non sono temporaneamente disponibili."],
+"No public races yet.":["Aún no hay carreras públicas.","Non ci sono ancora gare pubbliche."],
+"Latest five public submissions":["Los cinco últimos envíos públicos","Gli ultimi cinque invii pubblici"],
+"View leaderboards":["Ver clasificaciones","Vedi le classifiche"],
 "VALID TRACK RECORD":["RÉCORD VÁLIDO DEL CIRCUITO","RECORD VALIDO DELLA PISTA"],
 "Valid runs only, fastest first.":["Solo carreras válidas, de más rápida a más lenta.","Solo gare valide, dalla più veloce alla più lenta."],
 "Runs with detected exploits, fastest first.":["Carreras con exploits detectados, de más rápida a más lenta.","Gare con exploit rilevati, dalla più veloce alla più lenta."],
