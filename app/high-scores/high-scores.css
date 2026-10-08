@@ -26,3 +26,7 @@
 .scores-ranking-controls .scores-category-switch,.scores-ranking-controls .scores-ranking-switch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0;border:0;background:transparent;align-items:stretch}
 .scores-ranking-controls .scores-category-switch button,.scores-ranking-controls .scores-ranking-switch button{box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-width:0;height:48px;min-height:48px;padding:8px 10px;border:1px solid #36596b;border-radius:0;background:#10232e;color:#b8cbd4;font:700 13px Archivo,Arial,sans-serif;line-height:1.2;text-align:center}
 .scores-ranking-controls .scores-category-switch button[aria-pressed=true],.scores-ranking-controls .scores-ranking-switch button[aria-pressed=true]{background:#fff52b;border-color:#fff52b;color:#081219}
+.scores-hero{padding-top:32px;padding-bottom:26px}
+.scores-hero h2{margin:14px 0}
+.scores-hero p{margin-bottom:0}
+@media(max-width:680px){.scores-hero{padding-top:24px;padding-bottom:24px;gap:18px}}
