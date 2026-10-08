@@ -207,6 +207,7 @@ export const websiteTranslations:Record<string,readonly [string,string]>={
  'Refresh scores':['Actualizar resultados','Aggiorna risultati'],
  'Refreshing…':['Actualizando…','Aggiornamento…'],
  'Checked {0}':['Comprobado a las {0}','Controllato alle {0}'],
+ 'Updated {0}':['Actualizado a las {0}','Aggiornato alle {0}'],
  'Loading shared times…':['Cargando tiempos compartidos…','Caricamento tempi condivisi…'],
  'Not checked yet':['Sin comprobar','Non ancora controllato'],
  '· Refreshes hourly and when you return':['· Se actualiza cada hora y al volver','· Si aggiorna ogni ora e al tuo ritorno'],
