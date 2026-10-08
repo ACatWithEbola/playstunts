@@ -221,7 +221,7 @@
 .stunts-story-box{display:flex;align-items:center;justify-content:center;border-right:1px solid #35536a;padding-right:20px;align-self:stretch;min-width:0}
 .stunts-story-box .stunts-box-viewer{--box-width:clamp(130px,12vw,180px);height:calc(var(--box-height) + 38px);margin:0}
 .stunts-about .about-heading{min-width:0}
-.stunts-about .stunts-history{min-width:0}
+.stunts-about .stunts-history{min-width:0;align-self:stretch}
 @media(max-width:1000px){.stunts-about{grid-template-columns:180px minmax(0,1fr);gap:20px}.stunts-about .stunts-history{grid-column:1/-1}.stunts-story-box{padding-right:12px}.stunts-story-box .stunts-box-viewer{--box-width:130px;height:210px}}
 @media(max-width:480px){.stunts-about{grid-template-columns:120px minmax(0,1fr);gap:16px}.stunts-story-box .stunts-box-viewer{--box-width:88px;height:155px}.stunts-about .about-heading h2{font-size:22px}}
 .stunts-universe .stunts-story-box .stunts-box-viewer,.stunts-universe .stunts-story-box .stunts-box-viewer:hover{border:0;background:transparent;padding:0;box-shadow:none}
