@@ -222,3 +222,4 @@
 @media(max-width:1000px){.stunts-about{grid-template-columns:110px minmax(0,1fr);gap:20px}.stunts-about .stunts-history{grid-column:1/-1}.stunts-story-box{padding-right:12px}.stunts-story-box .stunts-box-viewer{--box-width:76px;height:140px}}
 @media(max-width:480px){.stunts-about{grid-template-columns:88px minmax(0,1fr);gap:16px}.stunts-story-box .stunts-box-viewer{--box-width:62px;height:122px}.stunts-about .about-heading h2{font-size:22px}}
 .stunts-universe .stunts-story-box .stunts-box-viewer,.stunts-universe .stunts-story-box .stunts-box-viewer:hover{border:0;background:transparent;padding:0;box-shadow:none}
+@media(min-width:1001px){.stunts-manual-rail .recent-races-panel{display:flex;flex-direction:column;min-height:var(--recent-races-height,0px);margin-bottom:0}.stunts-manual-rail .recent-races-panel ol{flex:1;display:flex;flex-direction:column;justify-content:space-between}.stunts-manual-rail .recent-races-panel footer{margin-top:auto}}
