@@ -2,14 +2,13 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=(path:string)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
-test('all four library lists render only the requested number of entries',()=>{
+test('all remaining library lists render only the requested number of entries',()=>{
  const saves=read('app/SaveBackupPanel.tsx'),tracks=read('app/SharedTracksPanel.tsx'),replays=read('app/SharedReplaysPanel.tsx');
  assert.match(saves,/downloads\.slice\(0,visible\)\.map/);
  assert.match(tracks,/tracks\.slice\(0,visible\)\.map/);
- assert.match(replays,/mine\.slice\(0,mineVisible\)\.map/);
  assert.match(replays,/replays\.slice\(0,sharedVisible\)\.map/);
  for(const source of [saves,tracks,replays])assert.match(source,/useState\(10\)/);
- assert.equal((replays.match(/<ListPagination /g)||[]).length,2);
+ assert.equal((replays.match(/<ListPagination /g)||[]).length,1);
 });
 test('remote lists reveal cached rows before fetching and only expand after successful fetches',()=>{
  assert.match(read('app/SharedTracksPanel.tsx'),/if\(visible>=tracks\.length\)\{if\(await load\(true\)\)/);

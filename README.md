@@ -148,7 +148,7 @@ The file checker verifies the required runtime files and your installation's has
 
 ## Updated graphics and audio
 
-The starter track collection is the original six: DEFAULT, BERNIES, CHERRIS, HELENS, JOES and SKIDS. The files were verified against a preserved 1990 disk. Custom bundled tracks/replays are no longer mounted; source archives and personal saved files are preserved. Community track sharing and the editor remain available. On the hosted edition, Your verified runs → Recheck privately updates an accepted run’s assessment without making its recording public.
+The starter track collection is the original six: DEFAULT, BERNIES, CHERRIS, HELENS, JOES and SKIDS. The files were verified against a preserved 1990 disk. Custom bundled tracks/replays are no longer mounted; source archives and personal saved files are preserved. Community track sharing and the editor remain available. Completed-run submission verifies and shares the replay automatically. The replay library lists public recordings; previously retained private recordings remain stored locally, without a manual sharing/recheck section.
 
 Route assessment follows original-game driving options: both divided-road lanes and inside passage through loops and left/right corkscrews can count as Valid. It does not impose extra competition-only stunt-rotation rules. Substantial road-to-road cuts and confirmed grass-speed exploits remain separately detected.
 

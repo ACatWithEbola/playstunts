@@ -1,37 +1,28 @@
 'use client';
-import {WebsiteText,WebsiteElement} from '@/app/WebsiteLanguage';
+import {WebsiteText} from '@/app/WebsiteLanguage';
 import {useEffect,useState,useRef,useCallback} from 'react';
 import ListPagination from './ListPagination';
-import {openNativeFilePersistence,nativeFileKey} from '@/lib/game/native-file-store';
+import {openNativeFilePersistence} from '@/lib/game/native-file-store';
 import {NATIVE_GAME_DIRECTORY_KEY} from '@/lib/game/browser-setup-selection';
-import {scoreString,scoreTicks,MAX_RANKED_FRAMES,GLOBAL_SCORE_DATABASE,type GlobalScoreSubmission} from '@/lib/game/global-score-format';
+import {MAX_RANKED_FRAMES} from '@/lib/game/global-score-format';
 import {validateReplayEncoding} from '@/lib/game/upload-validation';
 import {prepareSharedReplayImport} from '@/lib/game/shared-replay-import';
-import {routeDisplay} from '@/lib/server/route-display';
-import type {RouteAssessment} from '@/lib/server/shortcut-assessment';
 type Replay={id:string;track:string;car:string;ticks:number;driver:string;trackName:string};
 const time=(ticks:number)=>`${Math.floor(ticks/1200)}:${(Math.floor(ticks/20)%60).toString().padStart(2,'0')}.${((ticks%20)*5).toString().padStart(2,'0')}`;
 export default function SharedReplaysPanel({running}:{running:boolean}){
- const [mine,setMine]=useState<{id:string;proof:GlobalScoreSubmission}[]>([]),[replays,setReplays]=useState<Replay[]>([]),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false);
+ const [replays,setReplays]=useState<Replay[]>([]),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false);
  const [track,setTrack]=useState(''),[car,setCar]=useState(''),[sort,setSort]=useState('fastest'),[page,setPage]=useState(0),[hasMore,setHasMore]=useState(false),[tracks,setTracks]=useState<{hash:string;name:string}[]>([]),[cars,setCars]=useState<{code:string;name:string}[]>([]);
- const [mineVisible,setMineVisible]=useState(10),[sharedVisible,setSharedVisible]=useState(10);
+ const [sharedVisible,setSharedVisible]=useState(10);
  async function showMoreShared(){if(sharedVisible>=replays.length){if(await load(true))setSharedVisible(value=>value+10);}else setSharedVisible(value=>value+10);}
  const generation=useRef(0);
  const load=useCallback(async(append=false)=>{const request=++generation.current,nextPage=append?page+1:0;setBusy(true);try{const query=new URLSearchParams({sort,page:String(nextPage)});if(track)query.set('track',track);if(car)query.set('car',car);const response=await fetch('/api/replays?'+query,{cache:'no-store'}),body=await response.json() as {replays:Replay[];tracks:{hash:string;name:string}[];cars:{code:string;name:string}[];hasMore:boolean;error?:string};if(!response.ok)throw Error(body.error);if(request!==generation.current)return;setReplays(previous=>append?[...previous,...body.replays.filter(item=>!previous.some(other=>other.id===item.id))]:body.replays);setTracks(body.tracks);setCars(body.cars);setHasMore(body.hasMore);setPage(nextPage);setLoaded(true);if(!append)setSharedVisible(10);return true;}catch(error){if(request===generation.current)setMessage(error instanceof Error?error.message:'Could not load replays');return false;}finally{if(request===generation.current)setBusy(false);}},[track,car,sort,page]);
  useEffect(()=>{const update=()=>{if(loaded)void load();};window.addEventListener('stunts-public-replay-shared',update);return()=>window.removeEventListener('stunts-public-replay-shared',update);},[loaded,load]);
  useEffect(()=>{if(loaded)void load();},[track,car,sort]);
-useEffect(()=>{let closed=false;const refresh=async()=>{const db=await openNativeFilePersistence(GLOBAL_SCORE_DATABASE);try{const files=await db.all();if(!closed)setMine(files.filter(file=>file.key.startsWith('VERIFIED:')&&file.bytes.length).map(file=>({id:file.key.slice(9),proof:JSON.parse(new TextDecoder().decode(file.bytes)) as GlobalScoreSubmission})));}finally{db.close?.();}};void refresh();window.addEventListener('stunts-verified-replays',refresh);return()=>{closed=true;window.removeEventListener('stunts-verified-replays',refresh);};},[]);
- async function share(proof:GlobalScoreSubmission){setBusy(true);try{const response=await fetch('/api/replays',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Replay':'share'},body:JSON.stringify(proof)}),body=await response.json() as {error?:string};if(!response.ok)throw Error(body.error);setMessage('Replay shared. Everyone can now watch the verified run.');await load();}catch(error){setMessage(error instanceof Error?error.message:'Could not share replay');}finally{setBusy(false);}}
- async function recheck(proof:GlobalScoreSubmission){setBusy(true);try{const response=await fetch('/api/replays',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Replay':'recheck'},body:JSON.stringify(proof)}),body=await response.json() as {error?:string;routeAssessment?:RouteAssessment};if(!response.ok)throw Error(body.error);setMessage('Privately rechecked: '+routeDisplay(body.routeAssessment).label+'. Classification updated; this did not publish your replay. Refresh High Scores to see the result.');}catch(error){setMessage(error instanceof Error?error.message:'Could not privately recheck this run');}finally{setBusy(false);}}
  async function add(replay:Replay){setBusy(true);try{const response=await fetch('/api/replays?id='+replay.id);if(!response.ok)throw Error('Replay is no longer available');const bytes=new Uint8Array(await response.arrayBuffer());validateReplayEncoding(bytes,MAX_RANKED_FRAMES);const directory=localStorage.getItem(NATIVE_GAME_DIRECTORY_KEY)??'C:\\',db=await openNativeFilePersistence();let replayName='';try{const prepared=prepareSharedReplayImport(bytes,replay.id,directory,await db.all());replayName=prepared.replayName;await db.merge(prepared.files);}finally{db.close?.();}setMessage(`${replayName} added. Press Play, then Options → Load Replay and select ${replayName}.`);}catch(error){setMessage(error instanceof Error?error.message:'Could not add replay');}finally{setBusy(false);}}
  return <details className="shared-tracks replay-library" onToggle={event=>{if(event.currentTarget.open&&!loaded&&!busy)void load();}}>
  <summary><WebsiteText text="High-score replays"/></summary>
  <p><WebsiteText text="Submitting a high score also publishes its verified replay. Skip submission to keep the run private. Older private recordings are not published automatically."/></p>
  <button disabled={busy} onClick={()=>void load()}><WebsiteText text="Refresh replays"/></button><output aria-live="polite"><WebsiteText text={message}/></output>
- <h3><WebsiteText text="Your verified runs"/></h3>
- {!mine.length&&<p><WebsiteText text="Finish a fresh race and confirm public replay sharing when submitting your score. The verified recording appears here and is published automatically."/></p>}
- <ul className="replay-private-list">{mine.slice(0,mineVisible).map(({id,proof})=><li key={id}><strong>{scoreString(proof.record,0,17)} · {scoreString(proof.replay,13,22)||<WebsiteText text="Track"/>} · {scoreString(proof.replay,0,4)} · {time(scoreTicks(proof.record))}</strong><div className="replay-actions"><button disabled={busy} onClick={()=>void recheck(proof)}><WebsiteText text="Recheck privately"/></button><button disabled={busy||replays.some(replay=>replay.id===id)} onClick={()=>void share(proof)}>{replays.some(replay=>replay.id===id)?<WebsiteText text="Replay shared"/>:<WebsiteText text="Share replay"/>}</button></div></li>)}</ul>
- <ListPagination visible={mineVisible} total={mine.length} busy={busy} onMore={()=>setMineVisible(value=>value+10)} onReset={()=>setMineVisible(10)}/>
  <h3><WebsiteText text="Shared runs"/></h3>
  <div className="replay-filters">
  <label><WebsiteText text="Track"/><select value={track} onChange={event=>setTrack(event.target.value)}><option value=""><WebsiteText text="All tracks"/></option>{tracks.map(item=><option key={item.hash} value={item.hash}>{item.name}</option>)}</select></label>
