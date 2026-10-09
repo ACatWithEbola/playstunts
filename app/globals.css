@@ -266,3 +266,7 @@
 .stunts-navigation a.nav-highscores:hover .nav-highscores-label,.stunts-navigation a.nav-highscores:focus-visible .nav-highscores-label{animation:none}
 @media(prefers-reduced-motion:reduce){.nav-highscores-label{animation:none}}
 .scores-expand{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:12px;padding:18px;border-top:1px solid #294251}.scores-expand>span{font-size:13px;color:#91adbf}.scores-expand button{padding:10px 16px;border:1px solid #52748b;background:#142532;color:#fbf333;cursor:pointer;font:700 13px Archivo,Arial,sans-serif}.scores-expand button:hover{background:#233b4b}.scores-expand button:focus-visible{outline:2px solid #fbf333;outline-offset:3px}
+.list-pagination{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:12px;margin:16px 0;color:#91adbe;font-size:14px}
+.list-pagination button{padding:9px 13px;border:1px solid #52748c;background:#172b39;color:#e4edf3;font:inherit;cursor:pointer}
+.list-pagination button:disabled{opacity:.5;cursor:wait}
+.list-pagination button:focus-visible{outline:2px solid var(--stunts-yellow);outline-offset:3px}
