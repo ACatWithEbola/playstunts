@@ -8,6 +8,7 @@ import {currentCarScoresSQL,pruneCarScoresSQL,retainAcceptedScoresSQL,driverKey}
 import {ROUTE_ASSESSMENT_VERSION} from '@/lib/server/route-assessment-version';
 import {retainRunHistorySQL,pruneRunHistorySQL} from '@/lib/server/run-history';
 import {replayScoresSQL,pruneSharedReplaysSQL} from '@/lib/server/shared-replay-retention';
+import {sharedReplayTrackName} from '@/lib/game/shared-replay-import';
 const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const bindings=()=>env as unknown as {DB:D1Database;ASSETS:Fetcher};
 export async function GET(request:Request){
@@ -17,7 +18,7 @@ export async function GET(request:Request){
  try{
   const db=bindings().DB;
   if(id){const row=await db.prepare('SELECT r.replay,s.track_hash FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE r.id=? AND s.rules=?').bind(id,GLOBAL_SCORE_RULES).first<{replay:string;track_hash:string}>();if(!row)return reply({error:'Replay not found'},404);
-   const bytes=Uint8Array.from(JSON.parse(row.replay) as number[]),name='T'+row.track_hash.slice(0,7).toUpperCase();bytes.fill(0,13,22);bytes.set(Array.from(name,c=>c.charCodeAt(0)),13);
+   const bytes=Uint8Array.from(JSON.parse(row.replay) as number[]),name=sharedReplayTrackName(row.track_hash);bytes.fill(0,13,22);bytes.set(Array.from(name,c=>c.charCodeAt(0)),13);
    return new Response(bytes,{headers:{'Content-Type':'application/octet-stream','Content-Disposition':`attachment; filename="R${id.slice(0,7).toUpperCase()}.RPL"`,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
   }
   const base=' FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE s.rules=?';
