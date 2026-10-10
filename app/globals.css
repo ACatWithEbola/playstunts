@@ -270,3 +270,4 @@
 .list-pagination button{padding:9px 13px;border:1px solid #52748c;background:#172b39;color:#e4edf3;font:inherit;cursor:pointer}
 .list-pagination button:disabled{opacity:.5;cursor:wait}
 .list-pagination button:focus-visible{outline:2px solid var(--stunts-yellow);outline-offset:3px}
+.replay-compatibility-dialog{width:min(480px,calc(100vw - 32px));border-top:4px solid #fcf420}.replay-compatibility-dialog h2{margin-top:0;color:#fcf420}.replay-compatibility-dialog button{margin-right:12px;padding:10px 24px;background:#192e3a;border:1px solid #527486;color:#edf2f4;font:inherit;cursor:pointer}.replay-compatibility-dialog button:first-of-type{background:#fcf420;color:#091720}

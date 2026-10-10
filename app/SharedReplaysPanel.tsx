@@ -1,4 +1,5 @@
 'use client';
+import ReplayDownload from './ReplayDownload';
 import {WebsiteText} from '@/app/WebsiteLanguage';
 import {useEffect,useState,useRef,useCallback} from 'react';
 import ListPagination from './ListPagination';
@@ -30,7 +31,7 @@ export default function SharedReplaysPanel({running}:{running:boolean}){
  <label><WebsiteText text="Sort replays"/><select value={sort} onChange={event=>setSort(event.target.value)}><option value="fastest"><WebsiteText text="Fastest first"/></option><option value="newest"><WebsiteText text="Most recent"/></option></select></label>
  </div>
  {loaded&&!replays.length&&<p><WebsiteText text="No replays match these filters."/></p>}
- {!!replays.length&&<div className="replay-table-wrap"><table className="replay-table"><thead><tr><th><WebsiteText text="Driver"/></th><th><WebsiteText text="Track"/></th><th><WebsiteText text="Car"/></th><th><WebsiteText text="Time"/></th><th><WebsiteText text="Actions"/></th></tr></thead><tbody>{replays.slice(0,sharedVisible).map(replay=><tr key={replay.id}><td>{replay.driver}</td><td>{replay.trackName}</td><td>{replay.car}</td><td className="replay-time">{time(replay.ticks)}</td><td><div className="replay-actions"><button disabled={busy||running} onClick={()=>void add(replay)}><WebsiteText text="Add replay to my game"/></button><a href={'/api/replays?id='+replay.id} download><WebsiteText text="Download .RPL"/></a></div></td></tr>)}</tbody></table></div>}
+ {!!replays.length&&<div className="replay-table-wrap"><table className="replay-table"><thead><tr><th><WebsiteText text="Driver"/></th><th><WebsiteText text="Track"/></th><th><WebsiteText text="Car"/></th><th><WebsiteText text="Time"/></th><th><WebsiteText text="Actions"/></th></tr></thead><tbody>{replays.slice(0,sharedVisible).map(replay=><tr key={replay.id}><td>{replay.driver}</td><td>{replay.trackName}</td><td>{replay.car}</td><td className="replay-time">{time(replay.ticks)}</td><td><div className="replay-actions"><button disabled={busy||running} onClick={()=>void add(replay)}><WebsiteText text="Add replay to my game"/></button><ReplayDownload id={replay.id} label="Download .RPL"/></div></td></tr>)}</tbody></table></div>}
  <ListPagination visible={sharedVisible} total={replays.length} hasMore={hasMore} busy={busy} onMore={()=>void showMoreShared()} onReset={()=>setSharedVisible(10)}/>
  {running&&<p><WebsiteText text="Save your current run and restart the webpage game before adding a shared replay. Playback uses the original replay viewer and its camera controls."/></p>}
  <p><WebsiteText text="Filter shared replays by track and car, then sort by fastest time or most recent. Use Show 10 more to browse beyond the first ten. Ranked replays and each driver’s five most recent verified runs per track are retained. Your private in-game replays are not deleted."/></p>

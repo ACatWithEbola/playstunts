@@ -186,3 +186,17 @@ Third-party code, synthesizers and fonts retain their existing licenses; see [TH
 ### Social sharing image
 
 The live site uses a branded 1731 × 909 PNG sharing card (approximately 1.91:1). Original-art-derived promotional imagery is not redistributed in this source repository. To supply your own card, place it at `public/og.png` before building and update its dimensions, image URL and site URL in `app/layout.tsx` for your deployment. By default the metadata references the publicly hosted playstunts.com card; remove the image metadata if your deployment will not use a sharing image. The live card was generated using the original cover as a reference, with the yellow Stunts wordmark, red car, “PLAY IN YOUR BROWSER” and “playstunts.com” on black.
+# Replay downloads: compatibility
+
+Downloaded replays target **Mindscape 4D Sports Driving v1.1, 13 December 1990 (MS 1990)**.
+One public DEFAULT/Indy replay was tested to its correct 1:05.20 finish in that DOS release.
+The same inputs did not reproduce the race in Brøderbund Stunts 1.0 (October 1990),
+Brøderbund Stunts 1.1 (February 1991), or Mindscape 4D Sports Driving 1.1 (February 1991).
+Chocolate Stunts 1.2.0 matched that sample frame by frame with `--lcb:off`, not its default settings.
+This is sample-based verification, not a guarantee for every replay.
+
+Public replay download links show a compatibility dialog; **OK** starts the existing download.
+Cancel or Escape dismisses it without downloading. Stored replay bytes, scores and verification
+are unchanged. Standard original DOS .TRK layouts are exchangeable between the four DOS releases,
+although physics and achievable times differ.
+
