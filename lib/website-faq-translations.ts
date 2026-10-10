@@ -1,4 +1,5 @@
 export const faqTranslations:Record<string,readonly [string,string]>={
+ "Compatible with Mindscape’s 4D Sports Driving v1.1 — 13 December 1990 (MS 1990).":["Compatible con 4D Sports Driving v1.1 de Mindscape — 13 de diciembre de 1990 (MS 1990).","Compatibile con 4D Sports Driving v1.1 di Mindscape — 13 dicembre 1990 (MS 1990)."],
  "OK":["OK","OK"],
  "Cancel":["Cancelar","Annulla"],
  "Which game versions can play downloaded replays?":["¿Qué versiones del juego pueden reproducir las repeticiones descargadas?","Quali versioni del gioco possono riprodurre i replay scaricati?"],
