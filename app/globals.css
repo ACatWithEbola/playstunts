@@ -290,3 +290,11 @@
  .launcher-roland .mt32-sound-slider output small{font-size:11px}
  .launcher-roland .mt32-effects-viewport{margin:14px 0 8px}
 }
+.launcher-roland .mt32-sound-controls.mt32-external-controls{grid-template-columns:1fr 1fr 1.7fr 1.7fr;gap:20px;padding:16px 20px;align-items:end}
+.launcher-roland .mt32-sound-control>span{min-height:0;font-size:11px;line-height:1.4}
+.launcher-roland .mt32-sound-control,.launcher-roland .mt32-sound-controls .mt32-power{gap:10px}
+.launcher-roland .mt32-sound-controls button.mt32-sound-button{min-height:40px;font-size:13px;padding:8px 12px}
+.launcher-roland .mt32-sound-slider{column-gap:10px;row-gap:10px}
+.launcher-roland .mt32-sound-slider output{font-size:13px;min-width:64px;padding:8px}
+.launcher-roland .mt32-sound-slider output small{font-size:11px}
+@media(max-width:760px){.launcher-roland .mt32-sound-controls.mt32-external-controls{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 14px;padding:16px 14px}.launcher-roland .mt32-sound-controls button.mt32-sound-button{min-height:44px}.launcher-roland .mt32-sound-slider{grid-column:1/-1}.launcher-roland .mt32-sound-slider output{min-width:74px}}
