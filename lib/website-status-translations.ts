@@ -163,6 +163,7 @@ export const statusTranslations:Record<string,readonly [string,string]>={
  '(finished ahead)':['(terminó delante)','(ha terminato davanti)'],
  'Solo race':['Carrera individual','Gara in solitaria'],
  'Download replay ↗':['Descargar repetición ↗','Scarica replay ↗'],
+ 'Download replay':['Descargar repetición','Scarica replay'],
  'Stunts game box and manual':['Caja y manual de Stunts','Scatola e manuale di Stunts'],
  'Roland MT-32 is not available':['Roland MT-32 no está disponible','Roland MT-32 non è disponibile'],
  'Compatible MT-32 ROMs were not found or did not pass validation. Original sound and music will use Sound Blaster instead.':['No se encontraron ROM MT-32 compatibles o no superaron la validación. El sonido y la música originales usarán Sound Blaster.','Non sono state trovate ROM MT-32 compatibili o non hanno superato la verifica. Audio e musica originali useranno Sound Blaster.'],
