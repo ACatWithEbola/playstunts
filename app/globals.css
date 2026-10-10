@@ -274,3 +274,19 @@
 .replay-download-link,.scores-replay-dot.replay-download-link{color:#fcf420!important;text-transform:uppercase;font-weight:700;letter-spacing:.08em;text-decoration:none}.replay-download-link:hover{text-decoration:underline}
 .replay-compatibility-dialog{position:fixed;margin:0;width:min(360px,calc(100vw - 32px));padding:22px;border-radius:4px;box-shadow:0 12px 40px #0008;max-height:calc(100dvh - 32px)}.replay-compatibility-dialog h2{font-size:1.1rem;line-height:1.3;margin:0 0 12px}.replay-compatibility-dialog p{font-size:1rem;line-height:1.5;margin:0}.replay-compatibility-actions{display:flex;gap:12px;margin-top:22px}.replay-compatibility-actions button{margin:0;min-height:44px}
 @media(max-width:600px){.replay-compatibility-dialog{left:50%!important;top:50%!important;transform:translate(-50%,-50%);padding:20px}}
+@media(max-width:760px){
+ .stunts-universe .stunts-play-station{grid-column:1;grid-row:1;min-width:0}
+ .stunts-universe .stunts-manual-rail{grid-column:1;grid-row:2;min-width:0}
+ .stunts-universe .stunts-setup-column{grid-column:1;grid-row:3;min-width:0}
+ .launcher-roland .mt32-sound-controls.mt32-external-controls{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 14px;padding:18px 14px}
+ .launcher-roland .mt32-sound-control,.launcher-roland .mt32-sound-controls .mt32-power{gap:8px;font-size:11px}
+ .launcher-roland .mt32-sound-control>span{min-height:0;line-height:1.4}
+ .launcher-roland .mt32-sound-controls button.mt32-sound-button{min-height:44px;font-size:13px;padding:10px 12px;border-width:1px;gap:8px}
+ .launcher-roland .mt32-sound-button i{width:6px;height:6px}
+ .launcher-roland .mt32-sound-slider{grid-column:1/-1;grid-template-columns:minmax(0,1fr) max-content;gap:8px 12px}
+ .launcher-roland .mt32-sound-slider>span{grid-column:1/-1}
+ .launcher-roland .mt32-sound-slider input{height:32px}
+ .launcher-roland .mt32-sound-slider output{min-width:74px;padding:8px;font-size:13px}
+ .launcher-roland .mt32-sound-slider output small{font-size:11px}
+ .launcher-roland .mt32-effects-viewport{margin:14px 0 8px}
+}

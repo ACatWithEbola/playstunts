@@ -14,3 +14,10 @@
 .stunts-universe .launcher-game-session>.game-mode-toolbar>button{min-height:40px;height:40px;font-size:clamp(10px,1.1vw,13px);padding-inline:6px;overflow:visible;text-overflow:clip}
 .stunts-universe .launcher-game-session>.game-mode-toolbar>.crt-toggle{gap:7px;justify-content:center}
 @container(max-width:560px){.stunts-universe .launcher-game-session>.game-mode-toolbar{grid-template-columns:repeat(3,minmax(0,1fr));height:auto;padding-block:12px}.stunts-universe .launcher-game-session>.game-mode-toolbar>button{font-size:11px}}
+@container(max-width:560px){
+ .stunts-universe .launcher-game-session>.game-mode-toolbar{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .stunts-universe .launcher-game-session>.game-mode-toolbar>button{height:auto;min-height:44px;font-size:12px;white-space:normal;padding:8px}
+ .stunts-universe .launcher-game-session>.game-mode-toolbar>.crt-toggle{grid-column:1/-1;white-space:nowrap;gap:10px}
+ .crt-toggle-track{flex-shrink:0}
+ .crt-toggle-status{font-size:11px}
+}
