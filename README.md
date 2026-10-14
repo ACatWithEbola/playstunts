@@ -15,7 +15,6 @@ developer workbench routes remain in their source language.
 Every website-copy change must include both translations. Maintain the catalogues
 in `lib/website-languages.ts` and `lib/website-*-translations.ts`; run
 `npm run test:languages`. The production build also checks translation coverage.
-
 The hosted game at **playstunts.com** has shared online high scores and a community track library. The features below describe the hosted online edition, not a local checkout of `main`.
 
 - **Private game scores:** the original in-game seven-slot table is saved independently in the browser. Website rankings never replace it.
@@ -33,7 +32,7 @@ The hosted game at **playstunts.com** has shared online high scores and a commun
 - **Supported uploads:** personal imports accept validated tracks, replays and supported backups. Community sharing accepts original validated `.TRK` tracks; malformed or unrelated files are rejected.
 - **Replay track extraction:** private replay imports also add the embedded track as a `.TRK` file when its supported recorded name is unused. Identical tracks are retained; conflicting names (including `DEFAULT.TRK`) require an explicit replay-only or cancel choice. Existing tracks, scores and recordings are never overwritten by this import. VANCOUVR is bundled as an exact copy of the track embedded in the original February 1991 demonstration replay.
 
-GitHub **`main` remains the stable local-score edition**. The deployed online edition is developed on [`feature/global-highscores`](https://github.com/ACatWithEbola/playstunts/tree/feature/global-highscores). Cloning the default branch does not connect your local game to the public leaderboard. The online branch uses a separate database for local testing; see its [online-edition documentation](https://github.com/ACatWithEbola/playstunts/blob/feature/global-highscores/docs/GLOBAL-HIGHSCORES.md) for storage, validation, and deployment details.
+GitHub **`main` includes the dual-edition upgrade and online-edition source**. Cloning the default branch does not connect your local game to the public leaderboard. Local development uses a separate database; see [the online-edition documentation](docs/GLOBAL-HIGHSCORES.md) for storage, validation, and deployment details.
 
 You can build and run the game from this checkout using your own compatible DOS game files. The preparation tool generates the required images, catalogs, sound states and fresh native startup resources locally. **No original game files, Roland ROMs or captured original sessions are distributed here.**
 
@@ -156,7 +155,7 @@ The starter track collection is the original six: DEFAULT, BERNIES, CHERRIS, HEL
 Route assessment follows original-game driving options: both divided-road lanes and inside passage through loops and left/right corkscrews can count as Valid. It does not impose extra competition-only stunt-rotation rules. Substantial road-to-road cuts and confirmed grass-speed exploits remain separately detected.
 
 - Enhanced graphics is the launch default and uses a separate website renderer with full colour, source signs and clouds, detailed vehicles, and live steering and suspension movement. Setup still selects MCGA, EGA, CGA, Tandy or Hercules for original graphics. Only the website graphics control switches between enhanced graphics and the selected original display mode; in-game menus preserve that selection.
-- With enhanced graphics enabled, **Ctrl+F** shows or hides the driving/replay performance display: current FPS, session average and 1% low. **V** cycles the current Stunts camera → close → standard → far → the current Stunts camera; C, F1–F4 or a replay camera-button selection returns immediately to the selected original camera. Both enhanced overlays are inactive outside driving and replay playback.
+- With enhanced graphics enabled, **Ctrl+F** shows or hides the driving/replay performance display: current FPS, session average and 1% low. **Ctrl+V** cycles the current Stunts camera → close → standard → far → the current Stunts camera; C, F1–F4 or a replay camera-button selection returns immediately to the selected original camera. Both enhanced overlays are inactive outside driving and replay playback.
 - Remixed opening/title, menu, victory and game-over music is enabled by default while the original engine and sound effects remain unchanged. The website control switches between remixed and original music, while the in-game Options menu turns music on or off.
 - Alpine, Tropical, Desert, City and Country panoramas are presentation-only replacements selected from the same terrain metadata as the original backgrounds. Enhanced track previews use the same panoramas.
 - Enhanced cars preserve their five source colours and original geometry while adding clear-coat lighting, palette-matched materials, inset lamp details and filtered grounding shadows.
