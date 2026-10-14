@@ -5495,8 +5495,8 @@ README documents preparation and selection without bug-fix narratives.
     verification cannot mutate retained data or release the newer lease.
     Nine assessment tests and TypeScript pass; this does not test a live D1
     outage or close the full source-review gate.
-93. [ ] Push and verify source/docs on GitHub. (Original gate 47)
-94. [ ] Package verified source/assets. (Original gate 48)
+93. [x] Push and verify source/docs on GitHub. (Original gate 47)
+94. [x] Package verified source/assets. (Original gate 48)
     2026-10-14 actual source-only/no-Git reconstruction now tested, not merely
     its guard unit case. Copied every inventory05 file with SHA256 verification
     into new playstunts-public-source-kUQNiM (2457files); asserted all seven
@@ -5553,15 +5553,44 @@ README documents preparation and selection without bug-fix narratives.
     2456 paths and5694 literal module edges with no unresolved source/script/
     migration dependency. This is source-asset inclusion evidence, not complete
     fresh-install, audible acceptance, publication-package or deployment proof.
-95. [ ] Deploy through supported route preserving bindings. (Original gate 48)
-96. [ ] Confirm deployment/domain/audience. (Original gate 48)
-97. [ ] Live fresh-race/menu smoke. (Original gate 49)
+95. [x] Deploy through supported route preserving bindings. (Original gate 48)
+96. [x] Confirm deployment/domain/audience. (Original gate 48)
+97. [x] Live fresh-race/menu smoke. (Original gate 49)
 98. [ ] Live enhanced graphics/audio smoke. (Original gate 49)
-99. [ ] Live replay download smoke. (Original gate 49)
-100. [ ] Live historical leaderboard/read smoke. (Original gate 49)
+99. [x] Live replay download smoke. (Original gate 49)
+100. [x] Live historical leaderboard/read smoke. (Original gate 49)
 101. [ ] Compare historical replay bytes. (Original gate 50)
 102. [ ] Compare historical scores/metadata. (Original gate 50)
 103. [ ] Final requirement-by-requirement completion audit. (Original gate 50)
+
+## Published release174 — 14 October 2026
+
+Supported Sites deployment succeeded, deployment
+`appgdep_6acff2138d78819181a28db4b14e9013`, source
+`73e90d7378d95e6df7c25c99cffeb441962b4fec`. Same source verified on GitHub
+`feature/global-highscores`; main has independent commits and was not overwritten.
+Archive saved as version174, SHA256
+`756c6d8fa04a62377159a87f91b2ca39e668fd2b9b51961a88c0e01a5631a9b3`.
+DB binding remainsDB; audience remainspublic; custom domainplaystunts.com.
+Only schema addition is the bounded race_engines sidecar; no historical rewrite.
+
+Live browser: clean launch offers February1991 first and December1990 separately;
+1991 opening, enhanced menu and fresh race render successfully. FAQ release
+answer verified live. Initial asset propagation required a reload; CSS/JS then
+served200 and hydration/game startup completed without logged errors.
+Live leaderboard returns6boards/67legacy scores; existing recent races display.
+Historical replay64c558e93039386715e5b31d6e92b5a58aece412720d15f1730dd9145d7fd4a5
+downloads200, application/octet-stream,3115bytes.
+
+Pre/post first-row samples foraccepted_scores/global_scores match exactly;
+shared_replays sample also matches its returned projection, but replay content
+is truncated by the tool. These are sampled preservation evidence, NOT full
+historical byte/metadata equality or a verified backup. Items101–102 remain open.
+Live audio assets/settings loaded and graphics rendered; no new human listening
+claim is made for98. Previously accepted listening checks are not repeated.
+Backup/restore verification76–78 and production recovery80 remain deferred by
+owner authorization. Deployment is live with these disclosed verification limits,
+not a claim that every103check passed. Cleanup has not deleted any files.
 
 Recent evidence: registered startup, bundled music (20000 ticks), Roland race/dialog,
 all-car PC resource (4400 callbacks), and cadence guards finished successfully.
