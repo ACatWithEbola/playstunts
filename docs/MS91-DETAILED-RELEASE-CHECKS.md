@@ -1,5 +1,34 @@
 # MS91 detailed release checks
 
+## Final audit — release174, 14 October 2026
+
+97/103 verified (94.2%); six explicitly deferred:76,77,78,80,101,102.
+Release is live. Deferred checks concern full production export, restore,
+recovery and complete historical-data comparisons; they are NOT passed.
+The owner authorized publication without verified production backup and has
+now explicitly requested closing technical live verification and the audit
+without repeating accepted tests. No additional owner testing is requested.
+
+Check98 closes using the already-observed live enhanced opening/menu/race,
+previously accepted listening and transition evidence, and final read-only
+production delivery verification: all four actualSuno MS91 files return200
+with exact provenance SHA256/byte lengths (1934444,3850709,2083244,23515962),
+audio MIME types, and three stylesheet/two JavaScript entry assets return200.
+This verifies delivery of the accepted package, not a new listening session
+or independent physical sound-output measurement. Original music is untouched.
+
+Check103 audit reconciles all103 checklist items:97 verified, six deferred,
+no other open release checks. Same deployed runtime/lib/vendor/schema/package
+content as source73e90d7 is retained in merged GitHub main97d4af6; runtime
+diff is empty. Both earlier branch tips are merge ancestors, preserving the
+15 independent main commits. README/FAQ feature documentation is current;
+no bug-fix narrative added there. Production DB binding/audience unchanged,
+sampled preservation checks and historical download passed; no full data
+equality claim is made. Cleanup removed only approved build/dependency folders;
+sources, music, shared assets, local databases and recovery artifacts retained.
+Earlier chronological notes below are superseded by this final status where
+they describe pre-release state. No redeployment or production writes needed.
+
 Item73 acceptance: representative English/Spanish/Italian home and navigation,
 recent actions,setup/controls,statuses,FAQ disclosures and leaderboards inspected.
 Fixed graphics/menu/ranking accessibility translation gaps;505-message inventory
@@ -5556,12 +5585,12 @@ README documents preparation and selection without bug-fix narratives.
 95. [x] Deploy through supported route preserving bindings. (Original gate 48)
 96. [x] Confirm deployment/domain/audience. (Original gate 48)
 97. [x] Live fresh-race/menu smoke. (Original gate 49)
-98. [ ] Live enhanced graphics/audio smoke. (Original gate 49)
+98. [x] Live enhanced graphics/audio smoke. (Original gate 49)
 99. [x] Live replay download smoke. (Original gate 49)
 100. [x] Live historical leaderboard/read smoke. (Original gate 49)
 101. [ ] Compare historical replay bytes. (Original gate 50)
 102. [ ] Compare historical scores/metadata. (Original gate 50)
-103. [ ] Final requirement-by-requirement completion audit. (Original gate 50)
+103. [x] Final requirement-by-requirement completion audit. (Original gate 50)
 
 ## Published release174 — 14 October 2026
 

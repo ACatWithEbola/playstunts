@@ -1,5 +1,18 @@
 # MS91 current release status
 
+## Final released status — 14 October 2026
+
+Version174 is live at https://playstunts.com. GitHub main includes the upgrade
+and preserves its separate commit history. Final technical live check and
+completion audit are closed:97/103 verified (94.2%), six deferred by owner
+direction (76,77,78,80,101,102: full backup/recovery/data-comparison proof).
+No other release checks remain open. Deferred does not mean passed.
+All four live updated-music assets match approved actualSuno provenance hashes;
+production styles/scripts serve successfully. Previously accepted driving and
+listening tests were not repeated; no production data was written or reset.
+See MS91-DETAILED-RELEASE-CHECKS.md for the final evidence and limitations.
+Earlier entries below are chronological pre-release records, not current status.
+
 2026-10-14 intended-source review92 accepted for candidate inventory05 after
     reconciliation of grouped runtime/data reviews and latest packaging/UI/test
     deltas.2457 named source files,5695 literal edges, zero missing dependencies;
