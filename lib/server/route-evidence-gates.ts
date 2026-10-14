@@ -4,6 +4,7 @@ import {trackRoutePoint} from '../physics/track-route-point.ts';
 import {trackPlaneContact} from '../physics/track.ts';
 import type {Vector} from '../physics/math.ts';
 import type {RouteGate} from './full-route-witness.ts';
+import {uses1991Physics} from '../physics/engine-version.ts';
 
 /** Navigation coordinates are not always road heights. Resolve ordinary
  * road/ramp/banked/tunnel gates against original collision planes instead of
@@ -13,7 +14,7 @@ export function routeEvidenceGates(track:number[],prepared:ReturnType<typeof pre
  const ordinary=new Set([0,1,2,3,4,5,6,7,8,9,10,11,12,16,17,18,19,20,21,22,23,24,25,26,28,29,30,31,34]);
  return prepared.route.tiles.map((tile,node)=>{
   const points=Array.from({length:data.records[tile].records[prepared.route.directions[node]&15][5]},(_,point)=>{
-   const gate=trackRoutePoint(track,prepared.route,node,point,data.records,data.points,data.objects);
+   const gate=trackRoutePoint(track,prepared.route,node,point,data.records,data.points,data.objects,data.physicsEngine);
    return {position:gate.midpoint,radius:Math.min(184,Math.hypot(gate.first[0]-gate.second[0],gate.first[2]-gate.second[2])/2+64)};
   });
   const physics=data.objects[tile].physics;
@@ -30,7 +31,7 @@ export function routeEvidenceGates(track:number[],prepared:ReturnType<typeof pre
    const count=Math.ceil(Math.abs(last-first)/128);
    return Array.from({length:count+1},(_,i)=>{
     const position=[0,ground+100,0];position[axis]=first+(last-first)*i/count;position[cross]=center;
-    return {position,radius:80,longitudinalAxis:axis,lateralTolerance:physics===35?130:physics===27?440:360,requiresRoad:true,heightTolerance:physics===35?240:physics===27?1100:180,airborneHeightTolerance:physics===35?240:physics===27?300:600,allowGrassExcursion:false};
+    return {position,radius:80,longitudinalAxis:axis,lateralTolerance:physics===35?(uses1991Physics(data.physicsEngine)?150:130):physics===27?440:360,requiresRoad:true,heightTolerance:physics===35?240:physics===27?1100:180,airborneHeightTolerance:physics===35?240:physics===27?300:600,allowGrassExcursion:false};
    });
   }
   if(!ordinary.has(physics)){
@@ -62,7 +63,7 @@ export function routeEvidenceGates(track:number[],prepared:ReturnType<typeof pre
     const guess=a.position[1]!==-1?a.position[1]:ground+([18,19,20,21].includes(physics)||upperOverpass?450:100);
     const sample=[Math.round(x*64),Math.round(guess*64),Math.round(z*64)] as Vector;
     try{
-     const contact=trackPlaneContact(track,data.objects,sample,sample),plane=data.planes[contact.planeId];
+     const contact=trackPlaneContact(track,data.objects,sample,sample,0,undefined,data.physicsEngine),plane=data.planes[contact.planeId];
      if(!plane||plane.normal[1]<4096||contact.surface<1||contact.surface>3)return [];
      const origin=plane.origin.map((n,k)=>n+contact.tileOrigin[k]);
      const y=origin[1]-((x-origin[0])*plane.normal[0]+(z-origin[2])*plane.normal[2])/plane.normal[1];

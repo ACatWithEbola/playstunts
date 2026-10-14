@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {createTimedAllocatedRaceClock} from '../lib/game/timed-allocated-race-clock.ts';
+const d=0x2d1a0;let memory=new Uint8Array(0x100000);
+new DataView(memory.buffer).setUint16(d+0x4086,5,true);new DataView(memory.buffer).setUint16(d+0x4088,5,true);
+const clock=createTimedAllocatedRaceClock(()=>memory);
+clock.onHardwareTick(false);assert.equal(memory[d+0x408e],1);
+memory=memory.slice();clock.onHardwareTick(false);
+assert.equal(new DataView(memory.buffer).getUint32(d+0x407a,true),2);
+assert.equal(new DataView(memory.buffer).getUint16(d+0x408a,true),2);
+clock.onHardwareTick(true);assert.equal(memory[d+0x408e],0);assert.equal(memory[d+0x408c],0);
+assert.equal(new DataView(memory.buffer).getUint32(d+0x407a,true),2,'Dispatch observer must not duplicate runtime tick');
+memory[d+0x4090]=1;clock.onHardwareTick(false);assert.equal(memory[d+0x408e],0);
+assert.equal(new DataView(memory.buffer).getUint32(d+0x407a,true),2,'Disabled callback does not increment callback clock');
+clock.close();clock.close();assert.throws(()=>clock.onHardwareTick(false),/closed/);
+memory[d+0x408e]=1;assert.throws(()=>createTimedAllocatedRaceClock(()=>memory),/active IRQ guard/);
+console.log('Timed allocated clock follows replacement memory, preserves guarded counters, honors disable, avoids double dispatch and rejects overlapping ownership');

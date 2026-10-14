@@ -2,6 +2,10 @@ import {originalHighScoreInsertion,originalHighScoreSaveBytes} from './high-scor
 import {prepareOriginalHighScoreRecord,nameOriginalHighScoreRecord} from './high-score-record.ts';
 import {drawOriginalDialog} from './dialog-raster.ts';
 import type {NativeDialogHost} from './native-dialog-runtime.ts';
+export type NativeHighScoreCandidate=Parameters<typeof prepareOriginalHighScoreRecord>[1]&{
+ physicsEngine?:import('../physics/engine-version.ts').PhysicsEngineVersion;
+ framesPerSecond?:10|20;
+};
 
 export interface NativeHighScoreState {
  file:Uint8Array;order:number[];selected:number;name:string;
@@ -17,14 +21,18 @@ export interface NativeHighScoreHost extends Pick<NativeDialogHost,'pixels'|'fon
 /** Original41de..436b. The field exit key is deliberately ignored: Escape
  * and timeout still commit the edited name. The loaded physical records
  * retain their insertion layout after the ordered file is saved. */
-export async function enterNativeHighScore(host:NativeHighScoreHost,state:NativeHighScoreState,candidate:Parameters<typeof prepareOriginalHighScoreRecord>[1],message:ReadonlyArray<number>,border:number){
+export async function enterNativeHighScore(host:NativeHighScoreHost,state:NativeHighScoreState,candidate:NativeHighScoreCandidate,message:ReadonlyArray<number>,border:number){
  return enterNativeHighScoreWithPresentation({...host,async editName(name,message,border){
-  const resultSurface=host.pixels.slice(),dialog=drawOriginalDialog(host.pixels,host.font,message,0,{text:15,border,disabled:1},undefined,3);
+  const resultSurface=host.pixels.slice(),dialog=drawOriginalDialog(host.pixels,host.font,message,0,{text:15,border,disabled:1},undefined,3,{x:-1,y:-1},candidate.physicsEngine);
   if(dialog.fields.length<1)throw Error('Original high-score prompt requires a name field');
   host.present();await host.release();const edited=await host.editPath(name,16,30000,dialog.fields[0]);host.pixels.set(resultSurface);return edited.path;
  }},state,candidate,message,border);
 }
-export async function enterNativeHighScoreWithPresentation(host:Pick<NativeHighScoreHost,'drawTable'|'present'|'save'>&{editName(name:string,message:ReadonlyArray<number>,border:number):Promise<string>},state:NativeHighScoreState,candidate:Parameters<typeof prepareOriginalHighScoreRecord>[1],message:ReadonlyArray<number>,border:number){
+export async function enterNativeHighScoreWithPresentation(host:Pick<NativeHighScoreHost,'drawTable'|'present'|'save'>&{editName(name:string,message:ReadonlyArray<number>,border:number):Promise<string>},state:NativeHighScoreState,candidate:NativeHighScoreCandidate,message:ReadonlyArray<number>,border:number){
+ // MS91 41F0..41FA doubles10Hz candidate ticks before qualification and
+ // record construction; SHL wraps the word. Never mutate the caller's object.
+ if(candidate.physicsEngine==='ms-1991'&&candidate.framesPerSecond===10)
+  candidate={...candidate,time:(candidate.time<<1)&65535};
  state.prepareRetainedRecord?.();
  const insertion=originalHighScoreInsertion(Array.from(state.file),candidate.time,state.order,state.selected);
  if(!insertion.qualifies){host.drawTable(state);return false;}

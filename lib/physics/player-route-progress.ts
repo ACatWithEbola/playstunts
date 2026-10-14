@@ -3,7 +3,7 @@ export interface PlayerRouteProgress {status:number;confirmations:number;route:n
  * result, not a distance inferred from rendered geometry. Status 1 suspends
  * route acceptance; status 2 records the reverse adjacency branch.
  */
-export function playerRouteProgress(before:PlayerRouteProgress,changed:boolean,route:number,delta:number,primary:readonly number[],alternate:readonly number[]):PlayerRouteProgress{
+export function playerRouteProgress(before:PlayerRouteProgress,changed:boolean,route:number,delta:number,primary:readonly number[],alternate:readonly number[],framesPerSecond:10|20=20):PlayerRouteProgress{
  const s={...before};if(!changed)return s;
  route&=65535;delta=delta<<16>>16;
  if(delta===-2){s.status=1;s.confirmations=0;}
@@ -23,7 +23,7 @@ export function playerRouteProgress(before:PlayerRouteProgress,changed:boolean,r
   }
   if(commit){
    s.route=route;s.confirmations=0;
-   if(delta>0){s.lastPenalty=(60*delta)&65535;s.penaltyDisplay=80;s.totalPenalty=(s.totalPenalty+s.lastPenalty)&65535;}
+   if(delta>0){s.lastPenalty=(3*framesPerSecond*delta)&65535;s.penaltyDisplay=4*framesPerSecond;s.totalPenalty=(s.totalPenalty+s.lastPenalty)&65535;}
   }
  }
  s.lastRoute=route;return s;

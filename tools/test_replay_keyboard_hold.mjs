@@ -38,3 +38,15 @@ assert.equal(window.listeners,0,'closing browser input must remove its window li
 assert.ok(listenersBeforeClose>0,'browser input must install window lifecycle listeners');
 
 console.log('Replay keyboard hold checks passed.');
+
+let ownedTicks=1000,ownedGameTicks=77;
+const owned=createBrowserMenuInput(new FakeCanvas(),{clock:{counter:()=>ownedTicks,gameCounter:()=>ownedGameTicks}});
+assert.equal(owned.readImmediate().delta,0,'External input clock starts from its supplied epoch, not browser construction time');
+ownedTicks+=13;ownedGameTicks+=2;
+assert.equal(owned.readImmediate().delta,13);
+assert.deepEqual(owned.counters(),{input:1013,game:79},'Game counter must come from owner, not an assumed divide-by-five');
+globalThis.requestAnimationFrame=callback=>{queueMicrotask(callback);return 1;};
+assert.equal(await owned.gameCounter(),79);
+assert.deepEqual(await owned.keyboard(),{key:0,input:1013,game:79});
+owned.close();assert.equal(window.listeners,0);
+console.log('Explicit browser menu clock supplies input deltas and game counter; omitted clock retains existing browser behavior');

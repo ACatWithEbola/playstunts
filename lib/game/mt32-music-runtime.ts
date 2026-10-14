@@ -9,12 +9,15 @@ import {stepOriginalMusicTimer} from './music-timer.ts';
 import {stepVoiceDuration} from './voice-duration.ts';
 import type {OriginalMenuAudioEffect} from './menu-audio-control.ts';
 import {sendOriginalMt32SystemExclusive} from './mt32-system-exclusive.ts';
-export interface OriginalMt32MusicSeed extends OriginalMusicSeed {driver:number[];nullInstrument:number[];systemVolume:number[]}
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
+export interface OriginalMt32MusicSeed extends OriginalMusicSeed {driverGeneration?:PhysicsEngineVersion;driver:number[];nullInstrument:number[];systemVolume:number[]}
 const view=(b:Uint8Array)=>new DataView(b.buffer,b.byteOffset,b.byteLength);
 /** Original alternate-driver command execution for TITL/SLCT. MIDI output
  * assumes a ready MPU; device handshakes and physical Roland synthesis are
- * separate. The captured null-instrument bytes preserve the source's unsafe
- * DC dereference. Raw E8 scratch-buffer output remains explicitly unsupported. */
+ * separate. The seed's retained null-instrument fields preserve existing
+ * playback behavior for the unsafe DC dereference; their original DOS-memory
+ * provenance is not established by the executable snapshots. Raw E8 scratch-
+ * buffer output remains explicitly unsupported. */
 export function createOriginalMt32MusicRuntime(seed:OriginalMt32MusicSeed){
  const bank=Uint8Array.from(seed.bank),patches=Uint8Array.from(seed.voices),header=seed.header;
  let timers=seed.timers.map(t=>Uint8Array.from(t)),voices=seed.hardware.map(t=>Uint8Array.from(t)),lastNotes=Uint8Array.from(seed.lastNotes);
@@ -23,11 +26,11 @@ export function createOriginalMt32MusicRuntime(seed:OriginalMt32MusicSeed){
  const state={masterVolume:seed.masterVolume??127,accumulator:0,interval:128,tracks:bank[header+7+bank[header+6]*4]};
  const instrumentAt=(offset:number,segment:number)=>{if(!(offset||segment)){if(seed.nullInstrument.length!==100)throw Error('Missing original null-instrument memory');return Uint8Array.from(seed.nullInstrument);}if(segment!==0x9000)throw Error('Invalid original music instrument segment');return patches.slice(offset,offset+100);};
  let writes:number[][]=[];
- const emit=(kind:OriginalMt32Control,channel:number,record:Uint8Array,patch:Uint8Array,value=0,extra=0)=>writes.push(...applyOriginalMt32DriverControl(kind,channel,record,patch,value,extra).writes);
+ const emit=(kind:OriginalMt32Control,channel:number,record:Uint8Array,patch:Uint8Array,value=0,extra=0)=>writes.push(...applyOriginalMt32DriverControl(kind,channel,record,patch,value,extra,seed.driverGeneration).writes);
  const emptyVoice=new Uint8Array(46),emptyPatch=new Uint8Array(100);
  const volume=(owner:number,value:number)=>{timers[owner][0x28]=value;emit('volume',timers[owner][0x47],emptyVoice,emptyPatch,value);};
  function stopTrack(owner:number){return stopOriginalMt32Track(timers,voices,owner).writes;}
- function release(){for(let i=0;i<voices.length;i++){const v=voices[i];if(!v[1]||v[0]>=16)continue;const next=stepVoiceDuration(v,timers[v[0]][0x25]);voices[i]=next.record;for(const channel of next.releaseChannels)emit('release',channel,next.record,emptyPatch);}}
+ function release(){for(let i=0;i<voices.length;i++){const v=voices[i];if(!v[1]||v[0]>=16)continue;const next=stepVoiceDuration(v,timers[v[0]][0x25],seed.driverGeneration);voices[i]=next.record;for(const channel of next.releaseChannels)emit('release',channel,next.record,emptyPatch);}}
  function sequence(owner:number){
   let timer=timers[owner],v=view(timer);
   if(v.getUint32(0x18,true)){v.setUint32(0x18,v.getUint32(0x18,true)-1,true);return;}
@@ -41,7 +44,7 @@ export function createOriginalMt32MusicRuntime(seed:OriginalMt32MusicSeed){
     let offset=v.getUint16(0x1e,true),segment=v.getUint16(0x20,true);let instrument=(offset||segment)?instrumentAt(offset,segment):new Uint8Array(100);
     if(instrument[5]===5){const note=op&127,map=[0,2,1,2,2,2,5,2,6,2,6,2,2,3,2,4];[offset,segment]=seed.percussion[note>=24&&note<=39?map[note-24]:2];instrument=(offset||segment)?instrumentAt(offset,segment):new Uint8Array(100);}
     const command=new Uint8Array(10);command[4]=op&127;command[5]=op<128?timer[0x22]:arg;view(command).setUint32(6,c.duration??0,true);
-    const next=startOriginalMt32AllocatedNote({alternate:true,channelMasks:[],owner,instrument,instrumentPointer:{offset,segment},timers,voices,lastNotes,command});
+    const next=startOriginalMt32AllocatedNote({alternate:true,channelMasks:[],owner,instrument,instrumentPointer:{offset,segment},timers,voices,lastNotes,command},seed.driverGeneration);
     ({timers,voices,lastNotes}=next);writes.push(...next.writes);timer=timers[owner];v=view(timer);
    }else if(op===0xd9){
     if(timer[4]){const p=5+timer[4]*4;v.setUint32(0,v.getUint32(p,true),true);timer[4]--;}
@@ -71,6 +74,14 @@ export function createOriginalMt32MusicRuntime(seed:OriginalMt32MusicSeed){
   for(const [at,value] of [[0x22,127],[0x23,owner],[0x16,15],[0x32,0],[4,0],[0x24,0],[0x15,0],[0x1c,0],[0x28,state.masterVolume],[0x25,0],[0x29,0],[0x2a,0],[0x2b,0],[0x2c,0],[0x47,255]])timer[at]=value;
   for(const at of [0,2,0x18,0x1a,0x1e,0x20,0x26])v.setUint16(at,0,true);lastNotes[owner]=0;markers[owner]=0;return result;
  }
+ /** Caller must execute this program with a real timed transport host. Keep
+  * it separate from synchronous control so PIT waits cannot be discarded. */
+ function masterVolumeProgram(value:number){
+  if(!Number.isInteger(value)||value<0||value>127)throw Error('Invalid Roland master volume');
+  if(seed.systemVolume.length!==4)throw Error('Missing original Roland system-volume packet');
+  const packet=Uint8Array.from(seed.systemVolume);packet[3]=value;
+  return sendOriginalMt32SystemExclusive(driver,(_segment,offset)=>packet[offset],0,0,4,seed.driverGeneration);
+ }
  function control(effect:OriginalMenuAudioEffect){
   writes=[];
   if(effect.type==='volume')volume(effect.owner,effect.value);
@@ -78,14 +89,13 @@ export function createOriginalMt32MusicRuntime(seed:OriginalMt32MusicSeed){
   else if(effect.type==='update-voice'){
    const voice=voices[effect.index];if(voice?.[1]){const v=view(voice);emit('update',voice[44],voice,instrumentAt(v.getUint16(16,true),v.getUint16(18,true)));}
   }else if(effect.type==='master-volume'){
-   if(seed.systemVolume.length!==4)throw Error('Missing original Roland system-volume packet');
-   const packet=Uint8Array.from(seed.systemVolume);packet[3]=effect.value;
-   const program=sendOriginalMt32SystemExclusive(driver,(_segment,offset)=>packet[offset],0,0,4);
+   if(seed.driverGeneration==='ms-1991')throw Error('Modern Roland music system volume requires timed transport');
+   const program=masterVolumeProgram(effect.value);
    let step=program.next();while(!step.done){if(step.value.kind==='write')writes.push([step.value.port,step.value.value]);step=program.next(0);}
   }
   // MT15:0671 flush is a no-op. Ready-MPU port bytes are returned here;
   // the explicit transport program owns hardware pacing in an output host.
   return {writes};
  }
- return {state,control,get driver(){return driver;},get markers(){return markers;},get timers(){return timers;},get voices(){return voices;},get lastNotes(){return lastNotes;},tick(sequenceEnabled=true){writes=[];const updated=stepOriginalMt32VoiceTimer({timers,voices,lastNotes},instrumentAt);({timers,voices,lastNotes}=updated);writes.push(...updated.writes);if(sequenceEnabled)stepOriginalMusicTimer(state,release,sequence);else release();return {writes};}};
+ return {state,control,masterVolumeProgram,get commandArgument(){return commandArgument;},get driver(){return driver;},get markers(){return markers;},get timers(){return timers;},get voices(){return voices;},get lastNotes(){return lastNotes;},tick(sequenceEnabled=true){writes=[];const updated=stepOriginalMt32VoiceTimer({timers,voices,lastNotes},instrumentAt,seed.driverGeneration);({timers,voices,lastNotes}=updated);writes.push(...updated.writes);if(sequenceEnabled)stepOriginalMusicTimer(state,release,sequence);else release();return {writes};}};
 }

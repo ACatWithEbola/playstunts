@@ -3,6 +3,8 @@ import {dispatchRaceFrameSounds} from './race-frame-sounds.ts';
 import {prepareNativeAllocatedRace,prepareNativeAllocatedRaceReentry,type NativeSelectedReplay} from './native-allocated-race-preparation.ts';
 import {createNativeRaceSession} from './native-race-session.ts';
 import type {NativeDemoData,NativeDemoMenuState} from './native-demo-runtime.ts';
+import {resolvePhysicsEngine} from '../physics/engine-version.ts';
+import {resolveReplayCadence} from './replay-cadence.ts';
 /** Fresh race entry with real allocated resources and the original transporter.
  * Uses the opponent route prepared during resource loading, without loading it
  * again after the cockpit/scene banks have changed the allocator state. */
@@ -16,6 +18,7 @@ export async function createNativeManualRaceSession(data:NativeDemoData,menu:Nat
 /** Options has already selected/read the recording. Seed its original bank
  * before resource loading, then follow13A3E's playback/fast-forward branch. */
 export async function createNativeReplayRaceSession(data:NativeDemoData,menu:NativeDemoMenuState&{mouse?:boolean;joystick?:boolean},recording:NativeSelectedReplay,host:{resetMouse(mode:number):void;key(mode:number):Promise<number>},progress:(stage:number)=>void=()=>{}){
+ data={...data,physicsEngine:resolvePhysicsEngine(recording.physicsEngine),framesPerSecond:resolveReplayCadence(recording.framesPerSecond)};
  const prepared=await prepareNativeAllocatedRace(data,menu,false,progress,recording),d=0x2d1a0;
  prepared.memory[d+0x12c]=Number(!!menu.mouse);prepared.memory[d+0x4602]=Number(!!menu.joystick);
  return enterAllocatedManualSession(data,prepared,host);
@@ -24,13 +27,13 @@ export async function reopenNativeManualRaceSession(data:NativeDemoData,before:U
  return enterAllocatedManualSession(data,await prepareNativeAllocatedRaceReentry(data,before,entry,progress),host);
 }
 async function enterAllocatedManualSession(data:NativeDemoData,prepared:Awaited<ReturnType<typeof prepareNativeAllocatedRace>>,host:{resetMouse(mode:number):void;key(mode:number):Promise<number>}){
- const result=createAllocatedManualSession(data,prepared),audio=createNativeAllocatedSound(()=>result.session.state.memory,0x2d1a0,0x39e1,data.soundDevice);
+ const result=createAllocatedManualSession(data,prepared),audio=createNativeAllocatedSound(()=>result.session.state.memory,0x2d1a0,0x39e1,data.soundDevice,result.session.physicsEngine);
  const entry=await result.session.enterSimulation(host,{entryStackPointer:0xeee2,incomingSI:0,afterStep:frame=>result.initialWrites.push(...dispatchRaceFrameSounds(frame,audio))});return {...result,entry};
 }
 /** Original162F9 initializer after the caller has loaded/analyzed a replay
  * and refreshed its resources. This path does not seek to the recording end. */
-export function createLoadedNativeManualRaceSession(data:NativeDemoData,prepared:Awaited<ReturnType<typeof prepareNativeAllocatedRace>>){
- const result=createAllocatedManualSession(data,prepared);result.session.initializeLoadedReplay();return {...result,entry:'replay' as const};
+export function createLoadedNativeManualRaceSession(data:NativeDemoData,prepared:Omit<Awaited<ReturnType<typeof prepareNativeAllocatedRace>>,'initializationWriteCount'>&{initializationWriteCount?:number}){
+ const result=createAllocatedManualSession(data,{...prepared,initializationWriteCount:prepared.initializationWriteCount??0});result.session.initializeLoadedReplay();return {...result,entry:'replay' as const};
 }
 function createAllocatedManualSession(data:NativeDemoData,prepared:Awaited<ReturnType<typeof prepareNativeAllocatedRace>>){
  const d=0x2d1a0,memory=prepared.memory,view=new DataView(memory.buffer,memory.byteOffset,memory.byteLength),length=view.getUint16(d+0x8fd8,true),bank=view.getUint16(d+0x9c40,true)+view.getUint16(d+0x9c42,true)*16;
@@ -46,5 +49,5 @@ function createAllocatedManualSession(data:NativeDemoData,prepared:Awaited<Retur
  opponent.simulation=memory.slice(d+0x9c52,d+0x9c52+776);
  if(opponentSelected&&!prepared.opponentPath)throw Error('Original opponent did not find a driving route');
  const session=createNativeRaceSession({...data,...player,opponent,startup:memory,raw:prepared.raw,packedOpponent:new Uint8Array()}, {opponentSelected,preparedOpponentPath:prepared.opponentPath??undefined,replayInputs:length?memory.slice(bank,bank+length):undefined,deferSimulationEntry:true,produceAudio:true,preparedSimulationMemory:true,preparedTrackMemory:true});
- return {session,initialWrites:prepared.initialWrites,raw:prepared.raw,trackAddress:prepared.trackAddress,opponentPath:prepared.opponentPath};
+ return {session,initialWrites:prepared.initialWrites,initializationWriteCount:prepared.initializationWriteCount,raw:prepared.raw,trackAddress:prepared.trackAddress,opponentPath:prepared.opponentPath};
 }

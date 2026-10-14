@@ -55,7 +55,7 @@ export function createOriginalCanvasRaster(memory:Uint8Array,palette:readonly nu
    case 0x2795a:context.fillStyle=colors[a[2]&255];context.fillRect(signed(a[0]),signed(a[1]),1,1);break;
    case 0x28ab2:for(const face of originalWheelDrawPlan(call.presentationPoints??call.points!,a[0],a.slice(1),call.presentationPoints?presentationWheelContours:undefined))polygon(face.points,face.color,undefined,undefined,call.presentationPoints?face.points:undefined);break;
    case 0x24ea8:{
-    const plan=originalCirclePlan(memory,0x2d1a0,a[0],a[1],a[2],a[3],rectangle);
+    const plan=originalCirclePlan(memory,0x2d1a0,a[0],a[1],a[2],a[3],rectangle,undefined,call.physicsEngine);
     if(plan.type==='ellipse')polygon(originalLargeEllipseContour(plan.points),plan.color);
     else if(plan.type==='point'){context.fillStyle=colors[plan.color&255];context.fillRect(...plan.point as [number,number],1,1);}
     else if(plan.type==='spans'){context.fillStyle=colors[plan.color&255];for(let y=0;y<plan.left.length;y++){const count=signed(plan.right[y]-plan.left[y]+1);if(count>0)context.fillRect(plan.left[y],plan.start+y,count,1);}}

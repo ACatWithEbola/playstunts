@@ -4,24 +4,52 @@ import {runNativeRaceResults,type NativeRaceResultsState} from '../lib/game/nati
 import {advanceOriginalEvaluationAnimation} from '../lib/game/opponent-evaluation-animation.ts';
 import {PC_PIT_INPUT_HZ,ORIGINAL_PIT_DIVISOR} from '../lib/game/timer-interrupt.ts';
 import {continueNativeEvaluation} from '../lib/game/native-evaluation-continue.ts';
+import {originalResultMusic} from '../lib/game/native-music-score.ts';
+import {originalRaceResultOutcome} from '../lib/game/race-result-outcome.ts';
+
+await test('solo completion is not an opponent victory music test',()=>{
+ for(const player of [0,1,2481,65535]){
+  assert.equal(originalRaceResultOutcome(player,0,0),2);
+  assert.equal(originalResultMusic(originalRaceResultOutcome(player,0,0)),'over');
+ }
+ for(const [player,opponent,expected] of [[100,120,'vict'],[100,100,'vict'],[100,0,'vict'],[120,100,'over'],[0,100,'over'],[0,0,'over']] as const){
+  assert.equal(originalResultMusic(originalRaceResultOutcome(player,opponent,1)),expected);
+ }
+});
+
+await test('result outcome selects victory only for outcome zero',()=>{
+ assert.equal(originalResultMusic(0),'vict');
+ for(let outcome=1;outcome<256;outcome++)assert.equal(originalResultMusic(outcome),'over');
+});
+await test('failed awaited result music cannot advance evaluation or score preparation',async()=>{
+ const failure=new Error('Roland startup failed');
+ await assert.rejects(runNativeRaceResults({
+  async playResultMusic(name:string){assert.equal(name,'vict');throw failure;},
+  async evaluation(){assert.fail('Failed startup cannot start evaluation');},
+  async prepareScores(){assert.fail('Failed startup cannot start score preparation');},
+ } as any,{smallFontColor:3} as any,{panel:()=>({outcome:0,evaluationAvailable:1})} as any),error=>error===failure);
+});
 
 await test('opponent evaluation uses black text and the original 30 input-tick cadence',async()=>{
  const evaluationColours:number[]=[],portraits:ReadonlyArray<number>[]=[];
+ const resultMusic:string[]=[];
+ let releaseMusic:()=>void=()=>{},enteredMusic:()=>void=()=>{},evaluationStarted=false,scoresStarted=false;
+ const musicReached=new Promise<void>(resolve=>{enteredMusic=resolve;});
  const state={
   panel:{playerTime:100,opponentTime:120,penaltyTime:0,playerTicks:100,opponentTicks:120,timeAdjustment:0,speedSum:0,impactSpeed:0,topSpeed:0,jumps:0,flags:0,opponentSelected:1},
   track:new Uint8Array(1802),trackName:'DEFAULT',trackPath:'',scores:{file:new Uint8Array(364),order:[0,1,2,3,4,5,6],selected:0,name:'',retainedRecord:Array(52).fill(0)},
   choices:{current:[0,0,0],previous:[0,0,0]},raceCounter:0,retainedCandidateTime:0,carName:'COUN',opponentCode:'BERNIE',opponentCarCode:'COUN',smallFontColor:3,
  } satisfies NativeRaceResultsState;
  const frame1=[1],frame2=[2];
- await runNativeRaceResults({
+ const resultFlow=runNativeRaceResults({
   pixels:new Uint8Array(65536),font:new Uint8Array(65536),smallFont:new Uint8Array(65536),resources:{},
-  present(){},async input(){return {key:0,x:0,y:0,mouseActive:false,buttons:0};},async release(){},async gameCounter(){return 0;},
+  async playResultMusic(name){resultMusic.push(name);enteredMusic();await new Promise<void>(resolve=>{releaseMusic=resolve;});},present(){},async input(){return {key:0,x:0,y:0,mouseActive:false,buttons:0};},async release(){},async gameCounter(){return 0;},
   async enumerate(){return [];},async editPath(){return {path:'',key:0};},counter(){return 0;},
   files:{async readSavedTrack(){return null;},async readScores(){return null;},async insertTrackDisk(){return 0;},async writeScores(){return true;}},
-  async evaluation(){return {resources:{winn:[1,2,0],ev1a:[65,0],ev2a:[66,0],ev3a:[67,0]},art:{win:{op01:frame1,op02:frame2}}};},
+  async evaluation(){evaluationStarted=true;return {resources:{winn:[1,2,0],ev1a:[65,0],ev2a:[66,0],ev3a:[67,0]},art:{win:{op01:frame1,op02:frame2}}};},
   randomWord(){return 0;},randomByte(){return 0;},
   async selectEvaluation(){return {current:[0,0,0],previous:[0,0,0],mode:'win' as const,sequence:'winn',prefix:'v'};},
-  async prepareScores(){return {status:0,candidateTime:0};},
+  async prepareScores(){scoresStarted=true;return {status:0,candidateTime:0};},
  },state,{
   panel(){return {outcome:1,evaluationAvailable:1};},async prepareEvaluation(){},portrait(_first,current){portraits.push(current);},clearTop(){},scores(){},
   evaluation(_first,_current,_fragments,colour){evaluationColours.push(colour);},async continueEvaluation(){return 13;},async enterScore(){},unavailable(){},
@@ -33,8 +61,12 @@ await test('opponent evaluation uses black text and the original 30 input-tick c
    host.animate(1);return 0;
   },
  });
+ await musicReached;assert.equal(evaluationStarted,false);assert.equal(scoresStarted,false);
+ assert.equal(portraits.length,0,'Result presentation must not advance before awaited song startup');
+ releaseMusic();await resultFlow;assert.equal(evaluationStarted,true);assert.equal(scoresStarted,true);
  assert.deepEqual(evaluationColours,[0],'fresh result comments must not inherit FONTN cyan');
  assert.equal(state.smallFontColor,0);
+ assert.deepEqual(resultMusic,['over']);
  assert.deepEqual(portraits,[frame2,frame1,frame2]);
 });
 

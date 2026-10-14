@@ -31,6 +31,7 @@ The hosted game at **playstunts.com** has shared online high scores and a commun
 - **Finding scores:** the High Scores directory supports search, sorting, twelve-track pages and refreshes hourly while visible, on return or on demand. Identical track contents share a board even when filenames differ. Driver names are not verified accounts; case and surrounding spaces are normalized, and common profanity is masked without changing verification data.
 - **Display options:** English, Spanish and Italian website languages are remembered without restarting the game or translating original game data. Optional CRT display defaults off; the enhanced FPS display also defaults off and can be toggled with **Ctrl+F**. If enhanced graphics are unavailable, the game can fall back to original graphics without weakening browser security settings.
 - **Supported uploads:** personal imports accept validated tracks, replays and supported backups. Community sharing accepts original validated `.TRK` tracks; malformed or unrelated files are rejected.
+- **Replay track extraction:** private replay imports also add the embedded track as a `.TRK` file when its supported recorded name is unused. Identical tracks are retained; conflicting names (including `DEFAULT.TRK`) require an explicit replay-only or cancel choice. Existing tracks, scores and recordings are never overwritten by this import. VANCOUVR is bundled as an exact copy of the track embedded in the original February 1991 demonstration replay.
 
 GitHub **`main` remains the stable local-score edition**. The deployed online edition is developed on [`feature/global-highscores`](https://github.com/ACatWithEbola/playstunts/tree/feature/global-highscores). Cloning the default branch does not connect your local game to the public leaderboard. The online branch uses a separate database for local testing; see its [online-edition documentation](https://github.com/ACatWithEbola/playstunts/blob/feature/global-highscores/docs/GLOBAL-HIGHSCORES.md) for storage, validation, and deployment details.
 
@@ -44,7 +45,9 @@ The website’s optional **CRT display** adds static scanlines and a soft vignet
 - **Python 3.11 or newer** and Pillow from `tools/requirements.txt`.
 - Your own **complete extracted PC installation of Mindscape's 4D Sports Driving 1.1, finalized 13 December 1990** (identified as **MS 1990** in the [Stunts community version table](https://wiki.stunts.hu/wiki/Game_versions)). The `4D Sports Driving 1.1, Dec 13` archive linked by the community [download page](https://wiki.stunts.hu/wiki/Download) is a tested input. This is not Brøderbund Stunts 1.0, Brøderbund Stunts 1.1, or the February 1991 Mindscape release. A single executable or `.TRK` file is insufficient: extract the complete archive and keep its files together. [Direct-input checksums](docs/direct-asset-recipes.json) identify the accepted source files; the older [research inventory](docs/original-file-checksums.json) also lists private development fixtures and is not an extra download list.
 - For **Roland MT-32 sound**, your own compatible control and PCM ROMs, described below. Without them, select another sound device in Setup before starting the game.
+- This dual-edition checkout additionally needs your own February 1991 installation or ZIP to prepare its separate generated resources; follow the preparation below **before** running asset preparation or building.
 - A desktop browser with WebAssembly, Web Audio and WebGL support, and a keyboard. The preparation procedure has been verified on macOS.
+- On-screen driving controls support narrow windows and touch-capable browsers. Steering and throttle can be held together, with dashboard, camera, gear, Menu and Enter buttons alongside them. Setup also has touch navigation. Compatibility depends on the device's browser; use vehicle displays only while parked.
 
 ## Install and run
 
@@ -187,6 +190,113 @@ Third-party code, synthesizers and fonts retain their existing licenses; see [TH
 
 The live site uses a branded 1731 × 909 PNG sharing card (approximately 1.91:1). Original-art-derived promotional imagery is not redistributed in this source repository. To supply your own card, place it at `public/og.png` before building and update its dimensions, image URL and site URL in `app/layout.tsx` for your deployment. By default the metadata references the publicly hosted playstunts.com card; remove the image metadata if your deployment will not use a sharing image. The live card was generated using the original cover as a reference, with the yellow Stunts wordmark, red car, “PLAY IN YOUR BROWSER” and “playstunts.com” on black.
 # Replay downloads: compatibility
+
+## February 1991 edition
+
+Both editions retain their own original music implementation. Updated music
+uses the actual Suno recordings, with edition-specific timing, loops and
+transitions. It does not replace Original music. Original game installations
+and optional Roland ROMs must be supplied separately when building locally.
+
+New races default to **Mindscape 4D Sports Driving 1.1,
+25 February 1991** (`ms-1991`). Use `/?play-engine=ms-1990` for the
+13 December 1990 edition or `/?play-engine=ms-1991` for February 1991.
+Both editions remain available. Saved recordings select their recorded edition,
+independently of the edition chosen for a new race.
+
+### Preparing and selecting an edition
+
+Use the MS 1990 asset-preparation instructions above for this checkout. The
+preparation tool still validates the December installation checksums; feeding it
+the February archive is not a supported replacement. The reconstructed engine
+and its version-routed resource changes are selected separately from that base
+asset preparation. Do not overwrite an existing `public` directory or merge
+files from the two DOS installations to select a version.
+
+Before asset preparation or compilation in this compatibility checkout, generate
+the seven local MS1991 resource modules from your own February installation:
+
+```sh
+python tools/prepare_ms91_resources.py --original "/path/to/your/MS1991" --output "/path/to/new-ms91-resources" --install
+```
+
+`--original` accepts either an extracted directory or the original ZIP. The
+checksum recipes in `docs/ms91-resource-recipes.json` contain no original file
+payloads. The generator verifies all thirteen required inputs before writing;
+`--output` must be new. `--install` creates missing modules under `lib/game` and
+retains identical existing ones; a differing file is rejected, never overwritten.
+Without `--install`, it only creates the separate generated output for inspection.
+No download, executable execution, private capture or Roland ROM is needed for
+this step. Both original installations remain untouched.
+
+Generated resource modules are ignored by Git and checked by
+`node tools/check_original_resource_boundary.mjs` before the production build.
+Do not force-add them or publish a private source-checkpoint archive containing
+them. A clean source checkout must generate them locally; they are not bundled
+original game files licensed with the reconstruction source.
+
+The loopback preview query selects **future fresh races only**. Loading a saved
+or shared replay selects its recorded engine instead. On replay upload, choose
+the edition that recorded it; this label cannot repair inputs recorded under
+different physics. Untagged existing recordings continue to use MS 1990.
+
+The local Play buttons also offer explicit edition selection. Their
+`play-engine=ms-1990` or `play-engine=ms-1991` choice selects fresh games;
+it does not convert a loaded recording. Explicit `play-engine` takes precedence
+over a loopback `preview-engine` override when both are present. Remove
+`play-engine` when testing the preview override. Neither choice changes the
+release default in source.
+
+The release default is controlled by
+`lib/game/future-race-engine.ts`, not by renaming assets or changing a replay
+header. Keep its legacy default until the release checklist passes. The
+[rollback procedure](docs/MS91-ROLLBACK.md) explains how to switch future races
+without relabelling existing recordings or restoring an outdated score database.
+
+The explicit 1991 preview includes the expanded graphics menu, slow/fast video
+management and 10/20 Hz simulation settings. Simulation-speed changes apply
+to the next fresh race, not an active replay. Saved recordings retain their
+recorded engine and cadence; old untagged recordings remain legacy. Private
+score tables remain separate, and exported files do not rewrite stored bytes.
+Changing a replay header cannot make legacy inputs follow newer physics.
+
+The approved release policy uses **20 updates per second (20 Hz)** for public
+high scores and shared races. **MS 1991 slow-mode recordings (10 Hz)** remain
+private, playable and downloadable. Private import accepts supported 10 Hz
+MS 1991 files without preview flags; select Mindscape 1991 as the recording
+edition. Importing a replay never publishes it or creates a public score.
+If its DOS path/name already exists, the import is rejected without overwriting
+the stored copy; rename the incoming file to import an additional copy.
+Downloads reconstruct the recording's original versioned file format from
+its retained engine and cadence, rather than the currently selected fresh-game
+edition. Existing stored replay bytes and score identities are not rewritten.
+
+See [the difference audit](docs/MS90-MS91-DIFFERENCES.md) and
+[the detailed release checklist](docs/MS91-DETAILED-RELEASE-CHECKS.md) for tested scope and
+remaining original-game/browser checks. Public 10 Hz submission is rejected by
+both client and server; it is not a pending public leaderboard feature.
+
+### Checking compatibility without publishing
+
+For a normal installation, run `python tools/check_assets.py` after preparing
+your assets, then `npm run build`. A source ZIP can be built locally without
+Git metadata; publishing source requires a separate Git publication audit.
+
+Development checkouts with the private reference corpus can also run
+`npm run test:compatibility`, `npm run test:engine-retention`, and
+`npm run test:replay-download-safety`. Some suites require reference recordings
+such as `CTKFIN.RPL`, which are not included in this repository or an ordinary
+DOS installation. They are not required to build or play either edition.
+These checks do not switch the public default or publish a build. Their passing
+results are not a substitute for the full release checklist, live audio checks,
+or a complete website-database backup and isolated restore.
+
+Private browser-save JSON exports preserve that browser's files only; they
+are not backups of public scores and shared replays. Detailed development and
+verification evidence is kept in the separate
+[verification log](docs/MS91-CURRENT-RELEASE-STATUS.md).
+
+## Current public release
 
 Downloaded replays target **Mindscape 4D Sports Driving v1.1, 13 December 1990 (MS 1990)**.
 One public DEFAULT/Indy replay was tested to its correct 1:05.20 finish in that DOS release.

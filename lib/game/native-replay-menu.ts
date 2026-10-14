@@ -5,14 +5,14 @@ import {requestOriginalRaceReplay} from './request-race-replay.ts';
 
 export interface NativeReplayMenuHost extends Omit<NativeReplayContinueHost,'dialog'> {
  continueDriving?(restart:boolean):Promise<boolean>;
- pauseAudio():void;
+ pauseAudio():void|Promise<void>;
  dialog(resource:string,mode:number,selected:number,border:number,disabled?:number[]):Promise<number>;
  loadReplay():Promise<void>;saveReplay():Promise<void>;changeGraphics():Promise<void>;
 }
 /** Original16032..164ef replay-menu coordinator. Resource callbacks must use
  * GAME emen/econ/emdo and the separately scoped file-dialog strings. */
 export async function runNativeReplayMenu(host:NativeReplayMenuHost,d:number){
- let m=host.memory();m[d+0x9aca]=1;host.pauseAudio();host.selectControl(2,4,0);
+ let m=host.memory();m[d+0x9aca]=1;await host.pauseAudio();host.selectControl(2,4,0);
  m=host.memory();let view=new DataView(m.buffer,m.byteOffset,m.byteLength);
  const frame=view.getUint16(d+0x8c26,true);host.selectControl(1,frame,frame);
  m=host.memory();view=new DataView(m.buffer,m.byteOffset,m.byteLength);

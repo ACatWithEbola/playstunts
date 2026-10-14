@@ -1,0 +1,25 @@
+/** Matched-level local comparison, never an alignment approval. */
+import {execFileSync} from 'node:child_process';
+import {readFileSync,writeFileSync,mkdirSync,existsSync,realpathSync} from 'node:fs';
+import {join,dirname,basename,isAbsolute} from 'node:path';
+import {createHash} from 'node:crypto';
+const [original,candidate,destination,startText='0',secondsText='8']=process.argv.slice(2);
+const start=Number(startText),seconds=Number(secondsText);
+if(!Number.isFinite(start)||start<0||start>600||!Number.isFinite(seconds)||seconds<1||seconds>12)throw Error('Require bounded comparison window');
+if(![original,candidate,destination].every(p=>p&&isAbsolute(p))||existsSync(destination))throw Error('Require absolute inputs and NEW directory');
+const physical=join(realpathSync(dirname(destination)),basename(destination)),assets=realpathSync('public');
+if(physical===assets||physical.startsWith(assets+'/'))throw Error('Comparison is not a game asset');
+const hash=p=>createHash('sha256').update(readFileSync(p)).digest('hex'),hashes=[original,candidate].map(hash);
+const rate=48000,frames=Math.round(seconds*rate);
+const decode=p=>{const raw=execFileSync('ffmpeg',['-v','error','-i',p,'-ss',String(start),'-t',String(seconds),'-ar',String(rate),'-ac','2','-f','f32le','pipe:1'],{maxBuffer:12*1024*1024});if(raw.length!==frames*8)throw Error('Comparison window incomplete');return Array.from({length:frames*2},(_,i)=>raw.readFloatLE(i*4));};
+const [a,b]=[original,candidate].map(decode);
+const rms=x=>Math.sqrt(x.reduce((sum,v)=>sum+v*v,0)/x.length);
+const aRms=rms(a),bRms=rms(b);if(!Number.isFinite(aRms)||!Number.isFinite(bRms)||!aRms||!bRms)throw Error('Invalid comparison audio');
+const matched=a.map(v=>v*bRms/aRms);
+const peak=matched.reduce((p,v)=>Math.max(p,Math.abs(v)),0);if(peak>=1)throw Error('Matched reference clips');
+const onset=x=>{for(let i=0;i<x.length;i+=2)if(Math.max(Math.abs(x[i]),Math.abs(x[i+1]))>.0001)return i/2;return null;};
+const wav=x=>{const out=Buffer.alloc(44+x.length*4);out.write('RIFF');out.writeUInt32LE(out.length-8,4);out.write('WAVEfmt ',8);out.writeUInt32LE(16,16);out.writeUInt16LE(3,20);out.writeUInt16LE(2,22);out.writeUInt32LE(rate,24);out.writeUInt32LE(rate*8,28);out.writeUInt16LE(8,32);out.writeUInt16LE(32,34);out.write('data',36);out.writeUInt32LE(x.length*4,40);x.forEach((v,i)=>out.writeFloatLE(v,44+i*4));return out;};
+if([original,candidate].some((p,i)=>hash(p)!==hashes[i]))throw Error('Source changed');
+mkdirSync(destination);writeFileSync(join(destination,'original-matched-level.wav'),wav(matched),{flag:'wx'});writeFileSync(join(destination,'candidate.wav'),wav(b),{flag:'wx'});
+const report={original,candidate,inputHashes:hashes,rate,frames,start,seconds,originalRms:aRms,candidateRms:bRms,originalGain:bRms/aRms,matchedRms:rms(matched),originalThresholdFrame:onset(matched),candidateThresholdFrame:onset(b),scope:'Equal selected durations and global RMS only; threshold onset depends on waveform/gain, not all-note timing or audible fidelity',approvedForGame:false};
+writeFileSync(join(destination,'manifest.json'),JSON.stringify(report,null,2),{flag:'wx'});console.log(JSON.stringify(report));

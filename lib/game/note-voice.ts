@@ -1,7 +1,7 @@
 /** Original note initialization, loaded 0x2aa9c-0x2ab3b. Raw record layout
  * preserves still-undecoded fields while timing/modulation is reconstructed. */
 export function initializeNoteVoice(before:Uint8Array,instrument:Uint8Array,timer:Uint8Array,duration:number,owner:number,voice:number,alternate:boolean,timerPointer:number){
- if(before.length!==46||instrument.length<58||timer.length!==72)throw Error('Invalid original note voice data');
+ if(before.length!==46||instrument.length<58||(timer.length!==72&&timer.length!==76))throw Error('Invalid original note voice data');
  const record=before.slice(),out=new DataView(record.buffer),src=new DataView(instrument.buffer,instrument.byteOffset,instrument.byteLength);
  const word=(offset:number,value:number)=>out.setUint16(offset,value,true);
  record[0]=owner;word(0x2a,timerPointer);record[1]=1;record[0x16]=1;

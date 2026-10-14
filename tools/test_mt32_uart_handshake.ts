@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {createMt32UartHandshake} from '../lib/game/mt32-uart-handshake.ts';
+let clock=0;const mpu=createMt32UartHandshake(()=>clock,100);
+assert.equal(mpu.read(0x331),0xbf);
+mpu.writeCommand(255);assert.equal(mpu.read(0x331),0x3f);
+assert.equal(mpu.read(0x330),254);assert.equal(mpu.read(0x331),0xbf);
+mpu.writeCommand(63);assert.equal(mpu.read(0x331),0xff);assert.equal(mpu.uart,false);
+clock=99;assert.equal(mpu.read(0x331),0xff);
+clock=100;assert.equal(mpu.read(0x331),0x3f);assert.equal(mpu.uart,true);
+assert.equal(mpu.read(0x330),254);assert.equal(mpu.read(0x331),0xbf);
+mpu.writeCommand(63);assert.equal(mpu.read(0x331),0xbf,'Repeated UART command has no new acknowledgement');
+mpu.writeCommand(255);assert.equal(mpu.uart,false);assert.equal(mpu.read(0x331),0xbf,'Reset from UART has no ACK');
+clock=200;mpu.writeCommand(63);assert.equal(mpu.uart,true);assert.equal(mpu.read(0x330),254);
+assert.throws(()=>mpu.writeCommand(0),/Unsupported/);
+clock=199;assert.throws(()=>mpu.read(0x331),/clock/);
+console.log('Explicit MPU UART handshake tracks consumed ACKs, deferred commands, reset boundary and mode; selected model, not physical timing proof');

@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
+import {mkdtempSync,mkdirSync,readFileSync,writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+const root=mkdtempSync(join(tmpdir(),'stunts-score-layer-')),source=join(root,'source');mkdirSync(source);
+const tone=hz=>`0.1*sin(2*PI*${hz}*t)`;
+const synth=(name,expression)=>{
+ const path=join(source,name+'.wav');
+ execFileSync('ffmpeg',['-v','error','-n','-f','lavfi','-i',`aevalsrc='${expression}':s=48000:d=4`,'-c:a','pcm_f32le',path]);return path;
+};
+const mix=synth('mix',`${tone(220)}+${tone(440)}|${tone(330)}+${tone(550)}`);
+const stem=synth('stem',`${tone(440)}|${tone(550)}`);
+const reference=synth('reference',`${tone(660)}|${tone(770)}`);
+const remaining=synth('remaining',`${tone(220)}|${tone(330)}`);
+const target=join(root,'candidate');
+const report=JSON.parse(execFileSync(process.execPath,['tools/build_menu_score_layer_experiment.mjs',mix,stem,reference,target],{encoding:'utf8'}));
+const decode=(path,filter)=>execFileSync('ffmpeg',['-v','error','-i',path,...(filter?['-af',filter]:[]),'-t','3','-ar','48000','-ac','2','-f','f32le','pipe:1'],{maxBuffer:4*1024*1024});
+const residual=decode(remaining,`atrim=start=${report.cue},asetpts=PTS-STARTPTS,atempo=${report.tempo}`);
+const scored=decode(reference),actual=decode(join(target,'score-layer-candidate.wav'));
+assert.equal(actual.length,144000*8);
+let maximum=0;
+for(let i=0;i<actual.length;i+=4)maximum=Math.max(maximum,Math.abs(actual.readFloatLE(i)-residual.readFloatLE(i)-scored.readFloatLE(i)*report.referenceGain));
+assert.ok(maximum<2e-5,`Residual channel preservation error ${maximum}`);
+assert.equal(report.subtractionBeforeTempo,true);assert.equal(report.approvedForGame,false);
+assert.equal(report.individualNotesVerified,false);
+assert.deepEqual(JSON.parse(readFileSync(join(target,'manifest.json'),'utf8')).inputs,report.inputs);
+const verification=JSON.parse(execFileSync(process.execPath,['tools/verify_score_layer_experiment.mjs',target],{encoding:'utf8'}));
+assert.equal(verification.sourceHashesVerified,true);
+assert.equal(verification.individualNotesVerified,false);
+assert.equal(verification.originalReferenceSamplesVerified,true);
+assert.ok(verification.componentSumMaxError<1e-6);
+const twoTarget=join(root,'two-layers'),bassReference=synth('bass-reference',`${tone(880)}|${tone(990)}`);
+const two=JSON.parse(execFileSync(process.execPath,['tools/build_menu_score_layer_experiment.mjs',mix,stem,reference,twoTarget,'3',remaining,bassReference],{encoding:'utf8'}));
+assert.deepEqual(two.replacedOriginalChannels,[8,2]);
+const emptyResidual=decode(join(twoTarget,'residual.wav'));
+for(let i=0;i<emptyResidual.length;i+=4)assert.ok(Math.abs(emptyResidual.readFloatLE(i))<1e-6,'Both known source layers must subtract in the correct stereo channels');
+execFileSync(process.execPath,['tools/verify_score_layer_experiment.mjs',twoTarget]);
+// Preserve the sum while corrupting the scored reference: the new provenance
+// check must reject what the former component-algebra check would accept.
+const scoredPath=join(target,'scored-layer.wav'),candidatePath=join(target,'score-layer-candidate.wav');
+const scoredBytes=readFileSync(scoredPath),candidateBytes=readFileSync(candidatePath);
+scoredBytes.writeFloatLE(scoredBytes.readFloatLE(444)+.01,444);
+candidateBytes.writeFloatLE(candidateBytes.readFloatLE(444)+.01,444);
+writeFileSync(scoredPath,scoredBytes);writeFileSync(candidatePath,candidateBytes);
+assert.throws(()=>execFileSync(process.execPath,['tools/verify_score_layer_experiment.mjs',target],{stdio:'pipe'}));
+console.log(JSON.stringify({syntheticResidualMaximumError:maximum,stereoChannelsPreserved:true,realMixFidelityVerified:false}));

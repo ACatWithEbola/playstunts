@@ -1,7 +1,10 @@
 import {raceCarContact} from './race-car-contact.ts';
+import {bodyPlanePoints} from './body-plane-points.ts';
+import {bodyPlaneContact} from './body-plane-contact.ts';
 import {landmarkContact} from './landmark-contact.ts';
 import {carsOverlap} from './car-overlap.ts';
 import {roadsidePosts} from './roadside-posts.ts';
+import {signContact} from './sign-contact.ts';
 /** Track-aware simulation; only reconstructed geometry is accepted. */
 import { stepEngine, type EngineState, type EngineTuning } from './engine.ts';
 import { stepSteering } from './steering.ts';
@@ -23,18 +26,19 @@ export function stepTrack(
   // Original player_op file 0x9858-0x9887 stops updates after a crashed car
   // has zero road/engine speed and all four fall velocities have settled.
   if (before.grip.crash && before.engine.roadSpeed === 0 && before.engine.speed === 0 && before.suspension.rc1.every(n => n === 0))
-    return {...before,grip:{...before.grip,soundFlags:0},crashEvents:[],crashImpacts:[],engineRoadSpeed:before.engine.roadSpeed,contactPasses:0};
+    return {...before,signImpact:undefined,grip:{...before.grip,soundFlags:0},crashEvents:[],crashImpacts:[],engineRoadSpeed:before.engine.roadSpeed,contactPasses:0};
   // Original player_op (file 0x9854) replaces controls with braking after a crash.
   if (before.grip.crash) input = 2;
   let contactScratch:number[]|undefined;
   const retainContactScratch=(words:[number,number])=>{if(before.contactEntryRegisters)contactScratch=[...words,...before.contactEntryRegisters];};
-  const engine = stepEngine(before.engine, tuning, input, 20,undefined,retainContactScratch);
+  const fps=track.framesPerSecond??20;
+  const engine = stepEngine(before.engine, tuning, input, fps,undefined,retainContactScratch,track.physicsEngine);
   const engineRoadSpeed = engine.roadSpeed;
   const steeringAngle = stepSteering(
     before.grip.steeringAngle,
     engine.roadSpeed,
     ((input >> 2) & 3) as 0 | 1 | 2 | 3,
-    20,
+    fps,
   );
   const grip = stepGrip(
     {
@@ -55,12 +59,14 @@ export function stepTrack(
       return track.raw[row*30+column];
     })(),
     retainContactScratch,
+    track.physicsEngine,
   );
   return moveTrack(before,wheels,track,engine,grip,engineRoadSpeed,contactScratch);
 }
 /** Shared movement stage after engine and grip; car-specific event handling remains with the caller. */
 export function moveTrack(before:LevelState,wheels:Vector[],track:TrackGeometry,engine:EngineState,grip:GripState,engineRoadSpeed:number,contactScratch?:number[]):ReturnType<typeof stepTrack>{
   if(!before.wheelPositions)throw Error('Track simulation requires original wheel-position history');
+  if(track.physicsEngine==='ms-1991'&&track.mode!==2&&!before.bodyPlaneCache)throw Error('Modern body contact requires retained body-plane cache');
   const rotation: Vector = [
     grip.yaw,
     before.pose.rotation[1],
@@ -78,14 +84,26 @@ export function moveTrack(before:LevelState,wheels:Vector[],track:TrackGeometry,
     contactScratch,
     before.grip.surfaces,
   );
-  let pose = reconstructPose(contact.centres);
+  let pose = reconstructPose(contact.centres,track.physicsEngine);
+  let bodyPlaneCache=before.bodyPlaneCache;
+  if(track.physicsEngine==='ms-1991'&&track.mode!==2){
+   if(!bodyPlaneCache)throw Error('Modern body contact requires retained body-plane cache');
+   const height=track.landmarks?.dimensions[1]??track.otherCar?.dimensions[1];
+   if(height===undefined)throw Error('Modern body contact requires original car height');
+   const body=bodyPlaneContact(bodyPlanePoints(pose.position,pose.rotation,wheels,height),bodyPlaneCache,track,track.runtimeMode??0);
+   bodyPlaneCache=body.cache;
+   if(body.crash&&!contact.crash){
+    contact.crashEvents.push(5);contact.crashImpacts.push({cause:5,yaw:rotation[0],roadSpeed:contact.roadSpeed});
+    contact.crash=1;contact.roadSpeed=0;contact.speedStopped=true;
+   }
+  }
   // Steering has already updated the stored yaw before original 74DE.
   // Contact exits at 8F76 skip the proposed pose commit; they do not undo
   // that earlier yaw update (rear-end oracle first exposed this at tick134).
   let contactLandmarkMisses=0,landmarkHit=false,postHit=false,carHit=false,contactFlag=before.contactFlag,contactOther:LevelState['contactOther'],contactCrashOther=false,contactSpeed:number|undefined;
   if(track.otherCar){
    const other=track.otherCar,body={position:pose.position.map(v=>v>>6) as Vector,angles:[pose.rotation[2],pose.rotation[1],pose.rotation[0]] as Vector,dimensions:other.dimensions,radius:other.radius};
-   const collision=raceCarContact(true,other.selected,[body,other.body],[{yaw:rotation[0],speed:contact.speedStopped?0:grip.speed,roadSpeed:contact.roadSpeed,wheelAngle:contact.wheelAngle,contact:before.contactFlag??0},other.state]);
+   const collision=raceCarContact(true,other.selected,[body,other.body],[{yaw:rotation[0],speed:contact.speedStopped?0:grip.speed,roadSpeed:contact.roadSpeed,wheelAngle:contact.wheelAngle,contact:before.contactFlag??0},other.state],track.physicsEngine);
    carHit=collision.suppressPose;
    if(carHit){
     const own=collision.cars[0];contact.roadSpeed=own.roadSpeed;contactSpeed=own.speed;contact.wheelAngle=own.wheelAngle;contactFlag=own.contact;contactOther=collision.cars[1];
@@ -104,6 +122,8 @@ export function moveTrack(before:LevelState,wheels:Vector[],track:TrackGeometry,
     pose={...pose,position:before.pose.position,rotation:[rotation[0],before.pose.rotation[1],before.pose.rotation[2]]};
    }
   }
+  const signHit=!carHit&&!landmarkHit&&track.physicsEngine==='ms-1991'&&track.signs&&landmark?signContact({position:pose.position.map(v=>v>>6) as Vector,angles:[pose.rotation[2],pose.rotation[1],pose.rotation[0]],dimensions:landmark.dimensions,radius:landmark.radius},track.signs,rotation[0],contact.roadSpeed):undefined;
+  const signImpact=signHit?{...signHit,afterCrashImpacts:contact.crashImpacts.length}:undefined;
   const posts=track.posts;
   if(!carHit&&!landmarkHit&&posts&&(pose.position[0]>>16)===posts.column&&29-(pose.position[2]>>16)===posts.terrainRow){
    const body={position:pose.position.map(v=>(v>>6)) as Vector,angles:[pose.rotation[2],pose.rotation[1],pose.rotation[0]] as Vector,dimensions:posts.dimensions,radius:posts.radius};
@@ -133,9 +153,11 @@ export function moveTrack(before:LevelState,wheels:Vector[],track:TrackGeometry,
   };
   if(!carHit&&!landmarkHit&&!postHit&&contactFlag!==undefined)contactFlag=0;
   return {
+    ...(bodyPlaneCache?{bodyPlaneCache:bodyPlaneCache.map(point=>[...point] as Vector)}:{}),
     ...(contactFlag===undefined?{}:{contactFlag}),
     ...(track.otherCar?{contactOther,contactCrashOther}:{}),
     pose,
+    signImpact,
     engine,
     grip: {
       ...grip,

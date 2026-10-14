@@ -1,10 +1,17 @@
 import {GLOBAL_SCORE_ENDPOINT,GLOBAL_SCORE_RULES,scoreHash,scoreTicks,sharedScoreFile,validateScoreSubmission,type GlobalScoreSubmission} from './global-score-format.ts';
 import type {NativeFilePersistence} from './native-file-store.ts';
 import type {RouteAssessment} from '../server/shortcut-assessment.ts';
+import {LEGACY_PHYSICS,resolvePhysicsEngine,type PhysicsEngineVersion} from '../physics/engine-version.ts';
 // The submission panel collects public-sharing consent before calling this client.
 export async function createGlobalScoreClient(persistence:NativeFilePersistence,request:typeof fetch=fetch,confirmSharing=()=>true){
  const stored=new Map((await persistence.all()).map(file=>[file.key,file.bytes]));
  const decoder=new TextDecoder(),encoder=new TextEncoder();
+ const pendingProof=(bytes:Uint8Array)=>{
+  const value=JSON.parse(decoder.decode(bytes)) as {submission:GlobalScoreSubmission;hash:string;publicReplayConsent?:boolean};
+  if(!value||typeof value!=='object'||typeof value.hash!=='string'||!/^[a-f0-9]{64}$/.test(value.hash))throw Error('Invalid retained pending proof');
+  validateScoreSubmission(value.submission);return value;
+ };
+ const engineSuffix=(engine:PhysicsEngineVersion)=>engine===LEGACY_PHYSICS?'':':physics:'+engine;
  const put=async(key:string,bytes:Uint8Array)=>{await persistence.put({key,bytes});stored.set(key,bytes);};
  const notice=(message:string)=>{if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent('stunts-global-score-status',{detail:message}));};
  const responseFile=async(response:Response)=>{
@@ -15,20 +22,21 @@ export async function createGlobalScoreClient(persistence:NativeFilePersistence,
  const send=async(key:string,submission:GlobalScoreSubmission,hash:string)=>{
   try{
    const response=await request(GLOBAL_SCORE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Score':GLOBAL_SCORE_RULES},body:JSON.stringify({...submission,publicReplayConsent:true}),signal:AbortSignal.timeout(30000)});
- if(response.ok){const copy=response.clone(),result=await copy.json() as {id?:string;ranked?:boolean};await put('BOARD:'+hash,await responseFile(response));if(result.id&&/^[a-f0-9]{64}$/.test(result.id)){await put('VERIFIED:'+result.id,encoder.encode(JSON.stringify(submission)));await put('SHARED:'+result.id,encoder.encode('true'));if(typeof window!=='undefined'){window.dispatchEvent(new Event('stunts-verified-replays'));window.dispatchEvent(new Event('stunts-public-replay-shared'));}}await put(key,new Uint8Array());notice('Run verified. Its replay is public while ranked or among your five most recent verified runs.');return 'accepted';}
+ if(response.ok){const copy=response.clone(),result=await copy.json() as {id?:string;ranked?:boolean};await put('BOARD:'+hash+engineSuffix(resolvePhysicsEngine(submission.physicsEngine)),await responseFile(response));if(result.id&&/^[a-f0-9]{64}$/.test(result.id)){await put('VERIFIED:'+result.id,encoder.encode(JSON.stringify(submission)));await put('SHARED:'+result.id,encoder.encode('true'));if(typeof window!=='undefined'){window.dispatchEvent(new Event('stunts-verified-replays'));window.dispatchEvent(new Event('stunts-public-replay-shared'));}}await put(key,new Uint8Array());notice('Run verified. Its replay is public while ranked or among your five most recent verified runs.');return 'accepted';}
    if([400,403,413,422].includes(response.status)){await put('REJECTED:'+key.slice(8),stored.get(key)??encoder.encode(JSON.stringify({submission,hash})));await put(key,new Uint8Array());notice('This run could not be verified for the global leaderboard. A copy was kept in this browser.');return 'rejected';}
   }catch{/* Keep offline results queued across reloads. */}
   notice('Your high score is waiting to be uploaded. It will retry when this browser is online.');return 'pending';
  };
  let flushing:Promise<void>|undefined;
- const flush=()=>flushing??=(async()=>{for(const [key,bytes] of [...stored]){if(!key.startsWith('PENDING:')||!bytes.length)continue;try{const pending=JSON.parse(decoder.decode(bytes)) as {submission:GlobalScoreSubmission;hash:string;publicReplayConsent?:boolean};if(pending.publicReplayConsent!==true)continue;await send(key,pending.submission,pending.hash);}catch{await put(key,new Uint8Array());}}})().finally(()=>{flushing=undefined;});
+ const flush=()=>flushing??=(async()=>{for(const [key,bytes] of [...stored]){if(!key.startsWith('PENDING:')||!bytes.length)continue;try{const pending=pendingProof(bytes);if(pending.publicReplayConsent!==true)continue;if(await scoreHash(Uint8Array.from(pending.submission.replay.slice(24,0x722)))!==pending.hash)continue;await send(key,pending.submission,pending.hash);}catch{/* Keep damaged or unwritable private evidence unchanged; continue other runs. */}}})().finally(()=>{flushing=undefined;});
  return {
   flush,
   close(){persistence.close?.();},
-  async retainedRecords(track:Uint8Array){
+  async retainedRecords(track:Uint8Array,physicsEngine:PhysicsEngineVersion=LEGACY_PHYSICS){
+   const engine=resolvePhysicsEngine(physicsEngine);
    const hash=await scoreHash(track),records:number[][]=[];
    for(const [key,bytes] of stored){if(!key.startsWith('VERIFIED:')||!bytes.length)continue;
-    try{const proof=JSON.parse(decoder.decode(bytes)) as GlobalScoreSubmission;validateScoreSubmission(proof);if(await scoreHash(Uint8Array.from(proof.replay.slice(24,0x722)))===hash)records.push(proof.record);}catch{/* Preserve but do not import damaged proofs. */}
+    try{const proof=JSON.parse(decoder.decode(bytes)) as GlobalScoreSubmission;validateScoreSubmission(proof);if(resolvePhysicsEngine(proof.physicsEngine)===engine&&await scoreHash(Uint8Array.from(proof.replay.slice(24,0x722)))===hash)records.push(proof.record);}catch{/* Preserve but do not import damaged proofs. */}
    }
    return records;
   },
@@ -39,20 +47,28 @@ export async function createGlobalScoreClient(persistence:NativeFilePersistence,
    }catch{/* Offline qualification may queue a score; it never invents a category. */}
    return undefined;
   },
-  async read(track:Uint8Array,car?:string,category?:RouteAssessment){
+  async read(track:Uint8Array,car?:string,category?:RouteAssessment,physicsEngine:PhysicsEngineVersion=LEGACY_PHYSICS){
+   const engine=resolvePhysicsEngine(physicsEngine);
    const hash=await scoreHash(track);void flush().catch(()=>{});
-   const boardKey='BOARD:'+hash+(car?':'+car:'')+(category?':'+category:'');
-   try{const response=await request(GLOBAL_SCORE_ENDPOINT+'?track='+hash+(car?'&car='+car:'')+(category?'&category='+category:''),{cache:'no-store',signal:AbortSignal.timeout(5000)});if(response.ok)await put(boardKey,await responseFile(response));}catch{/* Use the last shared table while offline. */}
-   const cached=stored.get(boardKey)??sharedScoreFile([]);
+   const boardKey='BOARD:'+hash+(car?':'+car:'')+(category?':'+category:'')+engineSuffix(engine);
+   try{const response=await request(GLOBAL_SCORE_ENDPOINT+'?track='+hash+(car?'&car='+car:'')+(category?'&category='+category:'')+(engine===LEGACY_PHYSICS?'':'&engine='+engine),{cache:'no-store',signal:AbortSignal.timeout(5000)});if(response.ok)await put(boardKey,await responseFile(response));}catch{/* Use the last shared table while offline. */}
+   // A truncated restored cache is not a valid seven-record DOS table. Ignore
+   // it for display without erasing private evidence or fabricating short rows.
+   const retainedBoard=stored.get(boardKey);
+   const cached=retainedBoard?.length===364?retainedBoard:sharedScoreFile([]);
    const records=Array.from({length:7},(_,i)=>Array.from(cached.slice(i*52,i*52+52))).filter(row=>scoreTicks(row)!==65535);
-   for(const [key,bytes] of stored){if(category||!key.startsWith('PENDING:')||!bytes.length)continue;const pending=JSON.parse(decoder.decode(bytes)) as {submission:GlobalScoreSubmission;hash:string};if(pending.hash===hash&&(!car||String.fromCharCode(...pending.submission.replay.slice(0,4))===car))records.push(pending.submission.record);}
+   for(const [key,bytes] of stored){if(category||!key.startsWith('PENDING:')||!bytes.length)continue;try{const pending=pendingProof(bytes);if(resolvePhysicsEngine(pending.submission.physicsEngine)===engine&&pending.hash===hash&&await scoreHash(Uint8Array.from(pending.submission.replay.slice(24,0x722)))===hash&&(!car||String.fromCharCode(...pending.submission.replay.slice(0,4))===car))records.push(pending.submission.record);}catch{/* Preserve malformed queued bytes without breaking the private board. */}}
    records.sort((a,b)=>scoreTicks(a)-scoreTicks(b));
    const seen=new Set<string>();return sharedScoreFile(records.filter(record=>{const name=String.fromCharCode(...record.slice(0,17)).split('\0')[0].trim().replace(/[A-Z]/g,c=>c.toLowerCase());if(!name)return true;if(seen.has(name))return false;seen.add(name);return true;}));
   },
   async submit(submission:GlobalScoreSubmission,background=false){
-   validateScoreSubmission(submission);const hash=await scoreHash(Uint8Array.from(submission.replay.slice(24,0x722)));
+   validateScoreSubmission(submission);
+   // Keep queue bytes, engine identity and the foreground request tied to the
+   // same proof even if the caller reuses its arrays while storage awaits.
+   submission={...submission,record:[...submission.record],replay:[...submission.replay]};
+   const hash=await scoreHash(Uint8Array.from(submission.replay.slice(24,0x722)));
    if(!confirmSharing()){notice('High-score submission cancelled. Nothing was uploaded.');return 'rejected';}
-   const key='PENDING:'+await scoreHash(Uint8Array.from([...submission.replay,...submission.record]));
+   const key='PENDING:'+await scoreHash(Uint8Array.from([...submission.replay,...submission.record]))+engineSuffix(resolvePhysicsEngine(submission.physicsEngine));
    await put(key,encoder.encode(JSON.stringify({submission,hash,publicReplayConsent:true})));
    if(background){notice('Submission saved in this browser. Verification continues in the background.');void flush().catch(()=>{});return 'pending';}
    return send(key,submission,hash);

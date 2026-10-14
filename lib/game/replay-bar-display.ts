@@ -1,6 +1,8 @@
 import {presentOriginalReplayBar} from './replay-bar-presentation.ts';
 import {COCKPIT_DISPLAY_LAYOUTS} from './cockpit-display-layout.ts';
 export interface OriginalReplayBarDisplayHost {
+ physicsEngine?:import('../physics/engine-version.ts').PhysicsEngineVersion;
+ framesPerSecond?:10|20;
  selectBackBuffer():void;selectFrontBuffer():void;
  unclippedPackedBitmap(pointer:{offset:number;segment:number}):void;
  text(text:number,x:number,y:number,opaque?:boolean):void;
@@ -12,6 +14,7 @@ export function drawOriginalReplayBarDisplay(memory:Uint8Array,d:number,mode:'cg
  const word=(base:number,at:number)=>v.getUint16(base+u(at),true),put=(base:number,at:number,n:number)=>v.setUint16(base+u(at),u(n),true);
  const font=(at:number)=>{const segment=word(d,at+2);put(d,0x4dd2,segment);put(d,a(0xa004),word(segment*16,word(d,at)+14));};
  presentOriginalReplayBar(memory,d,start,current,{
+  physicsEngine:host.physicsEngine,framesPerSecond:host.framesPerSecond,
   sprite(offset,segment){host.selectBackBuffer();host.unclippedPackedBitmap({offset,segment});},
   time(text,x,y){
    for(let i=0;i<=text.length;i++)memory[d+u(a(0xa9f4)+i)]=i===text.length?0:text.charCodeAt(i);

@@ -1,0 +1,70 @@
+import assert from 'node:assert/strict';
+import {createBrowserTimedMt32Audio} from '../lib/game/browser-timed-mt32-audio.ts';
+function fixture(){
+ const channels:Float32Array[][]=[],sources:any[]=[];let disconnected=0;
+ const context={currentTime:0,state:'running',destination:{},
+  createGain(){return {gain:{value:1,cancelScheduledValues(){},setValueAtTime(){},linearRampToValueAtTime(){}},connect(){},disconnect(){disconnected++;}};},
+  createBuffer(_channels:number,frames:number,rate:number){assert.equal(rate,32000);const values=[new Float32Array(frames),new Float32Array(frames)];channels.push(values);return {getChannelData:(channel:number)=>values[channel]};},
+  createBufferSource(){const source={buffer:null as unknown,onended:null as unknown,started:[] as number[],stopped:0,disconnected:0,connect(){},start(time:number){this.started.push(time);},stop(){this.stopped++;},disconnect(){this.disconnected++;}};sources.push(source);return source;}};
+ return {context:context as unknown as AudioContext,clock:context,channels,sources,get disconnected(){return disconnected;}};
+}
+const f=fixture();let release:(pcm:Float32Array)=>void=()=>{},renders=0;
+const renderTimes:number[][]=[];
+const audio=createBrowserTimedMt32Audio(f.context,{sampleRate:32000,render(frames){assert.equal(frames,512);renders++;return new Promise(resolve=>{release=resolve;});}},()=>true,event=>renderTimes.push([event.renderStartedAt,event.renderFinishedAt]));
+const pending=audio.pump();assert.equal(audio.pump(),pending);assert.equal(f.sources.length,0);
+f.clock.currentTime=1;
+const pcm=Float32Array.from({length:1024},(_,i)=>i%2===0?0.25:-0.5);release(pcm);
+for(let i=0;i<20&&renders<2;i++)await Promise.resolve();assert.equal(renders,2);
+f.clock.currentTime=1.2;release(pcm);await pending;
+assert.deepEqual(f.sources[0].started,[1.015]);assert.deepEqual(f.sources[1].started,[1.2+.015]);
+assert.deepEqual(renderTimes,[[0,1],[1,1.2]],'Async renderer timing is separate from scheduled playback anchor');
+assert.ok(f.channels[0][0].every(v=>v===0.25));assert.ok(f.channels[0][1].every(v=>v===-0.5));
+const late=audio.pump();audio.close();release(pcm);await late;
+assert.equal(f.sources.length,2);assert.ok(f.sources.every(source=>source.buffer===null&&source.stopped===1));assert.equal(f.disconnected,1);
+await audio.pump();assert.equal(renders,3);
+const bad=fixture();const short=createBrowserTimedMt32Audio(bad.context,{sampleRate:32000,async render(){return new Float32Array(1);}},()=>true);
+await assert.rejects(short.pump(),/incomplete stereo/);await assert.rejects(short.pump(),/pump failed/);assert.equal(bad.sources.length,0);short.close();
+const paused=fixture();let finish:(pcm:Float32Array)=>void=()=>{},count=0;
+const switchable=createBrowserTimedMt32Audio(paused.context,{sampleRate:32000,render(){count++;return new Promise(resolve=>{finish=resolve;});}},()=>true);
+const old=switchable.pump();switchable.suspend();switchable.resume();
+finish(pcm);await old;assert.equal(paused.sources.length,0,'Resume cannot revive a buffer rendered before suspension');
+const fresh=switchable.pump();paused.clock.currentTime=1;finish(pcm);
+for(let i=0;i<20&&count<3;i++)await Promise.resolve();assert.equal(count,3);
+paused.clock.currentTime=1.2;finish(pcm);await fresh;
+assert.equal(paused.sources.length,2);
+switchable.suspend();assert.ok(paused.sources.every(source=>source.stopped===1));await switchable.pump();assert.equal(count,3);
+switchable.resume();switchable.close();
+console.log('Timed browser adapter awaits rendering, schedules native-rate stereo, coalesces pumps, releases queued sources and drops post-close renders; fake Web Audio only');
+const primed=fixture();let generated=0;
+const prebuffered=createBrowserTimedMt32Audio(primed.context,{sampleRate:32000,async render(){return new Float32Array(1024).fill(++generated);}},()=>true,undefined,4);
+await prebuffered.pump();
+assert.ok(primed.channels.length>=4);
+primed.channels.forEach((channels,index)=>assert.ok(channels.every(channel=>channel.every(value=>value===index+1)),'Prebuffer retains each PCM block exactly once in order'));
+primed.sources.forEach((source,index)=>assert.equal(source.started[0],.015+index*.016));prebuffered.close();
+const cancelled=fixture();let resolveWarmup:(pcm:Float32Array)=>void=()=>{},warmupRenders=0;
+const pendingWarmup=createBrowserTimedMt32Audio(cancelled.context,{sampleRate:32000,render(){warmupRenders++;return new Promise(resolve=>{resolveWarmup=resolve;});}},()=>true,undefined,4);
+const warming=pendingWarmup.pump();
+pendingWarmup.close();resolveWarmup(new Float32Array(1024));await warming;
+assert.equal(warmupRenders,1);assert.equal(cancelled.sources.length,0);
+assert.throws(()=>createBrowserTimedMt32Audio(f.context,{sampleRate:32000,async render(){return pcm;}},()=>true,undefined,33),/prebuffer/);
+console.log('Prebuffer preserves PCM order and cancellation prevents further rendering or scheduling');
+const provenance=fixture(),scheduled:{start:number;duration:number;gap:number;frameStart:number;frameEnd:number}[]=[];
+const reused=new Float32Array(1024);let serial=0;
+const tracked=createBrowserTimedMt32Audio(provenance.context,{sampleRate:32000,async render(){reused.fill(++serial);return reused;}},()=>true,event=>scheduled.push(event),4);
+await tracked.pump();
+assert.equal(tracked.playbackTimeForFrame(256),.023);
+assert.equal(tracked.playbackTimeForFrame(512),.031);
+scheduled.forEach((event,index)=>{assert.equal(event.frameStart,index*512);assert.equal(event.frameEnd,(index+1)*512);assert.equal(event.start,.015+index*.016);});
+provenance.channels.forEach((channels,index)=>assert.ok(channels.every(channel=>channel.every(value=>value===index+1)),'Reused renderer storage must not overwrite queued PCM or frame provenance'));
+const beforePause=scheduled.at(-1)!.frameEnd;tracked.suspend();tracked.resume();provenance.clock.currentTime=2;await tracked.pump();
+assert.equal(tracked.playbackTimeForFrame(256),undefined,'Suspension invalidates old audible mapping');
+const resumed=scheduled.find(event=>event.start>=2)!;assert.ok(resumed.frameStart>=beforePause);assert.equal(resumed.start,2.015,'Resumed frame range follows its new WebAudio anchor');tracked.close();
+console.log('Submitted buffers retain exact sample ranges through prebuffer/reused storage and resume anchors; unscheduled PCM is not assigned an audible timestamp');
+const warmPause=fixture();let releaseOld:(pcm:Float32Array)=>void=()=>{},sequence=0;
+const warmed=createBrowserTimedMt32Audio(warmPause.context,{sampleRate:32000,async render(){
+ const value=++sequence;if(value===1)return new Promise<Float32Array>(resolve=>{releaseOld=resolve;});
+ return new Float32Array(1024).fill(value);
+}},()=>true,undefined,3);
+const superseded=warmed.pump();warmed.suspend();warmed.resume();releaseOld(new Float32Array(1024).fill(1));await superseded;
+assert.equal(warmPause.sources.length,0);await warmed.pump();
+assert.ok(warmPause.channels[0].every(channel=>channel.every(value=>value===2)),'Resume must not reuse pre-pause warmup PCM');warmed.close();

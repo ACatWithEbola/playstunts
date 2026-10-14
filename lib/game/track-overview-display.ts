@@ -6,6 +6,7 @@ import {originalTrackOverviewSubmissions} from './track-overview-submissions.ts'
 import {renderOriginalModelMemory} from './render-model-memory.ts';
 import {MODEL_DISPLAY_LAYOUTS} from './model-display-layout.ts';
 import {TRACK_DISPLAY_LAYOUTS} from './track-display-layout.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 export interface OriginalTrackOverviewDisplayHost {
  bounds(left:number,right:number,top:number,bottom:number):void;clearWindow(colour:number):void;
  bitmap(pointer:{offset:number;segment:number},position:{x:number;y:number}):void;
@@ -21,8 +22,8 @@ export function drawOriginalTrackOverviewDisplayBackground(memory:Uint8Array,d:n
 }
 /** Original overview tile sequence and per-tile native queue drain.
  * Track maps, model descriptors and panorama resources belong to the caller. */
-export function drawOriginalTrackOverviewDisplay(memory:Uint8Array,d:number,mode:'cga'|'tandy'|'ega',host:OriginalTrackOverviewDisplayHost,scratch:{record:number;region:number;leftOffset:number;rightOffset:number}){
+export function drawOriginalTrackOverviewDisplay(memory:Uint8Array,d:number,mode:'cga'|'tandy'|'ega',host:OriginalTrackOverviewDisplayHost,scratch:{record:number;region:number;leftOffset:number;rightOffset:number},engine?:PhysicsEngineVersion){
  const result=drawOriginalTrackOverviewDisplayBackground(memory,d,mode,host),layout=MODEL_DISPLAY_LAYOUTS[mode];selectOriginalView(memory,d,[0,result.pitch,0],[0,320,0,200],1,layout);
  const cache={vectors:Array.from({length:256},()=>[0,0,0] as Vector),points:Array.from({length:256},()=>[0,0]),flags:Array(256).fill(0)};
- originalTrackOverviewSubmissions(memory,d,record=>{if(record){for(let i=0;i<record.length;i++)memory[d+((scratch.record+i)&65535)]=record[i];renderOriginalModelMemory(memory,d,scratch.record,cache,undefined,undefined,layout);}else host.primitives(scratch);},TRACK_DISPLAY_LAYOUTS[mode],scratch.region);return result;
+ const rasterScratch={...scratch,physicsEngine:engine};originalTrackOverviewSubmissions(memory,d,record=>{if(record){for(let i=0;i<record.length;i++)memory[d+((scratch.record+i)&65535)]=record[i];renderOriginalModelMemory(memory,d,scratch.record,cache,undefined,undefined,layout,false,engine);}else host.primitives(rasterScratch);},TRACK_DISPLAY_LAYOUTS[mode],scratch.region,engine);return result;
 }

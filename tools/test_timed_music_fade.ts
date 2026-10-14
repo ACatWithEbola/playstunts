@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {fadeOriginalMusic} from '../lib/game/fade-original-music.ts';
+const memory=new Uint8Array(65536);memory[0x4e06]=1;
+const events:string[]=[];let release:()=>void=()=>{},reached:()=>void=()=>{},delay=0;
+const held=new Promise<void>(resolve=>{reached=resolve;});
+const fade=fadeOriginalMusic({memory:()=>memory,musicVolume(){throw Error('Wrong device');},async alternateCommand(command,data){assert.equal(command,4);assert.equal(data,0x4e08);events.push('volume:'+memory[0x4e0b]);if(events.length===1){reached();await new Promise<void>(resolve=>{release=resolve;});}events.push('delivered');},beginDelay(ticks){delay=ticks;events.push('delay:'+ticks);},async finishDelay(){events.push('wait:'+delay);},async stopMusic(){events.push('stop');await Promise.resolve();events.push('stopped');}},0,2);
+await held;assert.deepEqual(events,['volume:100']);assert.equal(memory[0x4e0c],1,'Pause guard remains held until volume delivery');
+await Promise.resolve();assert.deepEqual(events,['volume:100'],'Fade cannot start delay or following volume while transfer is pending');
+release();await fade;
+const expected:string[]=[];for(let volume=100;volume>0;volume-=2)expected.push('volume:'+volume,'delivered','delay:2','wait:2');
+expected.push('stop','stopped','delay:50','wait:50','volume:100','delivered');
+assert.deepEqual(events,expected);assert.equal(memory[0x4e0c],0);assert.equal(memory[0x4e0b],100);
+console.log('Timed fade awaits each volume, holds pause guard, awaits score stop and final restore in original order');

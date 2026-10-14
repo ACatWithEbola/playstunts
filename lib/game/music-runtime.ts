@@ -10,11 +10,16 @@ import {stepVoiceDuration} from './voice-duration.ts';
 import {startAdlibNote,ADLIB_CHANNEL_MASKS} from './adlib-note-start.ts';
 import {adlibRelease,adlibReset} from './adlib-release.ts';
 import {adlibVolume} from './adlib-volume.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
+import {versionedAdlibRegisterWrites} from './versioned-adlib-register-writes.ts';
 export interface OriginalMusicSeed {header:number;bank:number[];voices:number[];timers:number[][];hardware:number[][];lastNotes:number[];velocities:number[];initialWrites:number[][];percussion:number[][];markers?:number[];masterVolume?:number;commandArgument?:number}
 const view=(b:Uint8Array)=>new DataView(b.buffer,b.byteOffset,b.byteLength);
 /** Original music command execution for the supplied TITL and SLCT scores.
  * The seed is the original loader's initialized state; playback is native. */
-export function createOriginalMusicRuntime(seed:OriginalMusicSeed){
+export function createOriginalMusicRuntime(seed:OriginalMusicSeed,driverContext?:{driverGeneration:PhysicsEngineVersion;driver:Uint8Array}){
+ const driver=driverContext?.driver.slice();
+ if(driverContext?.driverGeneration==='ms-1991'&&(!driver||driver.length<0xa7d))throw Error('Modern AdLib music requires complete initialized cache');
+ const filter=(output:number[][])=>versionedAdlibRegisterWrites(driver??new Uint8Array(),output,driverContext?.driverGeneration);
  const bank=Uint8Array.from(seed.bank),patches=Uint8Array.from(seed.voices),header=seed.header;
  let timers=seed.timers.map(t=>Uint8Array.from(t)),voices=seed.hardware.map(t=>Uint8Array.from(t)),lastNotes=Uint8Array.from(seed.lastNotes),velocities=seed.velocities.slice();
  let commandArgument=seed.commandArgument??0;
@@ -22,7 +27,7 @@ export function createOriginalMusicRuntime(seed:OriginalMusicSeed){
  const state={masterVolume:seed.masterVolume??127,accumulator:0,interval:128,tracks:bank[header+7+bank[header+6]*4]};
  const instrumentAt=(offset:number,segment:number)=>{if(segment!==0x9000)throw Error('Invalid original music instrument segment');return patches.slice(offset,offset+100);};
  let writes:number[][]=[];
- function release(){for(let i=0;i<voices.length;i++){const v=voices[i];if(!v[1]||v[0]>=16)continue;const next=stepVoiceDuration(v,timers[v[0]][0x25]);voices[i]=next.record;for(const ch of next.releaseChannels)writes.push(...adlibRelease(ch-1,view(next.record).getUint16(6,true)));}}
+ function release(){for(let i=0;i<voices.length;i++){const v=voices[i];if(!v[1]||v[0]>=16)continue;const next=stepVoiceDuration(v,timers[v[0]][0x25],driverContext?.driverGeneration);voices[i]=next.record;for(const ch of next.releaseChannels)writes.push(...adlibRelease(ch-1,view(next.record).getUint16(6,true)));}}
  function sequence(owner:number){
   let timer=timers[owner],v=view(timer);
   if(v.getUint32(0x18,true)){v.setUint32(0x18,v.getUint32(0x18,true)-1,true);return;}
@@ -71,7 +76,7 @@ export function createOriginalMusicRuntime(seed:OriginalMusicSeed){
    for(let i=0;i<voices.length;i++){const voice=voices[i];if(voice[0]<effect.first||voice[0]>effect.last)continue;if(i>0)output.push(...adlibReset(i-1));voice[0]=255;voice[1]=0;voice[2]=0;view(voice).setUint32(16,0,true);}
    for(let i=effect.first;i<=effect.last;i++)timers[i][0x15]=0;
   }else if(effect.type==='master-volume')throw Error('Alternate music driver is not the native AdLib driver');
-  return output;
+  return filter(output);
  }
- return {state,control,get markers(){return markers;},get timers(){return timers;},get voices(){return voices;},get lastNotes(){return lastNotes;},tick(sequenceEnabled=true){writes=[];const updated=stepAdlibVoiceTimer({timers,voices,lastNotes},instrumentAt);({timers,voices,lastNotes}=updated);writes.push(...updated.writes);if(sequenceEnabled)stepOriginalMusicTimer(state,release,sequence);else release();return writes;}};
+ return {state,control,driverSnapshot(){return driver?.slice();},get markers(){return markers;},get timers(){return timers;},get voices(){return voices;},get lastNotes(){return lastNotes;},tick(sequenceEnabled=true){writes=[];const updated=stepAdlibVoiceTimer({timers,voices,lastNotes},instrumentAt,driverContext?.driverGeneration);({timers,voices,lastNotes}=updated);writes.push(...updated.writes);if(sequenceEnabled)stepOriginalMusicTimer(state,release,sequence);else release();return filter(writes);}};
 }

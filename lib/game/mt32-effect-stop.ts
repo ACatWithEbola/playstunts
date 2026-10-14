@@ -12,6 +12,7 @@ export function stopOriginalMt32Effect(before:OriginalMt32EffectState&{markers:U
  const timer=timers[handle],v=new DataView(timer.buffer);
  for(const [offset,value] of [[0x22,127],[0x23,handle],[0x16,15],[0x32,0],[4,0],[0x24,0],[0x15,0],[0x1c,0],[0x28,master&255],[0x25,0],[0x29,0],[0x2a,0],[0x2b,0],[0x2c,0],[0x47,255]])timer[offset]=value;
  for(const offset of [0,2,0x18,0x1a,0x1e,0x20,0x26])v.setUint16(offset,0,true);
+ if(timer.length===76)v.setUint32(0x48,0,true);
  lastNotes[handle]=0;markers[handle]=0;
  return result();
 }

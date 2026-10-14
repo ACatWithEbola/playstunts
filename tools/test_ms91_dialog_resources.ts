@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {MS91_DIALOG_TEXT,ms91DialogResources,MS91_EDITOR_DIALOG_TEXT,ms91EditorDialogResources} from '../lib/game/ms91-dialog-resources.ts';
+import {originalDialogContent} from '../lib/game/dialog-content.ts';
+const legacy={emrl:[65,0],emop:[66,0],unchanged:[67,0]},snapshot=structuredClone(legacy);
+assert.equal(ms91DialogResources(legacy),legacy);
+assert.equal(ms91DialogResources(legacy,'ms-1990'),legacy);
+const modern=ms91DialogResources(legacy,'ms-1991');
+assert.equal(modern.unchanged,legacy.unchanged);
+assert.deepEqual(legacy,snapshot);
+for(const [key,text] of Object.entries(MS91_DIALOG_TEXT))assert.equal(String.fromCharCode(...modern[key]),text+'\0');
+const content=originalDialogContent(modern.emrl,line=>line.length,-1,-1,2,'ms-1991');
+assert.equal(content.choices.length,10);
+assert.ok(content.lines.every(line=>!line.text.includes(125)));
+console.log('MS91 dialog overlay retains legacy resources and exposes ten compact graphics choices');
+const editorLegacy={emen:[84,0],untouched:[85,0]},editorBefore=structuredClone(editorLegacy);
+assert.equal(ms91EditorDialogResources(editorLegacy,'ms-1990'),editorLegacy);
+const editorModern=ms91EditorDialogResources(editorLegacy,'ms-1991');
+for(const [key,text] of Object.entries(MS91_EDITOR_DIALOG_TEXT))assert.equal(String.fromCharCode(...editorModern[key]),text+'\0');
+assert.ok(String.fromCharCode(...editorModern.emen).startsWith('Select Terrain'));
+assert.equal(String.fromCharCode(...editorModern.efex),MS91_DIALOG_TEXT.efex+'\0','Editor save collision uses its modern MAIN resource without GAME menu contamination');
+assert.ok(String.fromCharCode(...modern.emen).startsWith('Replay Menu'));
+assert.equal(editorModern.untouched,editorLegacy.untouched);assert.deepEqual(editorLegacy,editorBefore);
+console.log('Editor terrain/replay menu IDs remain bank-scoped; legacy editor resources unchanged');
+for(const [key,count] of [['echl',2],['echx',2],['emen',6],['emss',6]] as const){
+ const dialog=originalDialogContent(editorModern[key],line=>line.length,-1,-1,2,'ms-1991');
+ assert.equal(dialog.choices.length,count,key+' choices');
+ assert.ok(dialog.lines.every(line=>!line.text.includes(125)),key+' group delimiter is not painted');
+ assert.ok(dialog.choices.every(choice=>choice.bottom<dialog.layout.bounds[3]),key+' hit targets inside dialog');
+}
+console.log('All modern editor choice counts/group delimiters/hit-target bounds pass');

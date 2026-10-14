@@ -6,14 +6,22 @@ import {initializeNativeRaceResources} from './initialize-race-resources.ts';
 import {loadNativeOpponentPreparation} from './load-opponent-preparation.ts';
 import {createNativeDisplayRaceRenderer} from './native-display-race-renderer.ts';
 import type {NativeDemoData} from './native-demo-runtime.ts';
+import {resolveReplayCadence} from './replay-cadence.ts';
+import {versionedRouteTables} from './versioned-route-tables.ts';
+import {versionedOpponentResource} from './versioned-opponent-resource.ts';
+import {nativeDisplayRendererPolicy} from './native-renderer-policy.ts';
+import {resolvePhysicsEngine} from '../physics/engine-version.ts';
+import {versionedPc15Resource} from './versioned-pc15-resource.ts';
+import {loadedPc15Generation} from './loaded-pc15-generation.ts';
 
 /** Prepare an independent display resource graph for an already selected native
  * race. Geometry, fonts, cockpit banks and route buffers are loaded natively;
  * simulation state and sound output remain owned by the live race. */
-export async function prepareNativeDisplayRace(data:Pick<NativeDemoData,'catalog'|'records'|'vectors'|'samples'|'objects'|'planes'>,mode:'cga'|'tandy'|'ega',source:NativeInitialDisplayData,live:Uint8Array,raw:number[],progress:(stage:number)=>void=()=>{}){
+export async function prepareNativeDisplayRace(data:Pick<NativeDemoData,'catalog'|'records'|'points'|'vectors'|'samples'|'objects'|'planes'|'framesPerSecond'|'physicsEngine'|'experimentalMs91SlowVideoManagement'>,mode:'cga'|'tandy'|'ega',source:NativeInitialDisplayData,live:Uint8Array,raw:number[],progress:(stage:number)=>void=()=>{}){
  if(raw.length!==1802||live.length!==0x100000)throw Error('Original display race requires complete track and simulation memory');
+ data=versionedRouteTables(data);
  const owner=await createNativeDisplayCommonState(mode,source,data.catalog),d=owner.d,liveD=0x2d1a0,high={cga:0x5e0,tandy:0x620,ega:0x45c}[mode],middle=mode==='ega'?0x460:high;
- const checkpoints=allocateOriginalReplayCheckpoints(owner.memory(),d,mode);
+ const checkpoints=allocateOriginalReplayCheckpoints(owner.memory(),d,mode,resolveReplayCadence(data.framesPerSecond));
  if(checkpoints.error)throw Error('Original display replay allocation failed: '+checkpoints.error);owner.writeMemory(checkpoints.memory);
  const memory=owner.memory();const v=new DataView(memory.buffer);
  memory.set(live.subarray(liveD+0x8fc2,liveD+0x8fda),d+0x8fc2+high);
@@ -23,8 +31,10 @@ export async function prepareNativeDisplayRace(data:Pick<NativeDemoData,'catalog
  const route=analyzeRoute(raw,data.records,data.vectors,data.samples,data.objects,undefined,{sample:false});
  const analyzed=route.route&&!route.route.error&&route.route.count>520?analyzeAllocatedDisplayTrackAtFrame(memory,d,mode,0xeee2,raw,data.records,data.vectors,data.samples,data.objects):analyzeAllocatedDisplayTrack(memory,d,mode,raw,data.records,data.vectors,data.samples,data.objects);owner.writeMemory(analyzed.memory);
  const name=(offset:number)=>{let result='';for(let i=0;i<65536;i++){const byte=owner.memory()[d+((offset+i)&65535)];if(!byte)return result;result+=String.fromCharCode(byte);}throw Error('Original display filename is unterminated');};
- const files={memory:owner.memory,writeMemory:owner.writeMemory,async exists(offset:number){return data.catalog.exists(name(offset));},async readFile(offset:number){return data.catalog.read(name(offset));},async retry(){throw Error('Original display race resource is missing');}};
- const result=await initializeNativeRaceResources({...files,progress,async prepareOpponent(bp){await loadNativeOpponentPreparation(files,d,bp,mode);}},d,0xeefe,{mode,drawing:owner.drawing});
+ const pcGeneration=live[liveD+0x7460]===80&&live[liveD+0x7461]===67?loadedPc15Generation(live,liveD):undefined;
+ const soundResource=(filename:string)=>pcGeneration?versionedPc15Resource(filename,pcGeneration):undefined;
+ const files={memory:owner.memory,writeMemory:owner.writeMemory,async exists(offset:number){return !!soundResource(name(offset))||!!versionedOpponentResource(name(offset),data.physicsEngine)||data.catalog.exists(name(offset));},async readFile(offset:number){return soundResource(name(offset))??versionedOpponentResource(name(offset),data.physicsEngine)??data.catalog.read(name(offset));},async retry(){throw Error('Original display race resource is missing');}};
+ const result=await initializeNativeRaceResources({...files,physicsEngine:data.physicsEngine,progress,async prepareOpponent(bp){await loadNativeOpponentPreparation(files,d,bp,mode,data.physicsEngine);}},d,0xeefe,{mode,drawing:owner.drawing});
  if(result!==0)throw Error('Original display race resource startup failed');
- return {owner,renderer:createNativeDisplayRaceRenderer(owner,raw,data.objects,data.planes)};
+ return {owner,renderer:createNativeDisplayRaceRenderer(owner,raw,data.objects,data.planes,undefined,{physicsEngine:data.physicsEngine,framesPerSecond:data.framesPerSecond,...nativeDisplayRendererPolicy(resolvePhysicsEngine(data.physicsEngine),data.experimentalMs91SlowVideoManagement)})};
 }

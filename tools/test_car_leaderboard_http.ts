@@ -7,7 +7,7 @@ if(!['localhost','127.0.0.1'].includes(new URL(origin).hostname))throw Error('Lo
 test('real slower/faster repeated races keep only the named driver best and car reads match the directory',async()=>{
  const fast=await finishedScoreFixture(),slow=await finishedScoreFixture(20);
  const name='RANKING QA',named=(proof:typeof fast)=>{const record=[...proof.record];record.fill(0,0,17);Array.from(name,c=>c.charCodeAt(0)).forEach((n,i)=>record[i]=n);return {...proof,record};};
- const post=async(proof:typeof fast)=>{const r=await fetch(origin+'/api/highscores',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Score':GLOBAL_SCORE_RULES},body:JSON.stringify(named(proof))});assert.equal(r.status,200,await r.clone().text());return r.json() as Promise<{id:string;ranked:boolean}>;};
+ const post=async(proof:typeof fast)=>{const r=await fetch(origin+'/api/highscores',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Score':GLOBAL_SCORE_RULES},body:JSON.stringify({...named(proof),publicReplayConsent:true})});assert.equal(r.status,200,await r.clone().text());return r.json() as Promise<{id:string;ranked:boolean}>;};
  const a=await post(slow),b=await post(fast),c=await post(slow);assert.equal(b.ranked,true);assert.equal(c.ranked,false);
  const hash=await scoreHash(Uint8Array.from(fast.replay.slice(24,0x722)));
  const r=await fetch(origin+'/api/leaderboards?q=RANKING%20QA');assert.equal(r.status,200);const {boards}=await r.json() as {boards:{hash:string;scores:{id:string;driver:string}[];cars:{code:string;scores:{id:string;driver:string}[]}[]}[]};

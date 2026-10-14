@@ -1,9 +1,11 @@
 import {readRecordedPlayerRace,stepRecordedSinglePlayerRace,type RecordedPlayerRace,type RecordedRaceResources} from './recorded-single-player-race.ts';
 import {readOpponentRaceState} from './read-opponent-race-state.ts';
+import {readSignCollisionMemory} from './sign-collision-memory.ts';
 import {writeOpponentCarState} from './write-opponent-race-state.ts';
 import {writePlayerRaceState} from './write-player-race-state.ts';
 import {stepTwoCarRaceFrame,type TwoCarRaceResources} from './two-car-race-frame.ts';
 import {beginReplayFrame} from './begin-replay-frame.ts';
+import {readMs91BodyCaches,decodeMs91BodyCache,encodeMs91BodyCache,writeMs91BodyCaches} from './ms91-body-cache-memory.ts';
 import {advanceRaceClock} from './race-clock.ts';
 import {raceDrivingCaller} from '../physics/race-driving-caller.ts';
 import {readContactFrameScratch,writeContactFrameScratch,writeContactFrameNeighbors,writeContactFrameOrigins} from '../physics/race-contact-scratch.ts';
@@ -20,17 +22,29 @@ export function readRecordedTwoCarRace(memory:Uint8Array,dataSegment:number):Rec
 /** Shared recorded caller with ordered cross-car contact effects. */
 export function stepRecordedTwoCarRace(before:RecordedTwoCarRace,playerResources:RecordedRaceResources,opponentResources:TwoCarRaceResources['opponent']){
  const caller=playerResources.caller;if(!caller)throw Error('Shared race requires original caller stack context');
- const prefix=beginReplayFrame(before.memory,before.dataSegment);const memory=prefix.memory;
+ const fps=playerResources.track.framesPerSecond??20;
+ if(before.memory[before.dataSegment+0x8fc8]!==0&&(opponentResources.track.framesPerSecond??20)!==fps)throw Error('Both cars must use the same recording cadence');
+ const prefix=beginReplayFrame(before.memory,before.dataSegment,fps,playerResources.track.physicsEngine);let memory=prefix.memory;
  if(!prefix.active||memory[before.dataSegment+0x8fc8]===0){const result=stepRecordedSinglePlayerRace(before,playerResources);return {...result,state:{...before,...result.state}};}
  const d=before.dataSegment,v=new DataView(memory.buffer),race=before.player.driving.race,car=before.player.driving.car,sp=caller.entryStackPointer;
  const registers=raceDrivingCaller(race.stats[2],caller.incomingSI,v.getUint16(d+0x9c40,true),v.getUint16(d+0xa030,true));
  const clock=advanceRaceClock({frame:race.stats[2],counter:race.abortFlag,timer:race.timer,evaluationCause:race.evaluationCause,done:before.done,mode:before.mode,crash:car.grip.crash,roadSpeed:car.engine.roadSpeed});const stats=[...race.stats];stats[2]=clock.frame;
- const player={...before.player,driving:{...before.player.driving,race:{...race,stats,abortFlag:clock.counter,timer:clock.timer},car:{...car,contactWheelAngles:readContactFrameScratch(memory,caller.stackSegment,sp-120),contactEntryRegisters:registers}}};
- const opponent={...before.opponent,car:{...before.opponent.car,contactWheelAngles:readContactFrameScratch(memory,caller.stackSegment,sp-94)}};
+ const bodyCaches=playerResources.track.physicsEngine==='ms-1991'?readMs91BodyCaches(memory,d,fps):undefined;
+ const player={...before.player,driving:{...before.player.driving,race:{...race,stats,abortFlag:clock.counter,timer:clock.timer},car:{...car,...(bodyCaches?{bodyPlaneCache:decodeMs91BodyCache(bodyCaches[0])}:{}),contactWheelAngles:readContactFrameScratch(memory,caller.stackSegment,sp-120),contactEntryRegisters:registers}}};
+ const opponent={...before.opponent,car:{...before.opponent.car,...(bodyCaches?{bodyPlaneCache:decodeMs91BodyCache(bodyCaches[1])}:{}),contactWheelAngles:readContactFrameScratch(memory,caller.stackSegment,sp-94)}};
+ const signs=playerResources.track.physicsEngine==='ms-1991'?readSignCollisionMemory(memory,d):undefined;
+ playerResources={...playerResources,track:{...playerResources.track,runtimeMode:before.mode,...(signs?{signs}:{})}};
+ opponentResources={...opponentResources,track:{...opponentResources.track,runtimeMode:before.mode,...(signs?{signs}:{})}};
  const result=stepTwoCarRaceFrame({player,opponent,cameras:[before.camera,before.opponentCamera]},{audioExiting:memory[d+0x9aca],player:[playerResources.tuning,playerResources.wheels,prefix.input<<24>>24,{...playerResources.track,mode:prefix.active},clock.frame,...playerResources.navigation],trackside:playerResources.trackside,opponent:{...opponentResources,track:{...opponentResources.track,mode:prefix.active},contactCaller:{frameOffset:sp-16,pathOffset:v.getUint16(d+0x7ff4,true),incomingSI:registers[0],incomingDI:registers[1]}}});
  memory.set(writePlayerRaceState(memory.subarray(d,d+65536),before.player,result.player,result.cameras[0],clock.done),d);
  memory.set(writeOpponentCarState(memory.subarray(d+0x8cf0,d+0x8da8),before.opponent.car,result.opponent.car,result.opponent.route,result.opponent.routeTarget,result.opponent.angle,result.opponent.targetAlternate),d+0x8cf0);
+ if(result.opponent.car.signImpact)memory[d+0x8eb0+result.opponent.car.signImpact.index]=1;
  result.cameras[1].position.forEach((n,i)=>v.setInt16(d+0x8c0c+i*2,n,true));result.cameras[1].previous.forEach((n,i)=>v.setInt16(d+0x8c18+i*2,n,true));memory[d+0x8eae]=result.cameras[1].selected;memory[d+0x8eaf]=result.opponent.routeTarget.side;memory[d+0x8f14]=result.opponent.avoidance;
+ if(bodyCaches){
+  const caches=[result.player.driving.car.bodyPlaneCache,result.opponent.car.bodyPlaneCache];
+  if(caches.some(cache=>!cache))throw Error('Modern two-car simulation lost its body caches');
+  memory=writeMs91BodyCaches(memory,d,fps,[encodeMs91BodyCache(caches[0]!),encodeMs91BodyCache(caches[1]!)]);
+ }
  for(const [index,current] of [result.player.driving.car,result.opponent.car].entries()){
   if(index===0&&car.grip.crash&&car.engine.roadSpeed===0&&car.engine.speed===0&&car.suspension.rc1.every(n=>n===0))continue;
   const bp=sp-(index?94:120);

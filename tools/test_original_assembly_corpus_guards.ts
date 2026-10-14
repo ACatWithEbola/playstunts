@@ -1,0 +1,34 @@
+/** Negative tests use disposable copies only; never execute a DOS binary. */
+import assert from 'node:assert/strict';
+import {mkdtempSync,readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join,isAbsolute} from 'node:path';
+import {spawnSync} from 'node:child_process';
+const [source,captures]=process.argv.slice(2);
+assert.ok(source&&captures&&isAbsolute(source)&&isAbsolute(captures));
+const root=mkdtempSync(join(tmpdir(),'stunts-oracle-guards-'));
+const corpus=join(root,'corpus'),out=join(root,'captures');
+mkdirSync(join(corpus,'zct300'),{recursive:true});mkdirSync(out);
+const replay=readFileSync(join(source,'zct300/25-MAR.RPL'));
+writeFileSync(join(corpus,'zct300/25-MAR.RPL'),replay);
+writeFileSync(join(out,'MAR300.RPL'),replay);
+const checker=readFileSync(join(captures,'repldumo.exe'));
+const dump=readFileSync(join(captures,'MAR300.BIN'));
+const reject=(message:string)=>{
+ const result=spawnSync(process.execPath,[new URL('./check_original_assembly_replay_corpus.ts',import.meta.url).pathname,corpus,out],{encoding:'utf8'});
+ assert.notEqual(result.status,0);assert.ok(result.stderr.includes(message),result.stderr);
+};
+writeFileSync(join(out,'repldumo.exe'),new Uint8Array([0]));
+reject('Unexpected archived original-assembly checker');
+writeFileSync(join(out,'repldumo.exe'),checker);
+writeFileSync(join(out,'MAR300.BIN'),dump.subarray(0,dump.length-1));
+reject('Incomplete original capture');
+const altered=Uint8Array.from(dump);new DataView(altered.buffer,altered.byteOffset,altered.byteLength).setUint16(0,0,true);
+writeFileSync(join(out,'MAR300.BIN'),altered);reject('Unexpected captured frame count');
+writeFileSync(join(out,'MAR300.BIN'),dump);
+writeFileSync(join(out,'MAR300.RPL'),replay.subarray(0,replay.length-1));
+reject('Staged replay differs from source');
+assert.deepEqual(readFileSync(join(captures,'repldumo.exe')),checker);
+assert.deepEqual(readFileSync(join(captures,'MAR300.BIN')),dump);
+assert.deepEqual(readFileSync(join(source,'zct300/25-MAR.RPL')),replay);
+console.log(JSON.stringify({guards:4,pass:true,originalsUnchanged:true,disposableFixtures:root}));

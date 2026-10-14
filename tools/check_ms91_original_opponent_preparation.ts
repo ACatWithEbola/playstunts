@@ -1,0 +1,21 @@
+/** Actual original MS91 loader versus web opponent weighted-route selection. */
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import {isAbsolute} from 'node:path';
+import {opponentPath} from '../lib/physics/opponent-path.ts';
+import {versionedOpponentSpeeds} from '../lib/game/versioned-opponent-speeds.ts';
+const [image,libraries,replay,game,resource]=process.argv.slice(2);
+assert.ok([image,libraries,replay,game,resource].every(x=>x&&isAbsolute(x)));
+const paths=[image,replay,game,resource],before=paths.map(p=>readFileSync(p));
+const run=spawnSync('python3',[new URL('./check_original_ms91_track_allocation.py',import.meta.url).pathname,image,'--libraries',libraries,'--replay',replay,'--game',game,'--analyze','--opponent-resource',resource],{encoding:'utf8',maxBuffer:2*1024*1024});
+assert.equal(run.status,0,run.stderr);
+const result=JSON.parse(run.stdout),original=result.opponentPrepared,route=result.trackAnalysis.route;
+assert.equal(original.returned,true);
+assert.equal(original.selected,before[1][6]);
+assert.deepEqual(Array.from(versionedOpponentSpeeds(Uint8Array.from(original.profile),original.selected,'ms-1991')),original.profile);
+const expected=opponentPath(route.primary,route.secondary,route.tiles,original.costs);
+assert.ok(expected&&expected.length>3,'Test requires an actual valid opponent route');
+assert.deepEqual(original.path.slice(0,expected.length),expected);
+paths.forEach((p,i)=>assert.deepEqual(readFileSync(p),before[i]));
+console.log(JSON.stringify({originalMS91:true,opponent:original.selected,pathWords:expected.length,speedBytes:16,sourceUnchanged:true,pass:true}));

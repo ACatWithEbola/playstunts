@@ -8,7 +8,7 @@ export function enterNativeDisplayHighScore(owner:Awaited<ReturnType<typeof crea
  return enterNativeHighScoreWithPresentation({...host,async editName(name,message,border){
   const restore=captureNativeDisplayDialogBackground(owner),m=owner.memory(),d=owner.d,word=(at:number)=>m[d+at]|(m[d+at+1]<<8);
   try{
-   const dialog=drawOriginalDialogDisplay(m,d,owner.mode,owner.drawing,message,0,{text:word(0x4e8a),border:border===4?word(0x4ec2):border,disabled:word(0x4ec0)},0xe800,undefined,3);
+   const dialog=drawOriginalDialogDisplay(m,d,owner.mode,owner.drawing,message,0,{text:word(0x4e8a),border:border===4?word(0x4ec2):border,disabled:word(0x4ec0)},0xe800,undefined,3,{x:-1,y:-1},args[1].physicsEngine);
    if(!dialog.fields.length)throw Error('Original high-score prompt requires a name field');host.present();await host.release();return (await host.editPath(name,16,30000,dialog.fields[0])).path;
   }finally{restore();}
  }},...args);

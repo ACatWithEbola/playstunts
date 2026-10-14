@@ -1,7 +1,7 @@
 import {originalRaceCompletion} from './race-completion-flow.ts';
 export interface NativeRaceIterationEndHost {
  memory():Uint8Array;resetMouse(mode:number):void;control(mode:number,start:number,current:number):void;
- pauseAudio():void;replayControls():Promise<void>;key():number;command(key:number):void|Promise<void>;
+ pauseAudio():void|Promise<void>;replayControls():Promise<void>;key():number;command(key:number):void|Promise<void>;
  mouseButtons():number;joystickButtons():number;
 }
 /** Original13f52..14030, manual-game branch. Keyboard arrows are drained
@@ -12,7 +12,7 @@ export async function finishNativeRaceIteration(host:NativeRaceIterationEndHost,
  if(action==='exit')return 'exit' as const;
  if(action==='initialize-replay-controls'){
   m[d+0x8ff4]=0;m[d+0xa3c2]=2;host.resetMouse(0);host.control(0,0,0);host.control(2,4,0);
-  host.memory()[d+0x9aca]=1;host.pauseAudio();
+  host.memory()[d+0x9aca]=1;await host.pauseAudio();
  }
  if(host.memory()[d+0xa3c2]===2){await host.replayControls();return 'render' as const;}
  let key:number;

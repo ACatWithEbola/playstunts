@@ -1,0 +1,61 @@
+/** Known synthetic transformations validate estimator direction/resolution;
+ * this does not certify measurements of differently arranged real recordings. */
+import assert from 'node:assert/strict';
+import {mkdtempSync,writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {execFileSync} from 'node:child_process';
+const directory=mkdtempSync(join(tmpdir(),'stunts-chroma-check-')),source=join(directory,'source.wav'),changed=join(directory,'changed.wav');
+const rate=11025,frames=rate*60,wav=Buffer.alloc(44+frames*2);
+wav.write('RIFF',0);wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(rate,24);wav.writeUInt32LE(rate*2,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(frames*2,40);
+let random=12345;const notes=Array.from({length:201},()=>{random=(Math.imul(random,1664525)+1013904223)>>>0;return 48+random%24;});
+for(let frame=0;frame<frames;frame++){
+ const time=frame/rate,index=Math.floor(time/.3),local=time-index*.3,frequency=440*2**((notes[index]-69)/12);
+ const envelope=Math.min(1,local/.02,(.3-local)/.02);
+ const value=.3*envelope*(Math.sin(2*Math.PI*frequency*time)+.2*Math.sin(4*Math.PI*frequency*time));
+ wav.writeInt16LE(Math.round(value*32767),44+frame*2);
+}
+writeFileSync(source,wav,{flag:'wx'});
+execFileSync('ffmpeg',['-v','error','-n','-i',source,'-af','atempo=0.99,adelay=500:all=1','-c:a','pcm_s16le',changed]);
+const measure=path=>JSON.parse(execFileSync(process.execPath,['tools/compare_music_chroma.mjs',source,path,'--compact'],{encoding:'utf8'}));
+const identity=measure(source);
+assert.ok(identity.rows.every(row=>row.enhancedMinusOriginalSeconds===0&&Math.abs(row.similarity-1)<1e-12));
+const actual=measure(changed);
+const pitched=JSON.parse(execFileSync(process.execPath,['tools/compare_music_chroma.mjs',source,changed,'--compact','--pitch-sensitive'],{encoding:'utf8'}));
+assert.equal(pitched.features,'61 octave-sensitive MIDI pitch bins');
+assert.ok(Math.abs(pitched.fit.provisionalSourceCueSeconds-.5)<.06);
+assert.ok(Math.abs(pitched.fit.provisionalSourceSecondsPerOriginalSecond-1/.99)<.003);
+assert.ok(Math.abs(actual.fit.provisionalSourceSecondsPerOriginalSecond-1/.99)<.003,JSON.stringify(actual.fit));
+assert.ok(Math.abs(actual.fit.provisionalSourceCueSeconds-.5)<.06,JSON.stringify(actual.fit));
+assert.ok(actual.rows.every(row=>!row.searchBoundaryHit));
+assert.ok(actual.fit.maxResidualSeconds<.03);
+assert.equal(actual.measuredWindowsFitConsistent,true);
+assert.equal(actual.wholeSongAlignmentVerified,false,'Sparse windows cannot certify the unmeasured song');
+// A delay introduced halfway through a song must not be accepted as one
+// constant offset/tempo correction, even when every local match is strong.
+const discontinuous=join(directory,'discontinuous.wav');
+execFileSync('ffmpeg',['-v','error','-n','-i',source,'-filter_complex','[0:a]asplit=2[a][b];[a]atrim=end=30,asetpts=PTS-STARTPTS[first];[b]atrim=start=30,asetpts=PTS-STARTPTS,adelay=500:all=1[second];[first][second]concat=n=2:v=0:a=1[out]','-map','[out]','-c:a','pcm_s16le',discontinuous]);
+const interrupted=measure(discontinuous);
+assert.equal(interrupted.measuredWindowsFitConsistent,false);
+assert.ok(interrupted.fit.maxResidualSeconds>.1,JSON.stringify(interrupted));
+const quiet=join(directory,'quiet.wav');
+execFileSync('ffmpeg',['-v','error','-n','-i',source,'-af','volume=0.0001','-c:a','pcm_f32le',quiet]);
+const quietIdentity=JSON.parse(execFileSync(process.execPath,['tools/compare_music_chroma.mjs',quiet,quiet,'--compact','--pitch-sensitive'],{encoding:'utf8'}));
+assert.ok(quietIdentity.rows.every(row=>row.fitExcludedReason!==null),'Sub-60dB matching noise cannot establish note timing');
+assert.equal(quietIdentity.fit,null);
+assert.equal(quietIdentity.measuredWindowsFitConsistent,false);
+const quietAgainstMusic=measure(quiet);
+assert.ok(quietAgainstMusic.rows.every(row=>row.fitExcludedReason!==null));
+assert.equal(quietAgainstMusic.fit,null,'Quiet audio cannot masquerade as pitched source material');
+const voicedQuiet=JSON.parse(execFileSync(process.execPath,['tools/compare_music_chroma.mjs',quiet,quiet,'--compact','--pitch-sensitive','--voiced-only'],{encoding:'utf8'}));
+assert.equal(voicedQuiet.voicedOnly,true);assert.equal(voicedQuiet.fit,null);
+assert.ok(voicedQuiet.rows.every(row=>row.voicedOriginalFrames===0&&row.fitExcludedReason==='insufficient-voiced-evidence'));
+const voicedChanged=JSON.parse(execFileSync(process.execPath,['tools/compare_music_chroma.mjs',source,changed,'--compact','--pitch-sensitive','--voiced-only'],{encoding:'utf8'}));
+assert.ok(Math.abs(voicedChanged.fit.provisionalSourceCueSeconds-.5)<.06);
+assert.ok(Math.abs(voicedChanged.fit.provisionalSourceSecondsPerOriginalSecond-1/.99)<.003);
+const opposite=join(directory,'opposite-phase.wav');
+execFileSync('ffmpeg',['-v','error','-n','-i',source,'-af','pan=stereo|c0=c0|c1=-1*c0','-c:a','pcm_f32le',opposite]);
+const stereoIdentity=JSON.parse(execFileSync(process.execPath,['tools/compare_music_chroma.mjs',source,opposite,'--compact','--pitch-sensitive','--voiced-only','--stereo-power'],{encoding:'utf8'}));
+assert.equal(stereoIdentity.stereoPower,true);
+assert.ok(stereoIdentity.rows.every(row=>row.enhancedMinusOriginalSeconds===0&&Math.abs(row.similarity-1)<1e-10),'Opposite-phase stereo must retain the original pitched evidence');
+console.log(JSON.stringify({directory,knownDelaySeconds:.5,knownDurationRatio:1/.99,recovered:actual.fit,identicalAudioZeroLag:true,realRecordingAlignmentVerified:false}));

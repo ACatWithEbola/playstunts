@@ -1,6 +1,7 @@
 import {i16,type Vector} from '../physics/math.ts';
 import type {ModelBoundsCache} from './project-model-bounds.ts';
 import {projectOriginalPrimitiveVertices} from './project-primitive-vertices.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 import {clipOriginalPolygon} from './clip-original-polygon.ts';
 import {originalPolygonVisibility} from './polygon-visibility.ts';
 import {clipOriginalLine} from './clip-original-line.ts';
@@ -8,8 +9,8 @@ import {projectOriginalCircle} from './project-original-circle.ts';
 import {originalWheelProjection} from './wheel-projection.ts';
 import {originalWheelProjectionBounds} from './wheel-projection-bounds.ts';
 /** Original DS3280 dispatch. Kind4 is skipped by the supplied executable. */
-export function projectOriginalModelPrimitive(kind:number,vertices:readonly Vector[],indices:readonly number[],matrix:number[],translation:Vector,halfSize:number,center:readonly number[],scale:readonly number[],clipRectangle:readonly number[],before:ModelBoundsCache,outputBefore:readonly number[][],primitiveFlags:number,faceMask:number,excludeMask:number,beforeRectangle:readonly number[]){
- const cache=projectOriginalPrimitiveVertices(vertices,indices,matrix,translation,halfSize,center,scale,clipRectangle,before),output=outputBefore.map(p=>[...p]);
+export function projectOriginalModelPrimitive(kind:number,vertices:readonly Vector[],indices:readonly number[],matrix:number[],translation:Vector,halfSize:number,center:readonly number[],scale:readonly number[],clipRectangle:readonly number[],before:ModelBoundsCache,outputBefore:readonly number[][],primitiveFlags:number,faceMask:number,excludeMask:number,beforeRectangle:readonly number[],engine?:PhysicsEngineVersion,cacheOwnership:'copy'|'owned'='copy'){
+ const cache=projectOriginalPrimitiveVertices(vertices,indices,matrix,translation,halfSize,center,scale,clipRectangle,before,engine,cacheOwnership),output=outputBefore.map(p=>[...p]);
  let rectangle=[...beforeRectangle],visible=false,depth:number|null=null,count=indices.length;
  if(cache.accepted){
   if(kind===0){

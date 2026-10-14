@@ -6,7 +6,11 @@ import { i16, vecTransform, type Vector } from './math.ts';
 import { transpose } from './rotation.ts';
 import { planeDistance, type CollisionPlane } from './plane.ts';
 import { planeResponse } from './plane-response.ts';
+import {undersideGuard} from './underside-guard.ts';
+import {uses1991Physics,type PhysicsEngineVersion} from './engine-version.ts';
 export interface WheelPlaneInput {
+  physicsEngine?:PhysicsEngineVersion;
+  framesPerSecond?:10|20;
   directHeight?: boolean;
   origin: Vector;
   proposed: Vector;
@@ -46,9 +50,12 @@ export function wheelPlaneContact(s: WheelPlaneInput) {
           (n, a) => (n + s.invertedOffset[a]) | 0,
         ) as Vector;
       } else {
-        // This executable adds the initialized per-wheel table value once.
-        fallSpeed = i16(fallSpeed + s.fallIncrement);
-        position[1] = (position[1] - fallSpeed) | 0;
+        // MS91 0x7dad repeats the increment and displacement at 10 Hz,
+        // without a new plane-distance test between the two substeps.
+        for(let step=0;step<(s.framesPerSecond===10?2:1);step++){
+          fallSpeed = i16(fallSpeed + s.fallIncrement);
+          position[1] = (position[1] - fallSpeed) | 0;
+        }
         distance = distanceToPlane();
         if (distance > 12) surface = 0;
       }
@@ -77,8 +84,9 @@ export function wheelPlaneContact(s: WheelPlaneInput) {
       const localOrigin = local(s.origin),
         localProposed = local(position);
       let undersideCrash = false;
-      if (!underside && localOrigin[1] < -12 && localProposed[1] < -12) {
-        if (localProposed[1] <= -24) {
+      const guard=undersideGuard(underside,localOrigin[1],localProposed[1]);
+      if (guard!=='normal') {
+        if (guard==='ground-fallback') {
           plane = s.groundPlane;
           underside = true;
           distance = distanceToPlane();
@@ -103,8 +111,8 @@ export function wheelPlaneContact(s: WheelPlaneInput) {
       });
     }
     // Version-specific constants from the supplied executable, not Restunts C.
-    if (fallSpeed > 190) soundFlags |= 0x20;
-    if (fallSpeed > 931) crashEvents.push(1);
+    if (fallSpeed > (uses1991Physics(s.physicsEngine)?250:190)) soundFlags |= 0x20;
+    if (fallSpeed > (uses1991Physics(s.physicsEngine)?23275:931)) crashEvents.push(1);
     fallSpeed = 0;
     return {
       position,

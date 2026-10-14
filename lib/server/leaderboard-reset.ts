@@ -3,11 +3,12 @@ export const RESET_ARCHIVE_ID='leaderboard-reset-20261007';
 export const RESET_TABLES={
  accepted_scores:['id','rules','created_at'],
  global_scores:['id','rules','track_hash','car_code','ticks','record','created_at','driver_key','route_assessment'],
+ race_engines:['id','physics_engine'],
  replay_assessment_lock:['key','token','lease_until'],
  run_history:['id','rules','track_hash','car_code','ticks','record','created_at','driver_key','route_assessment'],
  score_requests:['bucket','count','expires_at'],
  score_tracks:['hash','name'],
- shared_replays:['id','replay','track_name','created_at','assessment_version','assessed_at','assessment_retry_at'],
+ shared_replays:['id','replay','track_name','created_at','assessment_version','assessed_at','assessment_retry_at','assessment_reason'],
  shared_tracks:['hash','name','bytes','created_at'],
 } as const;
 export const PURGE_TABLES=['shared_replays','run_history','accepted_scores','global_scores','score_requests','replay_assessment_lock'] as const;

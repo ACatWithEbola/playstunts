@@ -4,7 +4,24 @@
 import { i16, u16, intHypot3d, vecTransform, type Vector } from './math.ts';
 import { rotateY, rotateZXY } from './rotation.ts';
 import { intersectZ } from './intersection.ts';
+import type {PhysicsEngineVersion} from './engine-version.ts';
+/** Original MS91 7C19 uses signed SAR8; preserve legacy truncation. */
+export function wallCrashThreshold(impactAngle:number,physicsEngine?:PhysicsEngineVersion){
+ const product=i16(impactAngle*70);
+ return u16((100-(physicsEngine==='ms-1991'?product>>8:Math.trunc(product/256)))<<8);
+}
+export function wallImpactDecision(impactAngle:number,reversed:boolean,roadSpeed:number,wheelAngle:number,physicsEngine?:PhysicsEngineVersion){
+ const crash=u16(roadSpeed)>wallCrashThreshold(impactAngle,physicsEngine);
+ return {crash,wheelAngle:crash?i16((reversed?-impactAngle:impactAngle)<<1):wheelAngle};
+}
+export function repositionWallWheels(proposed:Vector[],origins:Vector[],approach:number,scaledRoadSpeed:number,offset:Vector):Vector[]{
+ return proposed.map((p,w)=>p.map((n,a)=>{
+  const fraction=approach===0?0:i16(Math.trunc(Math.imul((n-origins[w][a])|0,approach)/scaledRoadSpeed));
+  return (origins[w][a]+i16(fraction+offset[a]))|0;
+ }) as Vector);
+}
 export interface WallResponseInput {
+  physicsEngine?:PhysicsEngineVersion;
   proposed: Vector[];
   origins: Vector[];
   previous: Vector;
@@ -75,28 +92,8 @@ export function wallResponse(s: WallResponseInput) {
   let impactAngle = (-yaw - heading) & 1023;
   const reverseCrash = impactAngle > 256;
   if (reverseCrash) impactAngle = 1024 - impactAngle;
-  const crashThreshold = u16(
-    (100 - Math.trunc(i16(impactAngle * 70) / 256)) << 8,
-  );
-  const crash = u16(s.roadSpeed) > crashThreshold;
-  const wheelAngle = crash
-    ? i16((reverseCrash ? -impactAngle : impactAngle) << 1)
-    : s.wheelAngle;
-  const proposed = s.proposed.map(
-    (p, w) =>
-      p.map((n, a) => {
-        const fraction =
-          approach === 0
-            ? 0
-            : i16(
-                Math.trunc(
-                  Math.imul((n - s.origins[w][a]) | 0, approach) /
-                    s.scaledRoadSpeed,
-                ),
-              );
-        return (s.origins[w][a] + i16(fraction + offset[a])) | 0;
-      }) as Vector,
-  );
+  const {crash,wheelAngle}=wallImpactDecision(impactAngle,reverseCrash,s.roadSpeed,s.wheelAngle,s.physicsEngine);
+  const proposed = repositionWallWheels(s.proposed,s.origins,approach,s.scaledRoadSpeed,offset);
   return {
     proposed,
     wheelAngle,

@@ -19,17 +19,29 @@ import {saveOriginalRaceMenuState} from './race-menu-state.ts';
 import {originalRandomByte} from './original-random.ts';
 import {loadNativeOpponentPreparation} from './load-opponent-preparation.ts';
 import type {NativeDemoData,NativeDemoMenuState} from './native-demo-runtime.ts';
-export interface NativeSelectedReplay {bytes:Uint8Array;name:string;path:string}
+import {resolveReplayCadence,type ReplayCadence} from './replay-cadence.ts';
+import {versionedRouteTables} from './versioned-route-tables.ts';
+import {versionedOpponentResource} from './versioned-opponent-resource.ts';
+import {versionedPc15Resource} from './versioned-pc15-resource.ts';
+import {loadedPc15Generation} from './loaded-pc15-generation.ts';
+import {versionedMt15Resource} from './versioned-mt15-resource.ts';
+import {versionedAd15Resource} from './versioned-ad15-resource.ts';
+import {versionedTd15Resource} from './versioned-td15-resource.ts';
+import {tandyDriverLayout} from './tandy-driver-layout.ts';
+import {initializeMs91AdlibRegisterCache,versionedAdlibRegisterWrites} from './versioned-adlib-register-writes.ts';
+export interface NativeSelectedReplay {bytes:Uint8Array;name:string;path:string;physicsEngine?:import('../physics/engine-version.ts').PhysicsEngineVersion;framesPerSecond?:ReplayCadence}
 /** Shared native resource entry for an unattended demo or a fresh manual race.
  * Simulation and browser input remain owned by the surrounding race runner. */
 export async function prepareNativeAllocatedRace(data:NativeDemoData,menu:NativeDemoMenuState,demo:boolean,progress:(stage:number)=>void=()=>{},recording?:NativeSelectedReplay){
+ data=versionedRouteTables(data);
  const d=0x2d1a0,bp=0xeefe,driver=0x39e1;
  if(data.base.length!==0x100000||menu.configuration.length!==24||menu.track.length!==1802)throw Error('Incomplete original race startup data');
+ const framesPerSecond=resolveReplayCadence(recording?recording.framesPerSecond:data.framesPerSecond);
  let memory:Uint8Array=data.base.slice();
  if(menu.retainedSession)writeRetainedMenuSession(memory,d,menu.retainedSession);
  if(menu.randomState){if(menu.randomState.length!==6)throw Error('Original byte generator requires six bytes');memory.set(menu.randomState,d+0x9f5c);}
  initializeOriginalTrackCoordinates(memory,d,bp);
- for(const allocate of [(m:Uint8Array)=>allocateOriginalRenderQueue(m,d),(m:Uint8Array)=>allocateOriginalGameBuffers(m,d,bp),(m:Uint8Array)=>allocateOriginalReplayCheckpoints(m,d)]){
+ for(const allocate of [(m:Uint8Array)=>allocateOriginalRenderQueue(m,d),(m:Uint8Array)=>allocateOriginalGameBuffers(m,d,bp),(m:Uint8Array)=>allocateOriginalReplayCheckpoints(m,d,'mcga',framesPerSecond,data.physicsEngine)]){
   const result=allocate(memory);if(result.error)throw Error('Original race allocation failed: '+result.error);memory=result.memory;
  }
  const word=(at:number)=>new DataView(memory.buffer,memory.byteOffset,memory.byteLength).getUint16(d+at,true);
@@ -46,7 +58,7 @@ export async function prepareNativeAllocatedRace(data:NativeDemoData,menu:Native
  saveOriginalRaceMenuState(memory,d);
  const initialWrites:number[][]=[];
  if(data.soundDevice?.kind==='mt32'){
-  const device=data.soundDevice,bytes=await data.catalog.read('MT15.DRV');if(!bytes||bytes.length!==1667)throw Error('Original MT15 driver data is missing');
+  const device=data.soundDevice,bytes=versionedMt15Resource(device.driverGeneration)??await data.catalog.read('MT15.DRV');if(!bytes||bytes.length!==(device.driverGeneration==='ms-1991'?1750:1667))throw Error('Original versioned MT15 driver data is missing');
   memory.set(bytes,driver*16);memory.set([77,84,0],d+0x7460);
   const initialized=await initializeOriginalMt32Memory(memory,d,driver,{
    async execute(program){const output=await (device.executeInitialization?.(program)??device.execute(program));initialWrites.push(...output.writes);return output.result;},
@@ -54,42 +66,47 @@ export async function prepareNativeAllocatedRace(data:NativeDemoData,menu:Native
     return await loadNativeRawResource({memory:()=>memory,writeMemory(next){memory.set(next);},async readFile(at){let filename='';for(let i=0;i<65536;i++){const byte=memory[d+((at+i)&65535)];if(!byte)return data.catalog.read(filename);filename+=String.fromCharCode(byte);}throw Error('Unterminated original patch filename');}},d,name,false)??{offset:0,segment:0};
    },
    freePatch(pointer){const freed=freeResource(memory,d,pointer.offset,pointer.segment);if(freed.error)throw Error('Original Roland patch release failed');memory.set(freed.memory);},
-  });
+  },device.driverGeneration);
   if(initialized)throw Error('Native MT15 initialization failed');
  }else if(data.soundDevice?.kind==='tandy'){
-  const bytes=await data.catalog.read('TD15.DRV');if(!bytes||bytes.length!==2993)throw Error('Original TD15 driver data is missing');
+  const generation=data.soundDevice.driverGeneration,bytes=versionedTd15Resource(generation)??await data.catalog.read('TD15.DRV');if(!bytes||bytes.length!==tandyDriverLayout(generation).bytes)throw Error('Original versioned TD15 driver data is missing');
   memory.set(bytes,driver*16);memory.set([84,68,0],d+0x7460);
-  const initialized=await initializeOriginalTandyMemory(memory,d,driver,data.soundDevice.port61());
+  const initialized=await initializeOriginalTandyMemory(memory,d,driver,data.soundDevice.port61(),generation);
   if(initialized.result)throw Error('Native TD15 initialization failed');initialWrites.push(...initialized.writes);
   if(initialized.bios.length)data.soundDevice.bios(initialized.bios,memory);
  }else if(data.soundDevice?.kind==='pc-speaker'){
-  const bytes=await data.catalog.read('PC15.DRV');if(!bytes||bytes.length!==2190)throw Error('Original PC15 driver data is missing');
+  const bytes=versionedPc15Resource('PC15.DRV',data.physicsEngine)??await data.catalog.read('PC15.DRV');if(!bytes||bytes.length!==(data.physicsEngine==='ms-1991'?2227:2190))throw Error('Original versioned PC15 driver data is missing');
   memory.set(bytes,driver*16);memory.set([80,67,0],d+0x7460);
-  const initialized=await initializeOriginalPcSpeakerMemory(memory,d,driver,data.soundDevice.port61());
+  const initialized=await initializeOriginalPcSpeakerMemory(memory,d,driver,data.soundDevice.port61(),data.physicsEngine);
   if(initialized.result)throw Error('Native PC15 initialization failed');initialWrites.push(...initialized.writes);
  }else{
- const initialized=await initializeLoadedAudioDriver({memory:()=>memory,initializeDriver:()=>10,resetAudio(){initialWrites.push(...resetOriginalAdlibMemory(memory,d,driver));},async loadPatch(){throw Error('Unexpected AdLib patch request');},installPatch(){throw Error('Unexpected AdLib patch');},freePatch(){throw Error('Unexpected AdLib patch');},alternateCommand(){throw Error('Unexpected alternate audio command');}},d,{offset:0,segment:driver});
+ const generation=data.soundDevice?.kind==='adlib'?data.soundDevice.driverGeneration:undefined;
+ const modern=versionedAd15Resource(generation);
+ if(modern){memory.set(modern,driver*16);const state=memory.subarray(driver*16,driver*16+0xa7d);initialWrites.push(...initializeMs91AdlibRegisterCache(state),...versionedAdlibRegisterWrites(state,[[1,32],[8,0],[0xbd,0]],generation));}
+ const initialized=await initializeLoadedAudioDriver({memory:()=>memory,initializeDriver:()=>10,resetAudio(){initialWrites.push(...resetOriginalAdlibMemory(memory,d,driver,generation));},async loadPatch(){throw Error('Unexpected AdLib patch request');},installPatch(){throw Error('Unexpected AdLib patch');},freePatch(){throw Error('Unexpected AdLib patch');},alternateCommand(){throw Error('Unexpected alternate audio command');}},d,{offset:0,segment:driver});
  if(initialized)throw Error('Native AdLib initialization failed');
  }
  memory[d+0x4e05]=Number(menu.soundEnabled);memory[d+0x134]=menu.graphics&255;memory[d+0x90f8]=Number(demo);memory[d+0x12f]=menu.camera&255;memory[d+0xaa46]=0;
  if(!demo){if(recording)memory[d+0x8018]=4;else new DataView(memory.buffer).setUint16(d+0x8fd8,0,true);}
- return {...await enterAllocatedRaceResources(data,memory,progress,!demo),initialWrites};
+ return {...await enterAllocatedRaceResources(data,memory,progress,!demo),initialWrites,initializationWriteCount:initialWrites.length};
 }
 /** Reuse the outer allocation graph after results chooses Replay or Race.
  * The saved menu, recording bank and checkpoints stay owned by that graph. */
 export async function prepareNativeAllocatedRaceReentry(data:NativeDemoData,before:Uint8Array,entry:'fresh'|'replay'|'resume',progress:(stage:number)=>void=()=>{}){
+ data=versionedRouteTables(data);
  const memory=before.slice(),d=0x2d1a0;
  if(memory[d+0x90f8])throw Error('Manual race reentry cannot consume a demo session');
  if(entry==='replay')memory[d+0x8018]=4;
  else if(entry==='fresh')new DataView(memory.buffer).setUint16(d+0x8fd8,0,true);
- return {...await enterAllocatedRaceResources(data,memory,progress,false),initialWrites:[] as number[][]};
+ return {...await enterAllocatedRaceResources(data,memory,progress,false),initialWrites:[] as number[][],initializationWriteCount:0};
 }
 async function enterAllocatedRaceResources(data:NativeDemoData,before:Uint8Array,progress:(stage:number)=>void,analyzeBeforeEntry:boolean):Promise<{memory:Uint8Array;raw:number[];trackAddress:number;opponentPath:number[]|null}>{
  let memory=before;const d=0x2d1a0,c=0x209e0,bp=0xeefe;
  const view=new DataView(memory.buffer,memory.byteOffset,memory.byteLength),trackAddress=view.getUint16(d+0x9356,true)+view.getUint16(d+0x9358,true)*16;
  let raw:number[]=Array.from(memory.slice(trackAddress,trackAddress+1802)),opponentPath:number[]|null=null;
  const filename=(at:number)=>{let name='';for(let i=0;i<65536;i++){const byte=memory[d+((at+i)&65535)];if(!byte)return name;name+=String.fromCharCode(byte);}throw Error('Unterminated original resource filename');};
- const files={memory:()=>memory,writeMemory(next:Uint8Array){memory=next;},async exists(at:number){return data.catalog.exists(filename(at));},async readFile(at:number){return data.catalog.read(filename(at));},async retry(){throw Error('Original race resource could not load');}};
+ const soundResource=(name:string)=>data.soundDevice?.kind==='pc-speaker'?versionedPc15Resource(name,loadedPc15Generation(memory,d)):undefined;
+ const files={memory:()=>memory,writeMemory(next:Uint8Array){memory=next;},async exists(at:number){return !!soundResource(filename(at))||!!versionedOpponentResource(filename(at),data.physicsEngine)||data.catalog.exists(filename(at));},async readFile(at:number){return soundResource(filename(at))??versionedOpponentResource(filename(at),data.physicsEngine)??data.catalog.read(filename(at));},async retry(){throw Error('Original race resource could not load');}};
  const prepareTrack=(analysisFrame=0xeee2)=>{
   raw=Array.from(memory.slice(trackAddress,trackAddress+1802));
   const route=analyzeRoute(raw,data.records,data.vectors,data.samples,data.objects,undefined,{sample:false});
@@ -99,11 +116,11 @@ async function enterAllocatedRaceResources(data:NativeDemoData,before:Uint8Array
   }else memory=writeAnalyzedTrackMemory(memory,d,raw,analyzeRoute(raw,data.records,data.vectors,data.samples,data.objects)).memory;
  };
  if(analyzeBeforeEntry)prepareTrack();
- const entry=await enterCompleteNativeRace({...files,randomByte:()=>originalRandomByte(memory,d),
-  loadDemo:(path,name)=>loadNativeCatalogReplay(memory,d,data.catalog,path,name,bp-0x1a),
+ const entry=await enterCompleteNativeRace({...files,physicsEngine:data.physicsEngine,randomByte:()=>originalRandomByte(memory,d),
+  loadDemo:(path,name)=>loadNativeCatalogReplay(memory,d,data.demoReplay?{read:async()=>data.demoReplay!.bytes.slice()}:data.catalog,path,name,bp-0x1a),
   prepareTrack:()=>prepareTrack(bp-0x1e),
   progress,
-  async prepareOpponent(framePointer){opponentPath=await loadNativeOpponentPreparation(files,d,framePointer);},stopEffect(){throw Error('Unexpected failed-race audio cleanup');},reportMemoryError(){throw Error('Original race ran out of resource memory');},async releaseInput(){},showWaiting(){},
+  async prepareOpponent(framePointer){opponentPath=await loadNativeOpponentPreparation(files,d,framePointer,'mcga',data.physicsEngine);},stopEffect(){throw Error('Unexpected failed-race audio cleanup');},reportMemoryError(){throw Error('Original race ran out of resource memory');},async releaseInput(){},showWaiting(){},
  },d,c,bp);
  if(entry!=='ready')throw Error('Original race entry failed: '+entry);
  return {memory,raw,trackAddress,opponentPath};

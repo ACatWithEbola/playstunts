@@ -3,8 +3,11 @@ import {allocateOriginalDisplayWindow} from './allocate-display-window.ts';
 import {initializeOriginalResourceList} from './initialize-resource-list.ts';
 import {findOriginalResource} from './find-original-resource.ts';
 import {allocateOriginalSpriteWindow} from './allocate-sprite-window.ts';
+import {applyVersionedCockpitMetadata} from './versioned-cockpit-metadata.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 type Pointer={offset:number;segment:number};
 export interface NativeCockpitResourceHost {
+ physicsEngine?:PhysicsEngineVersion;
  memory():Uint8Array;writeMemory(memory:Uint8Array):void;
  loadBank(kind:number,nameOffset:number):Promise<Pointer>;
  selectWindow(offset:number,segment:number):void;
@@ -26,6 +29,7 @@ export async function initializeNativeCockpitResources(host:NativeCockpitResourc
  for(const [bank,names,table] of [[address(0x5436),0x3091,address(0x546a)],[address(0x543e),0x30b6,address(0x548e)],...(word(address(0xa594))===0?[[address(0x543e),0x30cf,address(0x5442)]]:[])]){
   const p=pointer(bank);initializeOriginalResourceList(host.memory(),d,p.offset,p.segment,names,table);
  }
+ applyVersionedCockpitMetadata(host.memory(),d,mode,host.physicsEngine);
  for(const [source,destination] of [[address(0x5476),address(0x543a)],[address(0x547a),address(0x54a6)],[address(0x547a),address(0x54b6)]]){
   const p=pointer(source),width=shapeWord(p,0)*word(address(0x90fa)),height=shapeWord(p,2),result=mode==='mcga'?allocateOriginalSpriteWindow(host.memory(),d,width,height):allocateOriginalDisplayWindow(host.memory(),d,mode,width,height);
   host.writeMemory(result.memory);if(result.error||!result.window)throw Error('Original cockpit window allocation failed: '+result.error);save(destination,result.window);

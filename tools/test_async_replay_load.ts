@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {loadNativeReplay} from '../lib/game/native-replay-load.ts';
+const d=0x2d1a0,memory=new Uint8Array(0x100000),events:string[]=[];
+let pauseEntered:()=>void=()=>{},pauseDone:()=>void=()=>{},releaseEntered:()=>void=()=>{},releaseDone:()=>void=()=>{};
+const pause=new Promise<void>(resolve=>{pauseEntered=resolve;}),release=new Promise<void>(resolve=>{releaseEntered=resolve;});
+memory[d+0x8018]=1;
+const loading=loadNativeReplay({memory:()=>memory,async pauseAudio(){pauseEntered();await new Promise<void>(resolve=>{pauseDone=resolve;});events.push('paused');},async selectReplay(){events.push('select');return 1;},prepareLoad(){events.push('waiting');},async readReplay(){events.push('read');return 0;},analyzeTrack(){events.push('analyze');},refreshOpponent(){assert.fail('Forced reload prepares its own opponent');},forceReloadCarResources:()=>true,async releaseCarResources(){releaseEntered();await new Promise<void>(resolve=>{releaseDone=resolve;});events.push('released');},loadCarResources(){events.push('loaded');},initialize(){events.push('initialized');}},d);
+await pause;assert.equal(memory[d+0x8018],0);assert.equal(events.length,0);pauseDone();await release;
+assert.ok(!events.includes('loaded')&&!events.includes('initialized'),'Replacement cannot allocate until old sound/resource release resolves');
+releaseDone();assert.equal(await loading,true);assert.ok(events.indexOf('released')<events.indexOf('loaded'));
+assert.equal(events.at(-1),'initialized');
+console.log('Replay selection awaits audio pause; forced replacement awaits resource/audio cleanup before allocation and initialization');

@@ -1,4 +1,6 @@
 import {boundedRequestText} from '../lib/server/bounded-request-body.ts';
+import {engineScopedRetention} from '../lib/server/engine-scoped-retention.ts';
+import {assertRaceEngineIdentity} from '../lib/server/race-engine-metadata.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
@@ -16,12 +18,13 @@ test('sharing reassesses before ranking and restores only server-accepted proofs
  const db=new DatabaseSync(':memory:');
  for(const name of ['0000_same_the_executioner','0001_friendly_wolfsbane','0002_bitter_joshua_kane','0003_cooing_blue_blade','0004_tricky_aaron_stack','0005_dark_silhouette','0006_lazy_colleen_wing','0007_smooth_puff_adder','0008_past_nova'])db.exec(readFileSync(new URL('../drizzle/'+name+'.sql',import.meta.url),'utf8'));
  db.exec(readFileSync(new URL('../drizzle/0010_nasty_skullbuster.sql',import.meta.url),'utf8'));
+ db.exec(readFileSync(new URL('../drizzle/0011_overconfident_cassandra_nova.sql',import.meta.url),'utf8'));
  const binding={prepare(sql:string){let args:unknown[]=[];return {bind(...values:unknown[]){args=values;return this;},async first(){return db.prepare(sql).get(...args as never[]);},async all(){return {results:db.prepare(sql).all(...args as never[])};},run(){return db.prepare(sql).run(...args as never[]);}};},async batch(statements:{run:()=>unknown}[]){db.exec('BEGIN');try{const rows=statements.map(s=>s.run());db.exec('COMMIT');return rows;}catch(e){db.exec('ROLLBACK');throw e;}}};
  const record=Array(52).fill(0);record[0]=77;
- let verified={id:'accepted',trackHash:'track',carCode:'PMIN',ticks:100,record,routeAssessment:'full_route',replay:new Uint8Array(2000)};
+ let verified={physicsEngine:undefined as 'ms-1990'|'ms-1991'|undefined,id:'accepted',trackHash:'track',carCode:'PMIN',ticks:100,record,routeAssessment:'full_route',replay:new Uint8Array(2000)};
  const source=readFileSync(new URL('../app/api/replays/route.ts',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/export async function/g,'async function');
- const create=new Function('boundedRequestText','env','GLOBAL_SCORE_RULES','scoreHash','scoreString','verifyGlobalScore','globalScoreData','publicScoreName','currentCarScoresSQL','pruneCarScoresSQL','retainAcceptedScoresSQL','driverKey','ROUTE_ASSESSMENT_VERSION','retainRunHistorySQL','pruneRunHistorySQL','replayScoresSQL','pruneSharedReplaysSQL',stripTypeScriptTypes(source)+';return POST;');
- const post=create(boundedRequestText,{DB:binding,ASSETS:{}},GLOBAL_SCORE_RULES,async()=> 'bucket',scoreString,async()=>verified,async()=>({}),(s:string)=>s,currentCarScoresSQL,pruneCarScoresSQL,retainAcceptedScoresSQL,driverKey,ROUTE_ASSESSMENT_VERSION,retainRunHistorySQL,pruneRunHistorySQL,replayScoresSQL,pruneSharedReplaysSQL) as (r:Request)=>Promise<Response>;
+ const create=new Function('assertRaceEngineIdentity','engineScopedRetention','boundedRequestText','env','GLOBAL_SCORE_RULES','scoreHash','scoreString','verifyGlobalScore','globalScoreData','publicScoreName','currentCarScoresSQL','pruneCarScoresSQL','retainAcceptedScoresSQL','driverKey','ROUTE_ASSESSMENT_VERSION','retainRunHistorySQL','pruneRunHistorySQL','replayScoresSQL','pruneSharedReplaysSQL',stripTypeScriptTypes(source)+';return POST;');
+ const post=create(assertRaceEngineIdentity,engineScopedRetention,boundedRequestText,{DB:binding,ASSETS:{}},GLOBAL_SCORE_RULES,async()=> 'bucket',scoreString,async()=>verified,async()=>({}),(s:string)=>s,currentCarScoresSQL,pruneCarScoresSQL,retainAcceptedScoresSQL,driverKey,ROUTE_ASSESSMENT_VERSION,retainRunHistorySQL,pruneRunHistorySQL,replayScoresSQL,pruneSharedReplaysSQL) as (r:Request)=>Promise<Response>;
  const share=()=>post(new Request('https://example.test/api/replays',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Replay':'share'},body:JSON.stringify({replay:Array(24).fill(0)})}));
  const recheck=()=>post(new Request('https://example.test/api/replays',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Replay':'recheck'},body:JSON.stringify({replay:Array(24).fill(0)})}));
  const insert=db.prepare('INSERT INTO global_scores VALUES (?,?,?,?,?,?,?,?,?)');
@@ -51,5 +54,32 @@ test('sharing reassesses before ranking and restores only server-accepted proofs
  db.exec("DELETE FROM run_history WHERE id='accepted'");db.exec(pruneSharedReplaysSQL);
  assert.equal(db.prepare("SELECT id FROM shared_replays WHERE id='accepted'").get(),undefined,'Non-ranking replay expires when its recent history entry expires');
  assert.ok(db.prepare("SELECT id FROM accepted_scores WHERE id='accepted'").get(),'Receipt survives displacement');
+ insert.run('legacy-kept',GLOBAL_SCORE_RULES,'track','PMIN',200,JSON.stringify(record),3,'name:m','full_route');
+ db.exec("INSERT INTO run_history SELECT * FROM global_scores WHERE id='legacy-kept'");
+ db.prepare('INSERT INTO shared_replays(id,replay,track_name,created_at) VALUES (?,?,?,?)').run('legacy-kept','[1,2]','TEST',3);
+ const legacySnapshot=()=>['global_scores','run_history','shared_replays'].map(table=>db.prepare('SELECT * FROM '+table+" WHERE id='legacy-kept'").get());
+ const legacyBefore=legacySnapshot();
+ db.prepare('INSERT INTO shared_replays(id,replay,track_name,created_at) VALUES (?,?,?,?)').run('legacy-orphan','[7,8,9]','OLDTRACK',4);
+ const orphanBefore=db.prepare("SELECT * FROM shared_replays WHERE id='legacy-orphan'").get();
+ for(let i=0;i<7;i++){
+  const id='modern-shared-'+i;
+  db.prepare('INSERT INTO race_engines VALUES (?,?)').run(id,'ms-1991');
+  db.prepare('INSERT INTO accepted_scores VALUES (?,?,?)').run(id,GLOBAL_SCORE_RULES,10+i);
+  verified={...verified,id,physicsEngine:'ms-1991',ticks:90-i,routeAssessment:'full_route'};
+  assert.equal((await share()).status,200);
+  assert.deepEqual(legacySnapshot(),legacyBefore,'Modern sharing cannot rewrite or evict the legacy recording');
+  assert.deepEqual(db.prepare("SELECT * FROM shared_replays WHERE id='legacy-orphan'").get(),orphanBefore,'Modern replay-sharing handler must preserve orphan legacy recordings too');
+ }
+ const protectedTables=['global_scores','accepted_scores','run_history','shared_replays','race_engines'];
+ const allProtected=()=>protectedTables.map(table=>db.prepare('SELECT * FROM '+table+' ORDER BY id').all());
+ verified={...verified,physicsEngine:'ms-1990'};
+ let protectedBefore=allProtected();
+ for(const request of [share,recheck])assert.equal((await request()).status,503,'Conflicting retained identity must reject both share and private recheck');
+ assert.deepEqual(allProtected(),protectedBefore);
+ verified={...verified,id:'modern-missing-tag',physicsEngine:'ms-1991'};
+ db.prepare('INSERT INTO accepted_scores VALUES (?,?,?)').run(verified.id,GLOBAL_SCORE_RULES,5);
+ protectedBefore=allProtected();
+ for(const request of [share,recheck])assert.equal((await request()).status,503,'Reassessment cannot infer a missing modern tag from caller proof');
+ assert.deepEqual(allProtected(),protectedBefore);
  db.close();
 });

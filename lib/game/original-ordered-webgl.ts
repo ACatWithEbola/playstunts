@@ -74,7 +74,7 @@ export function createOriginalOrderedWebGL(canvas:HTMLCanvasElement,memory:Uint8
  case 0x21d98:line(a.slice(0,4),a[4]);break;
  case 0x2795a:solid(a[2]);quad(signed(a[0]),signed(a[1]),1,1);break;
  case 0x28ab2:for(const face of originalWheelDrawPlan(call.points!,a[0],a.slice(1)))polygon(face.points,face.color);break;
- case 0x24ea8:{const plan=originalCirclePlan(memory,0x2d1a0,a[0],a[1],a[2],a[3],activeRectangle);
+ case 0x24ea8:{const plan=originalCirclePlan(memory,0x2d1a0,a[0],a[1],a[2],a[3],activeRectangle,undefined,call.physicsEngine);
  if(plan.type==='ellipse')polygon(originalLargeEllipseContour(plan.points),plan.color);
  else if(plan.type==='point'){solid(plan.color);quad(plan.point[0],plan.point[1],1,1);}
  else if(plan.type==='spans'){solid(plan.color);for(let y=0;y<plan.left.length;y++){const count=signed(plan.right[y]-plan.left[y]+1);if(count>0)quad(plan.left[y],plan.start+y,count,1);}}break;}

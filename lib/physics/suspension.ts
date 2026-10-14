@@ -3,8 +3,9 @@
  * fully established. Returns the height correction used to rebuild chassis.
  */
 import { i16 } from './math.ts';
+import {scaleSteeringWord,LEGACY_PHYSICS,type PhysicsEngineVersion} from './engine-version.ts';
 export interface SuspensionState {rc2:number;rc4:number;rc5:number}
-export function stepSuspension(before:SuspensionState,distance:number):SuspensionState&{height:number} {
+export function stepSuspension(before:SuspensionState,distance:number,physicsEngine:PhysicsEngineVersion=LEGACY_PHYSICS):SuspensionState&{height:number} {
  const s={...before};const original=i16(s.rc2);let correction=0;
  distance=i16(distance);
  if(s.rc5<0)s.rc5=Math.min(0,i16(s.rc5+4));else if(s.rc5>0)s.rc5=Math.max(0,i16(s.rc5-4));
@@ -15,7 +16,7 @@ export function stepSuspension(before:SuspensionState,distance:number):Suspensio
  }else if(distance>0){s.rc2=Math.min(384,i16(s.rc2+Math.min(distance,192)));s.rc4=0}
  else{
   if(i16(distance+s.rc2)>-288)s.rc2=i16(s.rc2+distance);
-  else s.rc2=Math.max(-384,i16(s.rc2+Math.trunc(i16(distance*3)/4)));
+  else s.rc2=Math.max(-384,i16(s.rc2+scaleSteeringWord(i16(distance*3),2,physicsEngine)));
   correction=i16(original-s.rc2+distance);
  }
  return {...s,height:i16(original+correction)};

@@ -1,11 +1,13 @@
 import {createOriginalEmptyHighScores} from './high-score-empty.ts';
+import {resolvePhysicsEngine,type PhysicsEngineVersion} from '../physics/engine-version.ts';
+import {resolveReplayCadence} from './replay-cadence.ts';
 
 // New leaderboard generation, not a change to original physics or scoring.
 export const GLOBAL_SCORE_RULES='ms-dec1990-global-reset-20261007';
 export const GLOBAL_SCORE_DATABASE='stunts-global-highscores-reset-20261007';
 export const GLOBAL_SCORE_ENDPOINT='/api/highscores';
 export const MAX_RANKED_FRAMES=30000;
-export type GlobalScoreSubmission={record:number[];replay:number[];continued:boolean;flags:number;rules:string};
+export type GlobalScoreSubmission={record:number[];replay:number[];continued:boolean;flags:number;rules:string;physicsEngine?:PhysicsEngineVersion};
 export const scoreTicks=(record:ArrayLike<number>)=>record[50]|record[51]<<8;
 export function scoreString(record:ArrayLike<number>,offset:number,end:number){
  let result='';for(let i=offset;i<end&&record[i];i++)result+=String.fromCharCode(record[i]);return result;
@@ -23,6 +25,8 @@ export function sharedScoreFile(records:ReadonlyArray<ReadonlyArray<number>>){
 }
 export function validateScoreSubmission(value:unknown):GlobalScoreSubmission{
  const v=value as Partial<GlobalScoreSubmission>;
+ if(v)resolvePhysicsEngine(v.physicsEngine);
+ if(v&&resolveReplayCadence((v as {framesPerSecond?:unknown}).framesPerSecond)!==20)throw Error('Only 20 Hz score submissions are supported');
  const bytes=(a:unknown,length?:number):a is number[]=>Array.isArray(a)&&(length===undefined||a.length===length)&&a.every(n=>Number.isInteger(n)&&n>=0&&n<=255);
  if(!v||v.rules!==GLOBAL_SCORE_RULES||!bytes(v.record,52)||!bytes(v.replay)||v.replay.length<=0x722||v.replay.length>0x722+MAX_RANKED_FRAMES)throw Error('Invalid score submission');
  if(v.continued!==false||!Number.isInteger(v.flags)||v.flags!==1)throw Error('Replay continuation is not eligible');

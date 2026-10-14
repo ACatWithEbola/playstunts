@@ -4,12 +4,17 @@ import {findOriginalResource} from './find-original-resource.ts';
 import {copyOriginalResourceString} from './initialize-car-resource.ts';
 import {prepareOpponentPathMemory} from './prepare-opponent-path-memory.ts';
 import {freeResource} from './free-resource.ts';
+import {opponentCacheName} from './versioned-opponent-resource.ts';
 /** Original135be..1384d: load opponent name and speed profile, choose the
  * least-cost route from live route tables, then cache the opponent bank. */
-export async function loadNativeOpponentPreparation(host:NativeRawResourceHost&{retry():Promise<number>},d:number,bp:number,mode:'mcga'|'cga'|'tandy'|'ega'='mcga'){
+export async function loadNativeOpponentPreparation(host:NativeRawResourceHost&{retry():Promise<number>},d:number,bp:number,mode:'mcga'|'cga'|'tandy'|'ega'='mcga',physicsEngine?:import('../physics/engine-version.ts').PhysicsEngineVersion){
  const high={mcga:0,cga:0x5e0,tandy:0x620,ega:0x45c}[mode],middle=mode==='ega'?0x460:high;
  host.memory()[d+0x141]=(host.memory()[d+0x8fc8+high]+48)&255;
- const resource=await loadCompleteNativeGameResource(host,d,0x13e,(bp-0xf3c)&65535);
+ let nameOffset=0x13e;
+ if(physicsEngine==='ms-1991'){
+  nameOffset=0xd06e;host.memory().set(new TextEncoder().encode(opponentCacheName(host.memory()[d+0x8fc8+high],physicsEngine)+'\0'),d+nameOffset);
+ }
+ const resource=await loadCompleteNativeGameResource(host,d,nameOffset,(bp-0xf3c)&65535);
  let memory=host.memory();
  // The localized lookup constructs aa6e + the three letters of "nam".
  // This local belongs to the nested resource lookup's original frame.
@@ -23,7 +28,7 @@ export async function loadNativeOpponentPreparation(host:NativeRawResourceHost&{
  const routeWords=(at:number)=>Array.from({length:901},(_,i)=>view.getUint16(word(at+2)*16+((word(at)+i*2)&65535),true));
  const tiles=Array.from({length:901},(_,i)=>memory[word(0x8ff0+high)*16+((word(0x8fee+high)+i)&65535)]);
  const address=resource.segment*16+resource.offset,size=view.getUint32(address,true);
- const prepared=prepareOpponentPathMemory(memory,d,address,size,{primary:routeWords(0x73d2+middle),secondary:routeWords(0x7f9a+middle),tiles},mode);
+ const prepared=prepareOpponentPathMemory(memory,d,address,size,{primary:routeWords(0x73d2+middle),secondary:routeWords(0x7f9a+middle),tiles},mode,physicsEngine);
  memory=prepared.memory;
  const released=freeResource(memory,d,resource.offset,resource.segment);host.writeMemory(released.memory);
  if(released.error)throw Error('Original opponent resource release failed: '+released.error);

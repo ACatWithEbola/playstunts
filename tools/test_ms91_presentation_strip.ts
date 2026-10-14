@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {prepareMs91PresentationStrip} from '../lib/game/ms91-presentation-strip.ts';
+const m=new Uint8Array(65536).fill(71),v=new DataView(m.buffer),bp=0xf000;
+v.setUint16(0x9690,0,true);const before=m.slice();let calls:number[][]=[];
+const combine=(...args:number[])=>{calls.push(args);};
+prepareMs91PresentationStrip(m,0,bp,combine);assert.deepEqual(m,before);assert.deepEqual(calls,[]);
+v.setUint16(0x9690,1,true);v.setUint16(0xaec6,90,true);v.setUint16(0xa1b6,130,true);v.setUint16(0x9a,0x1000,true);
+prepareMs91PresentationStrip(m,0,bp,combine);
+assert.deepEqual([0,2,4,6].map(at=>v.getUint16(bp-10+at,true)),[0,320,90,130]);
+assert.deepEqual(calls,[[0x1000,bp-10,0x1000]]);
+calls=[];v.setUint16(0x9a,0,true);prepareMs91PresentationStrip(m,0,bp,combine);assert.deepEqual(calls,[]);
+console.log('MS91 presentation-strip branch writes full-width bounds and preserves original optional/aliased union call');

@@ -12,6 +12,9 @@ export function createOriginalTandyDacClock(initialDivisor:number,initialVolume:
  let divisor=initialDivisor,volume=initialVolume,remaining=divisor;
  return {
   snapshot:()=>({divisor,volume,remaining}),
+  /** Owner reports the completed frequency/amplitude programming boundary.
+   * Does not model the time or intermediate values of the BIOS port writes. */
+  program(nextDivisor:number,nextVolume:number){validate(nextDivisor,nextVolume);divisor=nextDivisor;volume=nextVolume;remaining=divisor;},
   write(port:number,value:number){
    if(port!==0xc6&&port!==0xc7)throw Error('Expected Tandy DAC frequency/amplitude port');
    if(!Number.isInteger(value)||value<0||value>255)throw RangeError('Invalid Tandy DAC register byte');
@@ -26,6 +29,13 @@ export function createOriginalTandyDacClock(initialDivisor:number,initialVolume:
    const edges:number[]=[];let offset=0;
    while(clocks>=remaining){offset+=remaining;clocks-=remaining;edges.push(offset);remaining=divisor;}
    remaining-=clocks;return edges;
+  },
+  /** Owner explicitly discards unobserved idle requests, preserving phase.
+   * Never use while DMA/CPU actions depend on those request boundaries. */
+  skipClocks(clocks:number){
+   if(!Number.isSafeInteger(clocks)||clocks<0)throw RangeError('Invalid Tandy DAC clock span');
+   if(clocks<remaining){remaining-=clocks;return;}
+   const rest=(clocks-remaining)%divisor;remaining=rest===0?divisor:divisor-rest;
   },
  };
 }

@@ -1,0 +1,87 @@
+{
+  "sourceExportHashes": {
+    "titl": "5dc0f6327ccce2e38dedd3700c104017a48c4941d83d40ef2521bef49165fc89",
+    "slct": "f10b574e0d258db5357a902ed4dc458ca38cf09a460cc4f3673495cdd4b284dc",
+    "vict": "e1d7045a2d453244b6475e61a17ab6034b5b148a1383f6eb3fe9f9e549b6cc3e",
+    "over": "780a915bf4651b9164e7f43003ea7ec5437abb29b3b17b86c69c70ea54c512e6"
+  },
+  "files": [
+    {
+      "score": "titl",
+      "sourceSha256": "a6df585e00d6b5a405ab3dc5ad0758c668697813b821fde3f2a251dd26594cf8",
+      "file": "titl.mp3",
+      "sha256": "e4fde185eef4db7bb9b8ff9ad09786e3666ab116fa269e253eb8fa71ff7d8082",
+      "bytes": 1934444,
+      "decodedFrames": 2318441,
+      "rate": 48000,
+      "bitrate": 320000,
+      "lossless": false,
+      "timing": {
+        "cueOffset": 0,
+        "introDuration": 24.11046875,
+        "loopDuration": 23.940375
+      },
+      "actualSunoRecording": true,
+      "reconstructed": false
+    },
+    {
+      "score": "slct",
+      "sourceSha256": "ed35ae612447134919b2429847c4f270af0db635a76b579c3b5cc9495b524790",
+      "file": "slct.mp3",
+      "sha256": "8e9456793069a7d2994600df30b38ce379517c0ed8490eae34147e2eb7aac8dc",
+      "bytes": 3850709,
+      "decodedFrames": 4618155,
+      "rate": 48000,
+      "bitrate": 320000,
+      "lossless": false,
+      "timing": {
+        "cueOffset": 0,
+        "introDuration": 48.08084375,
+        "loopDuration": 47.88071875
+      },
+      "actualSunoRecording": true,
+      "reconstructed": false
+    },
+    {
+      "score": "vict",
+      "sourceSha256": "6d89d453ad60b8755e0a256c4568d274e9e3189d9b5693a2df2fb5f242032417",
+      "file": "vict.mp3",
+      "sha256": "a7f440f330f186a023a74abb8bc88915339ad63d0d77111ab74e3be38a3969bf",
+      "bytes": 2083244,
+      "decodedFrames": 2497002,
+      "rate": 48000,
+      "bitrate": 320000,
+      "lossless": false,
+      "timing": {
+        "cueOffset": 0,
+        "introDuration": 25.9705,
+        "loopDuration": 25.800375
+      },
+      "actualSunoRecording": true,
+      "reconstructed": false
+    },
+    {
+      "score": "over",
+      "sourceSha256": "4be1ce005700769a0ece39a4f9af803439d57f5c7d73365b1549328d609bec37",
+      "file": "over.wav",
+      "sha256": "579dafcce8a7a463d112629ba77fcc8cc92f7fe15d8474e36aec58f236a4d649",
+      "bytes": 23515962,
+      "decodedFrames": 2939472,
+      "rate": 48000,
+      "bitrate": 3072000,
+      "lossless": true,
+      "timing": {
+        "cueOffset": 0,
+        "introDuration": 30.51853125,
+        "loopDuration": 30.47046875
+      },
+      "actualSunoRecording": true,
+      "reconstructed": false
+    }
+  ],
+  "originalMusicModified": false,
+  "legacyMusicModified": false,
+  "loopListeningApproved": true,
+  "loopListeningApprovalScope": "Four five-second actual-Suno loop audition clips; not full-song or encoded-browser listening approval",
+  "encodedBrowserPlaybackVerified": false
+}

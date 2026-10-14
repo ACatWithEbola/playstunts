@@ -17,3 +17,11 @@ local-assets/
 __pycache__/
 *.pyc
 .venv/
+# Generated only from the user's own February 1991 installation.
+/lib/game/ms91-ad15-resource.json
+/lib/game/ms91-mt15-resource.json
+/lib/game/ms91-td15-resource.json
+/lib/game/ms91-pc15-resources.json
+/lib/game/ms91-demo-resource.json
+/lib/game/ms91-title-resource.json
+/lib/game/ms91-opponent-resources.json

@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import {createBrowserMenuInput} from '../lib/game/browser-menu-input.ts';
+import {browserTouchDrivingInput} from '../lib/game/touch-driving-input.ts';
+const saved=new Map(['window','navigator','requestAnimationFrame','cancelAnimationFrame'].map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)]));
+const page=new EventTarget(),win=new EventTarget();
+Object.defineProperty(globalThis,'window',{value:win,configurable:true});Object.defineProperty(globalThis,'navigator',{value:{getGamepads:()=>[]},configurable:true});
+Object.defineProperty(globalThis,'requestAnimationFrame',{value:()=>1,configurable:true});Object.defineProperty(globalThis,'cancelAnimationFrame',{value:()=>{},configurable:true});
+const canvas=Object.assign(new EventTarget(),{ownerDocument:page,style:{cursor:''},hasPointerCapture:()=>false,releasePointerCapture(){}}) as unknown as HTMLCanvasElement;
+try{
+ const first=createBrowserMenuInput(canvas),touch=browserTouchDrivingInput(canvas);
+ touch.press('accelerate',1);touch.press('left',2);assert.equal(first.controls(),9);assert.equal(first.takeKey(),0x4b00);
+ first.setActive(false);const next=createBrowserMenuInput(canvas);first.close();assert.equal(next.controls(),9,'Inactive adapter cleanup cannot clear holds owned by new screen');
+ touch.release(1);assert.equal(next.controls(),8);touch.press('confirm',3);assert.equal(next.takeKey(),13);
+ assert.equal(next.replayActivationButtons(),16,'Held touch Enter follows original replay activation');
+ touch.press('gearDown',11);touch.release(3);assert.equal(next.replayActivationButtons(),16,'Aliased held scan remains active until both touches release');touch.release(11);assert.equal(next.replayActivationButtons(),0);
+ const physical=(type:string)=>{const event=new Event(type);Object.defineProperties(event,{code:{value:'ArrowUp'},key:{value:'ArrowUp'},ctrlKey:{value:false},shiftKey:{value:false}});canvas.dispatchEvent(event);};
+ physical('keydown');touch.press('accelerate',12);touch.release(12);assert.equal(next.controls(),9,'Releasing touch does not cancel physical throttle');
+ touch.press('accelerate',13);physical('keyup');assert.equal(next.controls(),9,'Releasing physical key does not cancel touch throttle');touch.release(13);assert.equal(next.controls(),8);
+ win.dispatchEvent(new Event('blur'));assert.equal(next.controls(),0);assert.equal(next.takeKey(),0);assert.equal(touch.held('left'),false);
+ touch.press('menu',4);assert.equal(next.takeKey(),27);canvas.dispatchEvent(new Event('blur'));assert.equal(touch.held('menu'),false);
+ touch.press('accelerate',7);touch.press('left',8);Object.defineProperty(page,'hidden',{value:true,configurable:true});page.dispatchEvent(new Event('visibilitychange'));
+ assert.equal(next.controls(),0,'Backgrounding releases touch controls');assert.equal(touch.held('accelerate'),false);
+ Object.defineProperty(page,'hidden',{value:false,configurable:true});touch.press('brake',9);touch.press('right',10);page.dispatchEvent(new Event('fullscreenchange'));
+ assert.equal(next.controls(),0,'Fullscreen transition cannot leave held touch controls');assert.equal(touch.held('brake'),false);
+ touch.press('accelerate',5);touch.press('right',6);assert.equal(next.controls(),5);
+ touch.press('dashboard',14);assert.equal(next.takeKey(),100,'Touch D sends original lowercase dashboard command');assert.equal(next.controls(),5,'Dashboard command cannot change driving mask');touch.release(14);
+ touch.press('camera',15);assert.equal(next.takeKey(),99,'Touch C sends original lowercase camera command');assert.equal(next.controls(),5,'Camera command cannot change driving mask');touch.release(15);
+ next.close();assert.equal(touch.held('accelerate'),false,'Active session close releases touch throttle');assert.equal(touch.held('right'),false,'Active session close releases steering');
+ const restarted=createBrowserMenuInput(canvas);assert.equal(restarted.controls(),0,'Restart cannot inherit closed-session touch holds');restarted.close();touch.clear();
+}finally{for(const [key,descriptor]of saved){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);}}
+console.log('Browser touch bridge uses original controls/key words, preserves screen handover holds and clears input on canvas/window blur');

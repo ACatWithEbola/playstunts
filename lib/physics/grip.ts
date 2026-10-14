@@ -4,6 +4,7 @@
  * arg_isOpponent label is misleading). Track tiles are supplied by the caller.
  */
 import { i16,u16,intCos } from './math.ts';
+import {scaleSteeringWord,LEGACY_PHYSICS,type PhysicsEngineVersion} from './engine-version.ts';
 export interface GripState {
  speed:number;roadSpeed:number;steeringAngle:number;wheelAngle:number;
  spin:number;frontWheelAngle:number;slip:number;demandedGrip:number;surfaceGrip:number;
@@ -11,7 +12,7 @@ export interface GripState {
  yaw:number;roll:number;
 }
 export interface GripTuning {grip:number;surfaceGrip:number[]}
-export function stepGrip(before:GripState,t:GripTuning,player=true,trackElement=0,onContactScratch?:(words:[number,number])=>void):GripState {
+export function stepGrip(before:GripState,t:GripTuning,player=true,trackElement=0,onContactScratch?:(words:[number,number])=>void,physicsEngine:PhysicsEngineVersion=LEGACY_PHYSICS):GripState {
  const s={...before,surfaces:[...before.surfaces]};
  if(!s.allContact){s.frontWheelAngle=0;s.sliding=0;return s}
  // Original grounded grip leaves the divisor in the later contact stack.
@@ -32,7 +33,7 @@ export function stepGrip(before:GripState,t:GripTuning,player=true,trackElement=
    if(initial<0)angle=i16(-angle);
    // This executable divides toward zero (0x189cb), unlike the later
    // reference assembly which uses arithmetic shifts for negative values.
-   angle=i16(Math.trunc(i16(i16(angle*3)+initial)/4));
+   angle=i16(scaleSteeringWord(i16(i16(angle*3)+initial),2,physicsEngine));
    s.slip=i16(initial-angle);
   }else{
    s.sliding=0;
@@ -47,9 +48,9 @@ export function stepGrip(before:GripState,t:GripTuning,player=true,trackElement=
   }
  }else{
   s.frontWheelAngle=i16(s.steeringAngle*4);
-  if(s.spin)s.spin=Math.trunc(i16(s.spin*15)/16);
+  if(s.spin)s.spin=scaleSteeringWord(i16(s.spin*15),4,physicsEngine);
  }
- if(s.wheelAngle && !s.spin)s.wheelAngle=Math.trunc(i16(s.wheelAngle*15)/16);
+ if(s.wheelAngle && !s.spin)s.wheelAngle=scaleSteeringWord(i16(s.wheelAngle*15),4,physicsEngine);
  if(s.spin)s.wheelAngle=i16(s.wheelAngle-s.spin);
  if(s.sliding){
   const loss=u16(Math.abs(i16(s.slip*2)));

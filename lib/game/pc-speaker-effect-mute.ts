@@ -13,7 +13,7 @@ export function setOriginalPcSpeakerEffectsEnabled(before:OriginalPcSpeakerEffec
   const volume=enabled?savedVolumes[owner]:0;timers[owner][0x28]=volume;
   for(let index=0;index<before.voices.length;index++){
    const record=before.voices[index];if(record[0]!==owner)continue;
-   setOriginalPcSpeakerVolume(driver,index,volume);
+   setOriginalPcSpeakerVolume(driver,index,volume,before.physicsEngine);
   }
  }
  return {...before,driver,timers,savedVolumes,enabled:enabled?1:0,writes};

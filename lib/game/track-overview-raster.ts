@@ -8,8 +8,9 @@ import {renderOriginalModelMemory} from './render-model-memory.ts';
 import {drainOriginalPrimitiveQueue} from './drain-primitive-queue.ts';
 import {rasterOriginalDrawCall} from './raster-original-draw-call.ts';
 import {drawEditorClippedRaster} from './editor-clipped-raster.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 /** SuppliedE7DC..ED57. Caller supplies the currently loaded panorama/model bank. */
-export function drawOriginalTrackOverview(target:Uint8Array,baseline:Uint8Array,raw:ReadonlyArray<number>,groundModels:Record<string,ReadonlyArray<number>>,captureBackdrop?:(pixels:Uint8Array,layout:{horizon:number;height:number})=>void){
+export function drawOriginalTrackOverview(target:Uint8Array,baseline:Uint8Array,raw:ReadonlyArray<number>,groundModels:Record<string,ReadonlyArray<number>>,captureBackdrop?:(pixels:Uint8Array,layout:{horizon:number;height:number})=>void,engine?:PhysicsEngineVersion){
  const memory=baseline.slice(),d=0x2d1a0,c=0x209e0,v=new DataView(memory.buffer),word=(o:number)=>v.getUint16(d+o,true),signed=(o:number)=>v.getInt16(d+o,true),set=(o:number,n:number)=>v.setUint16(d+o,n,true);
  // The retained driving baseline omitted these overview-only ground models.
  // Install complete supplied GAME2 resources, including masks and primitives.
@@ -28,6 +29,6 @@ export function drawOriginalTrackOverview(target:Uint8Array,baseline:Uint8Array,
  for(let i=0;i<256;i++)v.setUint16(c+0x6376+i*2,(i*320)&65535,true);
  selectOriginalView(memory,d,[0,pitch,0],[0,320,0,200],1);
  const cache={vectors:Array.from({length:256},()=>[0,0,0] as Vector),points:Array.from({length:256},()=>[0,0]),flags:Array(256).fill(0)};
- originalTrackOverviewSubmissions(memory,d,record=>{if(record){memory.set(record,d+0xb000);renderOriginalModelMemory(memory,d,0xb000,cache);}else drainOriginalPrimitiveQueue(memory,d,(call,index,counter)=>rasterOriginalDrawCall(memory,d,c,call,{index,counter}));});
+ originalTrackOverviewSubmissions(memory,d,record=>{if(record){memory.set(record,d+0xb000);renderOriginalModelMemory(memory,d,0xb000,cache,undefined,undefined,undefined,false,engine);}else drainOriginalPrimitiveQueue(memory,d,(call,index,counter)=>rasterOriginalDrawCall(memory,d,c,engine==='ms-1991'?{...call,physicsEngine:engine}:call,{index,counter}));},undefined,undefined,engine);
  target.set(memory.subarray(0x90000,0xa0000));return {pitch,horizon};
 }

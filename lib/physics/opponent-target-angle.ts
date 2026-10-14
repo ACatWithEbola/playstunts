@@ -1,7 +1,7 @@
 import {i16,vecTransform,intAtan2,type Vector} from './math.ts';
 /** Original 0x6fee..0x7031: local direction to selected target, then integer atan2. */
-export function opponentTargetAngle(target:Vector,position:Vector,matrix:number[]){
- const relative=target.map((v,i)=>i16(v-position[i])) as Vector;
+export function opponentTargetAngle(target:Vector,position:Vector,matrix:number[],unspecifiedHeight=false){
+ const relative=target.map((v,i)=>unspecifiedHeight&&i===1&&target[1]===-1?0:i16(v-position[i])) as Vector;
  const local=vecTransform(relative,matrix);
  // The original atan(0,0) returns incoming AX unchanged. The preceding
  // transform leaves its final coefficient, or the shifted product's low word.

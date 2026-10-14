@@ -15,6 +15,11 @@ export function createOriginalTandyToneAudio(sampleRate:number,options:OriginalT
   write(port:number,value:number){
    if(port===0xc0||port===0xc1)psg.write(value);
    else if(port===0x42||port===0x43||port===0x61||port===0x40)speaker.write(port,value);
+   // MS91 boot clears the DAC enable latch even for tone-only banks. Its
+   // zero state has no audio sample to schedule; nonzero starts still require
+   // the dedicated sampled-output host.
+   else if(port===0xc4&&value===0){}
+   else if(port===0xc4)throw Error('Tandy DAC output requires the sample hardware scheduler');
    else if(port===0xc6||port===0xc7)throw Error('Tandy DAC output requires the sample hardware scheduler');
    else throw Error('Unreconstructed Tandy sound output port');
   },
@@ -29,11 +34,15 @@ export function createOriginalTandyToneAudio(sampleRate:number,options:OriginalT
  * callbacks cannot silently fall back to tones. The caller supplies the
  * explicit interrupted-register context to its runtime.tick closure. */
 export function createOriginalTandyToneStream(runtime:{tick():{writes:number[][];bios:OriginalTandyBiosSound[]}},initialWrites:number[][],sampleRate:number,options:OriginalTandyToneOutputOptions,existingAudio?:ReturnType<typeof createOriginalTandyToneAudio>){
- const audio=existingAudio??createOriginalTandyToneAudio(sampleRate,options);let phase=0;
+ const audio=existingAudio??createOriginalTandyToneAudio(sampleRate,options);let phase=0,failed=false;
  const write=(writes:number[][])=>{for(const [port,value] of writes)audio.write(port,value);};if(!existingAudio)write([[0x43,0xb6]]);write(initialWrites);
- return {write,get port61(){return audio.port61;},render(samples:number){
+ const requireHealthy=()=>{if(failed)throw Error('Tandy tone stream failed; recreate stream');};
+ return {write(writes:number[][]){requireHealthy();try{write(writes);}catch(error){failed=true;throw error;}},get port61(){return audio.port61;},render(samples:number){
+  requireHealthy();if(!Number.isSafeInteger(samples)||samples<0)throw Error('Invalid Tandy audio frame count');
   const clock=audioTimerSampleOffsets(phase,samples,sampleRate),result=new Float32Array(samples);let position=0;
+  try{
   for(const boundary of clock.offsets){result.set(audio.render(boundary-position),position);position=boundary;const output=runtime.tick();if(output.bios.length)throw Error('Tandy BIOS sample requests require the DAC backend');write(output.writes);}
   result.set(audio.render(samples-position),position);phase=clock.phase;return result;
+  }catch(error){failed=true;throw error;}
  }};
 }

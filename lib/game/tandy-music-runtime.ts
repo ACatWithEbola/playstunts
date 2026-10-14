@@ -1,7 +1,11 @@
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
+import {versionedTd15Resource} from './versioned-td15-resource.ts';
+import {initializeOriginalTandy} from './tandy-lifecycle.ts';
+import {tandyDriverLayout} from './tandy-driver-layout.ts';
 import type {OriginalMenuAudioEffect} from './menu-audio-control.ts';
 import {applyMusicSequenceControl} from './music-sequence-control.ts';
 import {applyOriginalTandyTrackControl,stopOriginalTandyTrack} from './tandy-track-control.ts';
-import {setOriginalTandyVolume} from './tandy-control.ts';
+import {setOriginalTandyVolume,originalTandyVolumeGateWrites} from './tandy-control.ts';
 import {updateOriginalTandyVoice,type OriginalTandyBiosSound} from './tandy-voice-update.ts';
 import {startOriginalTandyAllocatedNote} from './tandy-note-start.ts';
 import {stepOriginalTandyVoiceTimer} from './tandy-voice-timer.ts';
@@ -13,16 +17,23 @@ export interface OriginalTandyMusicSeed extends OriginalMusicSeed {driver:number
 const view=(b:Uint8Array)=>new DataView(b.buffer,b.byteOffset,b.byteLength);
 /** Original music command execution for the supplied TITL, SLCT, VICT and OVER scores.
  * The seed is the original loader's initialized state; playback is native. */
-export function createOriginalTandyMusicRuntime(seed:OriginalTandyMusicSeed){
+export function createOriginalTandyMusicRuntime(seed:OriginalTandyMusicSeed,driverGeneration?:PhysicsEngineVersion){
  const bank=Uint8Array.from(seed.bank),patches=Uint8Array.from(seed.voices),header=seed.header;
  let timers=seed.timers.map(t=>Uint8Array.from(t)),voices=seed.hardware.map(t=>Uint8Array.from(t)),lastNotes=Uint8Array.from(seed.lastNotes);
- let commandArgument=seed.commandArgument??0,driver=Uint8Array.from(seed.driver),port61=seed.port61;
+ let commandArgument=seed.commandArgument??0,driver=versionedTd15Resource(driverGeneration)??Uint8Array.from(seed.driver),port61=seed.port61;
+ const initialWrites=seed.initialWrites.map(write=>write.slice());
+ if(driverGeneration==='ms-1991'){const initialized=initializeOriginalTandy(driver,0x39e1,port61,{offset:0,segment:0},driverGeneration);initialWrites.push(...initialized.writes);for(const [port,value] of initialized.writes)if(port===0x61)port61=value;const old=tandyDriverLayout('ms-1990'),modern=tandyDriverLayout(driverGeneration);driver.set(seed.driver.slice(old.velocity,old.velocity+6),modern.velocity);driver.set(seed.driver.slice(old.volume,old.volume+6),modern.volume);}
  const markers=Uint8Array.from(seed.markers??Array(24).fill(0));
  const state={masterVolume:seed.masterVolume??127,accumulator:0,interval:128,tracks:bank[header+7+bank[header+6]*4]};
  const instrumentAt=(offset:number,segment:number)=>{if(segment!==0x9000)throw Error('Invalid original music instrument segment');return patches.slice(offset,offset+100);};
  let writes:number[][]=[],bios:OriginalTandyBiosSound[]=[];
- function stopTrack(owner:number){const stopped=stopOriginalTandyTrack(driver,timers,voices,owner,0x39e1,port61);bios.push(...stopped.bios);port61=stopped.port61;return stopped.writes;}
- function release(){for(let i=0;i<voices.length;i++){const v=voices[i];if(!v[1]||v[0]>=16)continue;const next=stepVoiceDuration(v,timers[v[0]][0x25]);voices[i]=next.record;}}
+ function volume(channel:number,value:number,output:number[][]){
+  setOriginalTandyVolume(driver,channel,value,driverGeneration);
+  const gated=originalTandyVolumeGateWrites(channel,value,port61,driverGeneration);output.push(...gated);
+  for(const [port,value] of gated)if(port===0x61)port61=value;
+ }
+ function stopTrack(owner:number){const stopped=stopOriginalTandyTrack(driver,timers,voices,owner,0x39e1,port61,owner,driverGeneration);bios.push(...stopped.bios);port61=stopped.port61;return stopped.writes;}
+ function release(){for(let i=0;i<voices.length;i++){const v=voices[i];if(!v[1]||v[0]>=16)continue;const next=stepVoiceDuration(v,timers[v[0]][0x25],driverGeneration);voices[i]=next.record;}}
  function sequence(owner:number){
   let timer=timers[owner],v=view(timer);
   if(v.getUint32(0x18,true)){v.setUint32(0x18,v.getUint32(0x18,true)-1,true);return;}
@@ -36,7 +47,7 @@ export function createOriginalTandyMusicRuntime(seed:OriginalTandyMusicSeed){
     let offset=v.getUint16(0x1e,true),segment=v.getUint16(0x20,true);let instrument=(offset||segment)?instrumentAt(offset,segment):new Uint8Array(100);
     if(instrument[5]===5){const note=op&127,map=[0,2,1,2,2,2,5,2,6,2,6,2,2,3,2,4];[offset,segment]=seed.percussion[note>=24&&note<=39?map[note-24]:2];instrument=(offset||segment)?instrumentAt(offset,segment):new Uint8Array(100);}
     const command=new Uint8Array(10);command[4]=op&127;command[5]=op<128?timer[0x22]:arg;view(command).setUint32(6,c.duration??0,true);
-    const next=startOriginalTandyAllocatedNote({alternate:false,channelMasks:[1,2,4,8,16,32],owner,instrument,instrumentPointer:{offset,segment},timers,voices,lastNotes,command},driver,0x39e1,port61);
+    const next=startOriginalTandyAllocatedNote({alternate:false,channelMasks:[1,2,4,8,16,32],owner,instrument,instrumentPointer:{offset,segment},timers,voices,lastNotes,command},driver,0x39e1,port61,undefined,driverGeneration);
     ({timers,voices,lastNotes,driver}=next);writes.push(...next.writes);bios.push(...next.bios);for(const [port,value] of next.writes)if(port===0x61)port61=value;timer=timers[owner];v=view(timer);
    }else if(op===0xd9){
     if(timer[4]){const p=5+timer[4]*4;v.setUint32(0,v.getUint32(p,true),true);timer[4]--;}
@@ -45,8 +56,8 @@ export function createOriginalTandyMusicRuntime(seed:OriginalTandyMusicSeed){
    else if(applyMusicSequenceControl(timer,op,arg,c.duration??0)){}
    else if(op===0xdc){const at=header+7+arg*4;v.setUint32(0x1e,view(bank).getUint32(at,true),true);}
    else if(op===0xdd){if(!arg)throw Error('Original score specifies zero tempo');state.interval=Math.floor(32000/arg);}
-   else if(op===0xde){timer[0x28]=arg;for(let i=0;i<voices.length;i++)if(voices[i][0]===owner)setOriginalTandyVolume(driver,i,arg);}
-   else if(op===0xdf)applyOriginalTandyTrackControl(driver,timers,voices,owner,arg,c.duration??0);
+   else if(op===0xde){timer[0x28]=arg;for(let i=0;i<voices.length;i++)if(voices[i][0]===owner)volume(i,arg,writes);}
+   else if(op===0xdf){const next=applyOriginalTandyTrackControl(driver,timers,voices,owner,arg,c.duration??0,driverGeneration,port61);writes.push(...next.writes);port61=next.port61!;}
    else if(op===0xe0)timer[0x16]=arg;
    else if(op===0xe1)timer[0x24]=arg;
    else if(op===0xe2){const depth=timer[0x32];v.setUint32(0x33+4*depth,v.getUint32(0,true),true);timer[0x43+depth]=(arg-1)&255;timer[0x32]++;}
@@ -67,14 +78,14 @@ export function createOriginalTandyMusicRuntime(seed:OriginalTandyMusicSeed){
  }
  function control(effect:OriginalMenuAudioEffect,incomingCx:number){
   let cx=incomingCx&65535;const output:number[][]=[],requests:OriginalTandyBiosSound[]=[];
-  if(effect.type==='volume'){timers[effect.owner][0x28]=effect.value;for(let i=0;i<voices.length;i++)if(voices[i][0]===effect.owner)setOriginalTandyVolume(driver,i,effect.value);cx=voices.length;}
-  else if(effect.type==='update-voice'){const voice=voices[effect.index];if(voice?.[1]&&voice[44]){const rv=view(voice),timer=timers[(rv.getUint16(42,true)-0x801e)/72];const updated=updateOriginalTandyVoice(driver,0x39e1,voice[44],voice,timer,instrumentAt(rv.getUint16(16,true),rv.getUint16(18,true)),cx,port61);cx=updated.cx;output.push(...updated.writes);requests.push(...updated.bios);}}
-  else if(effect.type==='stop-tracks'){const stopped=stopOriginalTandyTrack(driver,timers,voices,effect.first,0x39e1,port61,effect.last);output.push(...stopped.writes);requests.push(...stopped.bios);port61=stopped.port61;cx=0;}
+  if(effect.type==='volume'){timers[effect.owner][0x28]=effect.value;for(let i=0;i<voices.length;i++)if(voices[i][0]===effect.owner)volume(i,effect.value,output);cx=voices.length;}
+  else if(effect.type==='update-voice'){const voice=voices[effect.index];if(voice?.[1]&&voice[44]){const rv=view(voice),timer=timers[(rv.getUint16(42,true)-0x801e)/72];const updated=updateOriginalTandyVoice(driver,0x39e1,voice[44],voice,timer,instrumentAt(rv.getUint16(16,true),rv.getUint16(18,true)),cx,port61,driverGeneration);cx=updated.cx;output.push(...updated.writes);requests.push(...updated.bios);}}
+  else if(effect.type==='stop-tracks'){const stopped=stopOriginalTandyTrack(driver,timers,voices,effect.first,0x39e1,port61,effect.last,driverGeneration);output.push(...stopped.writes);requests.push(...stopped.bios);port61=stopped.port61;cx=0;}
   else if(effect.type==='master-volume')throw Error('Alternate driver volume is not TD15');
   // TD15:AE2 flush is a no-op.
   for(const [port,value] of output)if(port===0x61)port61=value;return {writes:output,bios:requests,cx};
  }
  /** The interrupted caller's CX remains explicit because TD15's noise-table
   * branch reads it. This runtime does not invent the surrounding CPU state. */
- return {state,control,get driver(){return driver;},get port61(){return port61;},get markers(){return markers;},get timers(){return timers;},get voices(){return voices;},get lastNotes(){return lastNotes;},tick(incomingCx:number,sequenceEnabled=true){writes=[];bios=[];const updated=stepOriginalTandyVoiceTimer({timers,voices,lastNotes,driver,cx:incomingCx},instrumentAt,0x39e1,port61);({timers,voices,lastNotes,driver,port61}=updated);writes.push(...updated.writes);bios.push(...updated.bios);if(sequenceEnabled)stepOriginalMusicTimer(state,release,sequence);else release();return {writes,bios};}};
+ return {state,control,get initialWrites(){return initialWrites.map(write=>write.slice());},get driver(){return driver;},get port61(){return port61;},get markers(){return markers;},get timers(){return timers;},get voices(){return voices;},get lastNotes(){return lastNotes;},tick(incomingCx:number,sequenceEnabled=true){writes=[];bios=[];const updated=stepOriginalTandyVoiceTimer({timers,voices,lastNotes,driver,cx:incomingCx,driverGeneration},instrumentAt,0x39e1,port61);({timers,voices,lastNotes,driver,port61}=updated);writes.push(...updated.writes);bios.push(...updated.bios);if(sequenceEnabled)stepOriginalMusicTimer(state,release,sequence);else release();return {writes,bios};}};
 }

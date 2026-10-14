@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {localDrivingTelemetry} from './research-driving-telemetry.ts';
+const car={pose:{position:[1,2,3],rotation:[4,5,6]},engine:{speed:7},grip:{steeringAngle:8}};
+const runtime={session:{state:{player:{driving:{car}}}}} as Parameters<typeof localDrivingTelemetry>[0];
+const before=structuredClone(car);
+for(const hostname of ['playstunts.com','localhost.attacker.test','stunts-rebuilt.lokaas.chatgpt.site'])assert.equal(localDrivingTelemetry(runtime,{hostname,search:'?preview-audio=observe'}),undefined);
+assert.equal(localDrivingTelemetry(runtime,{hostname:'localhost',search:''}),undefined);
+assert.equal(localDrivingTelemetry(runtime,{hostname:'localhost',search:'?preview-audio=muted'}),undefined);
+const snapshot=localDrivingTelemetry(runtime,{hostname:'localhost',search:'?preview-audio=observe'})!;
+assert.deepEqual(snapshot,{position:[1,2,3],rotation:[4,5,6],speed:7,steering:8});
+snapshot.position[0]=99;snapshot.rotation[0]=99;assert.deepEqual(car,before);
+console.log('Local driving observer rejects public/disabled locations and returns detached state without mutation');

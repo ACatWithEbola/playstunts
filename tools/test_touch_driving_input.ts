@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {createTouchDrivingInput,touchDrivingScan} from '../lib/game/touch-driving-input.ts';
+import {originalDrivingKeyControls} from '../lib/game/driving-key-controls.ts';
+const bindings=[57,28,71,72,73,77,81,80,79,75],input=createTouchDrivingInput(),events:Array<[string,boolean]>=[];
+const unsubscribe=input.subscribe((action,pressed)=>events.push([action,pressed]));
+const controls=()=>originalDrivingKeyControls(bindings,scan=>input.scanDown(scan,bindings),()=>0);
+input.press('accelerate',1);input.press('left',2);input.press('gearUp',3);assert.equal(controls(),25);
+input.press('accelerate',4);input.release(1);assert.equal(controls(),25,'Second finger retains acceleration');input.release(4);assert.equal(controls(),24);
+input.press('right',2);assert.equal(controls(),20,'Pointer reassignment releases previous action');
+input.press('confirm',5);input.press('gearDown',6);input.release(5);assert.equal(input.scanDown(28,bindings),true,'Aliases retain shared scan until all sources release');
+input.clear();assert.equal(controls(),0);assert.equal(input.scanDown(28,bindings),false);
+const custom=[30,44,71,17,73,32,81,31,79,16];input.press('accelerate',7);input.press('left',8);assert.equal(originalDrivingKeyControls(custom,scan=>input.scanDown(scan,custom),()=>0),9);assert.equal(input.scanDown(72,custom),false);
+assert.equal(touchDrivingScan('menu',custom),1);assert.equal(touchDrivingScan('confirm',custom),28);input.clear();unsubscribe();
+assert.equal(touchDrivingScan('dashboard',custom),32);assert.equal(touchDrivingScan('camera',custom),46);
+assert.equal(events.filter(([action,pressed])=>action==='accelerate'&&pressed).length,2,'Duplicate held action has only one press edge');
+console.log('Touch input combines steering/throttle/gears, respects remapping, retains multi-pointer/scan aliases and releases all controls without changing original masks');

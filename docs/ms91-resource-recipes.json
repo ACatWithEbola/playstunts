@@ -1,0 +1,12 @@
+{
+  "format": "playstunts-ms91-resource-recipes-v1",
+  "outputs": [
+    {"path":"ms91-ad15-resource.json","metadata":{},"files":[{"source":"AD15.DRV","bytes":3571,"sha256":"e32b44c8ee6bf2046fc93359c225f3d99e559c94926594f6e3468e1c317afe26"}]},
+    {"path":"ms91-mt15-resource.json","metadata":{"source":"Mindscape 4D Sports Driving 1.1, 25 February 1991"},"files":[{"source":"MT15.DRV","bytes":1750,"sha256":"f29d81f12bbb993764c2409da5afdc1ef161cd5605b6fca8527999954d216242"}]},
+    {"path":"ms91-td15-resource.json","metadata":{"name":"TD15.DRV"},"files":[{"source":"TD15.DRV","bytes":3241,"sha256":"45baeedce5368fc07aea9f1e0ecd444fe5e943cc2730db2efe235d5fa561ca24"}]},
+    {"path":"ms91-demo-resource.json","metadata":{"source":"Mindscape 4D Sports Driving 1.1, 25 Feb 1991: DEFAULT.RPL"},"files":[{"source":"DEFAULT.RPL","bytes":2786,"sha256":"b07c81cd6e187188834958a700c6afdf9e148e1107315e214d8b878369efd2e5"}]},
+    {"path":"ms91-title-resource.json","metadata":{"edition":"Mindscape 4D Sports Driving 1.1 (25 Feb 1991)","file":"SDTITL.PVS"},"files":[{"source":"SDTITL.PVS","bytes":11180,"sha256":"40067d2b5f30dcb070196a0ed7dad13f684cba095a7c2090e58429ab562bd909"}]},
+    {"path":"ms91-pc15-resources.json","metadata":{"source":"Mindscape4D Sports Driving1.1,25Feb1991"},"layout":"bank","files":[{"source":"PC15.DRV","bytes":2227,"sha256":"4edc71e9bd56885ff8a48d7d4595c6e3a9450274ddf17580adb49d2b86353d67"},{"source":"PCENG1.VCE","bytes":1049,"sha256":"27355dbdc664b08803b95b9bbd06c6c7417f776ee6f57ab9f57191f6b73b5362"}]},
+    {"path":"ms91-opponent-resources.json","metadata":{"source":"Mindscape 4D Sports Driving 1.1, 25 February 1991; exact packed opponent banks"},"layout":"bank","files":[{"source":"OPP1.PRE","bytes":1254,"sha256":"0823491c68f24082cc044d6e37d027713c3b2ec3da455804d73786b724d824f9"},{"source":"OPP2.PRE","bytes":1321,"sha256":"53fe673dc8e341b0065b9581d1721b0508b8af0b63eece1148351ca6d2c3fa91"},{"source":"OPP3.PRE","bytes":993,"sha256":"c89ebd046f5bd990d692860692037db4cbf8a181184df083b0b09f5ca1f87a19"},{"source":"OPP4.PRE","bytes":1372,"sha256":"f28d5132d156d85de2192df942d39c6e924383d91bc9a002cc59531e474fa1f5"},{"source":"OPP5.PRE","bytes":1256,"sha256":"94b76a794e08ababd1c1061082d02a73c43355ed77687f7a9f3d974cadc0b309"},{"source":"OPP6.PRE","bytes":1297,"sha256":"b167f69384434bcf45cd912f29c50f75435faddd81a6148edfba056bc136a0a2"}]}
+  ]
+}

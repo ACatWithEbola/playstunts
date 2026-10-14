@@ -5,15 +5,23 @@ from extract import unpack
 
 def assemble(source,mode):
     common=bytearray(unpack((source/'EGA.CMN').read_bytes()))
+    code=unpack((source/(mode+'.COD')).read_bytes())
     if mode!='EGA':
         diff=unpack((source/(mode+'.DIF')).read_bytes());at=0;target=-1
         while at<len(diff):
             delta=struct.unpack_from('<H',diff,at)[0];at+=2
             if not delta:break
             target+=delta&32767;count=4 if delta&32768 else 2
-            if target<0 or target+count>len(common) or at+count>len(diff):raise ValueError('Invalid executable delta')
-            common[target:target+count]=diff[at:at+count];at+=count
-    header=(source/(mode+'.HDR')).read_bytes();code=unpack((source/(mode+'.COD')).read_bytes())
+            if target<0 or target>=len(common) or at+count>len(diff):raise ValueError('Invalid executable delta')
+            end=target+count;inside=min(count,len(common)-target)
+            if end>len(common):
+                # Original DIF word/dword writes can straddle CMN/COD. The
+                # archived 1991 final patches repeat the existing COD prefix;
+                # require that exact agreement rather than extending CMN.
+                overflow=end-len(common)
+                if diff[at+inside:at+count]!=code[:overflow]:raise ValueError('Executable delta conflicts with code boundary')
+            common[target:target+inside]=diff[at:at+inside];at+=count
+    header=(source/(mode+'.HDR')).read_bytes()
     offset=struct.unpack_from('<H',header,8)[0]*16
     if offset<len(header):raise ValueError('Invalid MZ header size')
     return header+bytes(offset-len(header))+common+code
@@ -77,7 +85,7 @@ def unpack_exe(data,base=0x280):
     return bytes(memory)
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('original',type=Path);p.add_argument('output',type=Path);a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True)
-    for mode in ['MCGA','EGA','CGA','TDY']:
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('original',type=Path);p.add_argument('output',type=Path);p.add_argument('--mode',choices=['MCGA','EGA','CGA','TDY']);a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True)
+    for mode in ([a.mode] if a.mode else ['MCGA','EGA','CGA','TDY']):
         data=unpack_exe(assemble(a.original,mode));(a.output/(mode+'-unpacked.bin')).write_bytes(data)
-    (a.output/'setup-unpacked.bin').write_bytes(unpack_exe((a.original/'SETUP.EXE').read_bytes(),0x1000))
+    if not a.mode:(a.output/'setup-unpacked.bin').write_bytes(unpack_exe((a.original/'SETUP.EXE').read_bytes(),0x1000))

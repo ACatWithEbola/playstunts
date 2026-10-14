@@ -4,16 +4,20 @@ import {drawOriginalDialog} from '../lib/game/dialog-raster.ts';
 import {editNativePath} from '../lib/game/native-path-entry.ts';
 import {editNativeSaveName} from '../lib/game/native-save-name.ts';
 import {enterNativeHighScore} from '../lib/game/native-high-score-runtime.ts';
+import {originalDialogContent} from '../lib/game/dialog-content.ts';
+import {measureOriginalFont} from '../lib/game/font-raster.ts';
+import {originalKeyboardScanWord} from '../lib/game/keyboard-scan-word.ts';
+import {isChaseToggle} from '../lib/game/chase-shortcut.ts';
 
 // A minimal proportional font with the original resource's cyan foreground.
 // Every non-space glyph has an 8x8 vertical stroke, making pixel checks exact.
-function fixture(){
+function fixture(inputKeys=[65,0,13]){
  const font=new Uint8Array(4096),view=new DataView(font.buffer),pixels=new Uint8Array(65536);
  view.setUint16(0,3,true);view.setUint16(2,6,true);view.setUint16(14,8,true);view.setUint16(18,8,true);font[20]=1;
  for(let code=32;code<127;code++){
   const at=600+(code-32)*9;view.setUint16(22+code*2,at,true);font[at]=8;font.fill(code===32?0:128,at+1,at+9);
  }
- const keys=[65,0,13],snapshots:Uint8Array[]=[];
+ const keys=inputKeys.slice(),snapshots:Uint8Array[]=[];
  let clock=0,field:{x:number;y:number}|undefined;
  const host={pixels,font,present(){},counters(){return {input:0,game:0};},async keyboard(){clock+=20;return {key:keys.shift()??13,input:clock,game:clock/5};},
   async editPath(path:string,length:number,timeout:number,position:{x:number;y:number}){
@@ -35,6 +39,20 @@ function checkWhiteEntry(f:ReturnType<typeof fixture>){
 }
 const resource=(text:string)=>Array.from(text+'\0',c=>c.charCodeAt(0));
 
+await test('plain v/V reaches native replay-name editing and Escape cancels',async()=>{
+ for(const shiftKey of [false,true]){
+  const event={code:'KeyV',ctrlKey:false,metaKey:false,altKey:false,shiftKey,repeat:false};
+  assert.equal(isChaseToggle(event),false);
+  const key=originalKeyboardScanWord(47,scan=>shiftKey&&scan===42);
+  assert.equal(key,shiftKey?86:118);
+  const f=fixture([key,0,27]),state={name:'OLD',path:'C:\\'};
+  const result=await editNativeSaveName({...f.host,resources:{esav:resource('Save @]Path:]@                 ]Name:]@]')}},state,'Replay');
+  assert.equal(result,null,'Escape must not request a save');
+  assert.equal(state.name,shiftKey?'V':'v');
+  assert.equal(state.path,'C:\\');
+ }
+});
+
 await test('saving a track keeps typed text and blinking cursor white',async()=>{
  const f=fixture(),state={name:'OLD',path:''};
  const result=await editNativeSaveName({...f.host,resources:{esav:resource('Save @]Path:]@                 ]Name:]@]')}},state,'Track');
@@ -55,4 +73,15 @@ await test('dialog retains the final original selection colors instead of forcin
  assert.equal(f.view.getUint16(0,true),0);assert.equal(f.view.getUint16(2,true),15);
  drawOriginalDialog(f.pixels,f.font,resource('Choose][One][Two]'),0,{text:15,border:4,disabled:1},[0,1]);
  assert.equal(f.view.getUint16(0,true),1);assert.equal(f.view.getUint16(2,true),0);
+});
+
+await test('MS91 high-score name entry uses versioned dialog field geometry',async()=>{
+ const f=fixture(),message=resource('High score]}Please input your name]@]');
+ const expected=originalDialogContent(message,line=>measureOriginalFont(f.font,line),-1,-1,3,'ms-1991');
+ const legacy=originalDialogContent(message,line=>measureOriginalFont(f.font,line),-1,-1,3,'ms-1990');
+ assert.notDeepEqual(expected.fields[0],legacy.fields[0]);
+ const file=new Uint8Array(364).fill(255),state={file,order:[0,1,2,3,4,5,6],selected:0,name:'OLD',retainedRecord:Array(52).fill(0)};
+ assert.equal(await enterNativeHighScore({...f.host,async release(){},drawTable(){},async save(){}},state,
+  {time:100,classification:0,carName:'INDY',opponentSelected:0,opponentCode:'',opponentCarCode:'',physicsEngine:'ms-1991',framesPerSecond:20},message,4),true);
+ assert.deepEqual(f.field(),{x:expected.fields[0].x,y:expected.fields[0].y});checkWhiteEntry(f);
 });

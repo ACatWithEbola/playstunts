@@ -5,6 +5,9 @@ import {originalJoystickSteering} from './joystick-steering.ts';
 import {originalDrivingKeyControls} from './driving-key-controls.ts';
 import {originalKeyboardScanWord} from './keyboard-scan-word.ts';
 import {replayKeyboardHoldButtons} from './replay-keyboard-hold.ts';
+import {browserTouchDrivingInput,touchDrivingScan} from './touch-driving-input.ts';
+import {createMenuTickDelay} from './menu-tick-delay.ts';
+import {pollAudioDuringFrameWait} from './frame-wait-audio-poll.ts';
 /** Browser hardware boundary for the native original polling routine. */
 export function originalBrowserKey(key:string,shift=false){
  const functionKey=/^F([1-9]|10)$/.exec(key);if(functionKey)return ((shift?0x54:0x3b)+Number(functionKey[1])-1)<<8;
@@ -14,19 +17,28 @@ export function originalBrowserKey(key:string,shift=false){
 const scanCodes:Record<string,number>={Escape:1,Minus:12,Equal:13,Backspace:14,Tab:15,BracketLeft:26,BracketRight:27,Enter:28,NumpadEnter:28,ControlLeft:29,ControlRight:29,Semicolon:39,Quote:40,Backquote:41,ShiftLeft:42,Backslash:43,Comma:51,Period:52,Slash:53,NumpadDivide:53,ShiftRight:54,NumpadMultiply:55,AltLeft:56,AltRight:56,Space:57,CapsLock:58,NumLock:69,ScrollLock:70,Numpad7:71,Home:71,Numpad8:72,ArrowUp:72,Numpad9:73,PageUp:73,NumpadSubtract:74,Numpad4:75,ArrowLeft:75,Numpad5:76,Numpad6:77,ArrowRight:77,NumpadAdd:78,Numpad1:79,End:79,Numpad2:80,ArrowDown:80,Numpad3:81,PageDown:81,Numpad0:82,Insert:82,NumpadDecimal:83,Delete:83,F11:87,F12:88};
 for(const [letters,start] of [['QWERTYUIOP',16],['ASDFGHJKL',30],['ZXCVBNM',44]] as const)Array.from(letters).forEach((letter,i)=>{scanCodes['Key'+letter]=start+i;});
 Array.from('1234567890').forEach((digit,i)=>{scanCodes['Digit'+digit]=2+i;});for(let i=1;i<=10;i++)scanCodes['F'+i]=58+i;
-export function createBrowserMenuInput(element:HTMLCanvasElement,options:{joystickEnabled?:()=>boolean;drivingBindings?:()=>ArrayLike<number>;onPoll?:()=>void|Promise<void>}={}){
+export interface BrowserFrameWaitTiming {requestedAt:number;frameAt:number;pollFinishedAt:number;interimPolls?:number;suppressedPolls?:number}
+export function createBrowserMenuInput(element:HTMLCanvasElement,options:{tickWakeup?:'timer';frameTimingNow?:()=>number;pollWhileFrameWaiting?:()=>boolean;onFrameWait?:(event:BrowserFrameWaitTiming)=>void;joystickEnabled?:()=>boolean;drivingBindings?:()=>ArrayLike<number>;onPoll?:()=>void|Promise<void>;clock?:{counter():number;gameCounter():number}}={}){
  let active=true,controlHeld=false,pendingKey=0;
  let disposed=false,x=160,y=100,buttons=0,last=0,lastPoll=0,request=0,rejectWait:((error:Error)=>void)|undefined;
  const epoch=performance.now(),held=new Set<number>(),pointerEdges:{x:number;y:number;buttons:number}[]=[];
  let state:OriginalMenuDeviceState={counter:0,mouseTime:0,joystickTime:0,joystick:0,pressedJoystick:0,x,y,buttons:0,mouseIdle:0,joystickKey:0,mouseKey:0,mouseAvailable:true,mouseActive:false,cursorVisible:false};
  // The original IRQ9 handler shares a scan bit between aliases and retains
  // only the latest unread key (DS:43d6 is two bytes in the supplied game).
- const scanHeld=(scan:number)=>active&&held.has(scan);
+ const touch=browserTouchDrivingInput(element),bindings=()=>options.drivingBindings?.()??[57,28,71,72,73,77,81,80,79,75];
+ const scanHeld=(scan:number)=>active&&(held.has(scan)||touch.scanDown(scan,bindings()));
+ const unsubscribeTouch=touch.subscribe((action,pressed)=>{if(!active||disposed||!pressed)return;pendingKey=originalKeyboardScanWord(touchDrivingScan(action,bindings()),scanHeld);});
  const replayActivationButtons=()=>replayKeyboardHoldButtons(scanHeld(57),scanHeld(28));
  const takeKey=()=>{const key=pendingKey;pendingKey=0;return key;};
  const page=element.ownerDocument??(typeof document==='undefined'?undefined:document);
- const counter=()=>Math.floor((performance.now()-epoch)*PC_PIT_INPUT_HZ/(ORIGINAL_PIT_DIVISOR*1000));
- const wait=async()=>{await new Promise<void>((resolve,reject)=>{if(disposed){reject(new DOMException('Native menu closed','AbortError'));return;}rejectWait=reject;request=requestAnimationFrame(()=>{rejectWait=undefined;resolve();});});await options.onPoll?.();};
+ // An explicit host may own timing. Its input counter must be cumulative,
+ // rather than the wrapped original memory word used for retained state.
+ const counter=()=>options.clock?options.clock.counter():Math.floor((performance.now()-epoch)*PC_PIT_INPUT_HZ/(ORIGINAL_PIT_DIVISOR*1000));
+ const gameTicks=()=>options.clock?options.clock.gameCounter():Math.floor(counter()/ORIGINAL_GAME_TIMER_DIVIDER);
+ const tickDelay=createMenuTickDelay(counter,()=>options.onPoll?.());
+ if(options.clock){last=counter();lastPoll=last;}
+ const timingNow=options.frameTimingNow??(()=>performance.now());
+ const wait=async()=>{const requestedAt=options.onFrameWait?timingNow():0;let frameAt=0,frameRequest=0;const frame=new Promise<void>((resolve,reject)=>{if(disposed){reject(new DOMException('Native menu closed','AbortError'));return;}rejectWait=reject;request=frameRequest=requestAnimationFrame(()=>{frameAt=options.onFrameWait?timingNow():0;rejectWait=undefined;resolve();});});let polling:Awaited<ReturnType<typeof pollAudioDuringFrameWait>>|undefined;try{if(options.pollWhileFrameWaiting?.())polling=await pollAudioDuringFrameWait(frame,()=>options.onPoll?.(),()=>!disposed&&!!options.pollWhileFrameWaiting?.());else await frame;await options.onPoll?.();options.onFrameWait?.({requestedAt,frameAt,pollFinishedAt:timingNow(),...polling});}catch(error){cancelAnimationFrame(frameRequest);if(request===frameRequest)rejectWait=undefined;throw error;}};
  const keyboard=(event:KeyboardEvent)=>{if(disposed)return;controlHeld=event.ctrlKey;const scan=scanCodes[event.code];if(scan!==undefined){held.add(scan);controlHeld=held.has(29);}if(!active)return;const key=scan===undefined?originalBrowserKey(event.key,event.shiftKey):originalKeyboardScanWord(scan,scanHeld);if(scan!==undefined||key!==0)pendingKey=key;if(key)event.preventDefault();};
  const keyup=(event:KeyboardEvent)=>{if(disposed)return;controlHeld=event.ctrlKey;const scan=scanCodes[event.code];if(scan!==undefined){held.delete(scan);controlHeld=held.has(29);}};
  // Cursor styling stays scoped to the canvas: releasing capture lets the
@@ -38,7 +50,7 @@ export function createBrowserMenuInput(element:HTMLCanvasElement,options:{joysti
  const pointer=(event:PointerEvent)=>{if(disposed)return;const rect=element.getBoundingClientRect();const outside=event.clientX<rect.left||event.clientX>=rect.left+rect.width||event.clientY<rect.top||event.clientY>=rect.top+rect.height;x=Math.max(mouseBounds[0],Math.min(mouseBounds[1],Math.floor((event.clientX-rect.left)*320/rect.width)));y=Math.max(mouseBounds[2],Math.min(mouseBounds[3],Math.floor((event.clientY-rect.top)*200/rect.height)));if(outside){leave(event);return;}blockedButtons&=event.buttons&7;const next=(event.buttons&7)&~blockedButtons;if(active&&next!==buttons)pointerEdges.push({x,y,buttons:next});buttons=next;};
  const down=(event:PointerEvent)=>{pointer(event);if(!active)return;event.preventDefault();element.focus({preventScroll:true});element.setPointerCapture(event.pointerId);capturedPointer=event.pointerId;};
  const contextMenu=(event:MouseEvent)=>{if(active)event.preventDefault();};
- const clear=()=>{blockedButtons|=buttons;controlHeld=false;buttons=0;pendingKey=0;held.clear();pointerEdges.length=0;releaseCapture();};
+ const clear=()=>{if(active)touch.clear();blockedButtons|=buttons;controlHeld=false;buttons=0;pendingKey=0;held.clear();pointerEdges.length=0;releaseCapture();};
  const visibility=()=>{if(page?.hidden)clear();};
  page?.addEventListener('visibilitychange',visibility);
  page?.addEventListener('fullscreenchange',clear);
@@ -78,14 +90,14 @@ export function createBrowserMenuInput(element:HTMLCanvasElement,options:{joysti
   // the inactive adapter must not release the new screen's capture.
   setActive(value:boolean){active=value;pendingKey=0;pointerEdges.length=0;last=counter();if(!value){capturedPointer=undefined;element.style.cursor='';}},
   async readMemory(memory:()=>Uint8Array,dataSegment:number,deltaOverride?:number|(()=>number)){const sample=await read(deltaOverride);return writeOriginalMenuDeviceSample(memory(),dataSegment,sample);},
-  async waitTicks(ticks:number){const end=counter()+ticks;while(counter()<end)await wait();},
-  counters:()=>({input:counter()>>>0,game:Math.floor(counter()/ORIGINAL_GAME_TIMER_DIVIDER)>>>0}),
-  async keyboard(){await wait();const ticks=counter();return {key:takeKey(),input:ticks>>>0,game:Math.floor(ticks/ORIGINAL_GAME_TIMER_DIVIDER)>>>0};},
-  async gameCounter(){await wait();return Math.floor(counter()/ORIGINAL_GAME_TIMER_DIVIDER)>>>0;},
+  async waitTicks(ticks:number){if(options.tickWakeup==='timer')return tickDelay.waitTicks(ticks);const end=counter()+ticks;while(counter()<end)await wait();},
+  counters:()=>({input:counter()>>>0,game:gameTicks()>>>0}),
+  async keyboard(){await wait();const ticks=counter();return {key:takeKey(),input:ticks>>>0,game:gameTicks()>>>0};},
+  async gameCounter(){await wait();return gameTicks()>>>0;},
   async release(){for(;;){if(gamepad().mask&48){await wait();continue;}const sample=await read();if(!sample.key&&!(sample.mouseActive&&sample.buttons&3))return;}},
   // A consumed menu key can still be physically held. Restart must drain
   // those driving activators before initializing the fresh recording.
   async releaseDrivingInput(){for(;;){await read();if(!originalDrivingKeyControls(options.drivingBindings?.()??[57,28,71,72,73,77,81,80,79,75],scan=>scanHeld(scan)||(scan===57&&scanHeld(30))||(scan===28&&scanHeld(44)),()=>gamepad().mask)&&!scanHeld(30)&&!scanHeld(44)&&!(buttons&3)&&!(gamepad().mask&48))return;}},
-  close(){if(disposed)return;const ownedCursor=active;disposed=true;active=false;clear();page?.removeEventListener('visibilitychange',visibility);page?.removeEventListener('fullscreenchange',clear);cancelAnimationFrame(request);rejectWait?.(new DOMException('Native menu closed','AbortError'));element.removeEventListener('keydown',keyboard);element.removeEventListener('keyup',keyup);element.removeEventListener('blur',clear);element.removeEventListener('pointerdown',down);element.removeEventListener('pointermove',pointer);element.removeEventListener('pointerup',pointer);element.removeEventListener('pointercancel',leave);element.removeEventListener('lostpointercapture',leave);element.removeEventListener('pointerleave',leave);element.removeEventListener('contextmenu',contextMenu);window.removeEventListener('blur',clear);window.removeEventListener('keyup',keyup,true);if(ownedCursor)element.style.cursor='';},
+close(){if(disposed)return;const ownedCursor=active;disposed=true;active=false;tickDelay.close();unsubscribeTouch();if(ownedCursor)touch.clear();clear();page?.removeEventListener('visibilitychange',visibility);page?.removeEventListener('fullscreenchange',clear);cancelAnimationFrame(request);rejectWait?.(new DOMException('Native menu closed','AbortError'));element.removeEventListener('keydown',keyboard);element.removeEventListener('keyup',keyup);element.removeEventListener('blur',clear);element.removeEventListener('pointerdown',down);element.removeEventListener('pointermove',pointer);element.removeEventListener('pointerup',pointer);element.removeEventListener('pointercancel',leave);element.removeEventListener('lostpointercapture',leave);element.removeEventListener('pointerleave',leave);element.removeEventListener('contextmenu',contextMenu);window.removeEventListener('blur',clear);window.removeEventListener('keyup',keyup,true);if(ownedCursor)element.style.cursor='';},
  };
 }

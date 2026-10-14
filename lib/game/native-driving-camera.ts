@@ -5,17 +5,18 @@ import type {RenderPose} from './render-pose.ts';
 import type {Vector} from '../physics/math.ts';
 import type {TrackObject} from '../physics/track.ts';
 import type {CollisionPlane} from '../physics/plane.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 
 /** The chase follows through the original external-camera mechanism. Only the
  * requested transporter presentation blends into it after the rollout ends.
  */
-export function nativeDrivingCamera(pose:RenderPose,view:DrivingView,carHeight:number,track:{raw:number[];objects:TrackObject[];planes:CollisionPlane[];mode:number},rolloutProgress?:number,fullSizeCar=false,continuous=false){
+export function nativeDrivingCamera(pose:RenderPose,view:DrivingView,carHeight:number,track:{raw:number[];objects:TrackObject[];planes:CollisionPlane[];mode:number;physicsEngine?:PhysicsEngineVersion},rolloutProgress?:number,fullSizeCar=false,continuous=false){
  const transition=drivingCamera(pose,view,carHeight,rolloutProgress,fullSizeCar);
  if(view==='cockpit')return transition;
  const car=pose.position.map(n=>Math.floor(n/64)) as Vector;
  // Elevation 48 keeps the optional following eye below the original
  // finish gantry crossbar (86..121 world units); geometry stays untouched.
- const source=continuous?continuousExternalCamera(pose,track.raw,track.objects,track.planes,210,512,48,track.mode):originalExternalCamera(car,pose.rotation.map(Math.round) as Vector,track.raw,track.objects,track.planes,210,512,48,track.mode).display;
+ const source=continuous?continuousExternalCamera(pose,track.raw,track.objects,track.planes,210,512,48,track.mode,track.physicsEngine):originalExternalCamera(car,pose.rotation.map(Math.round) as Vector,track.raw,track.objects,track.planes,210,512,48,track.mode,track.physicsEngine).display;
  // Equal target distances keep the blend focused rather than collapsing its
  // direction vector as it approaches the original unit-length display target.
  const target=continuous?source.target:source.target.map((n,i)=>source.position[i]+300*(n-source.position[i])) as Vector;

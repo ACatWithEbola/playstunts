@@ -1,4 +1,5 @@
-export type OriginalRasterCall={address:number;args:number[];points?:number[][];presentationPoints?:number[][]};
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
+export type OriginalRasterCall={address:number;args:number[];points?:number[][];presentationPoints?:number[][];physicsEngine?:PhysicsEngineVersion};
 export interface OriginalPrimitiveQueueLayout {count:number;used:number;flag:number;sentinel:number;last:number;links:number;records:number;colours:number;patterns:number;masks:number;baseColours:number;circle:number;wheel:number;point:number}
 export const MCGA_PRIMITIVE_QUEUE:OriginalPrimitiveQueueLayout={count:0x8938,used:0x5f0a,flag:0x5588,sentinel:0x58b0,last:0x8a44,links:0x5590,records:0x58b2,colours:0x9c44,patterns:0xa32e,masks:0xa3a2,baseColours:0x9fe8,circle:0x24ea8,wheel:0x28ab2,point:0x2795a};
 /** Original queue reset, 169E8..16A06. The sentinel is slot 400. */

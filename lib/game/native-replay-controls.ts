@@ -3,10 +3,10 @@ import {originalReplayNavigation} from './replay-navigation.ts';
 import {originalReplayCameraAdjustment} from './replay-camera-adjustment.ts';
 export interface NativeReplayControlsHost {
  memory():Uint8Array;read():Promise<number>;ctrlHeld():boolean;raceCommand(key:number):number|Promise<number>;
- control(mode:number,start:number,current:number):void;pauseAudio():void;
+ control(mode:number,start:number,current:number):void;pauseAudio():void|Promise<void>;
  presentWorld():void;
  scrub(direction:'forward'|'backward'):Promise<void>;menu():Promise<void>;
- seekStart():void;waitTicks(ticks:number):Promise<void>;
+ seekStart():void|Promise<void>;waitTicks(ticks:number):Promise<void>;
 }
 /** Original15830 mode3 input loop. A return yields to the race renderer;
  * navigation/pause keep polling here, preserving the original redraw order. */
@@ -46,9 +46,9 @@ export async function runNativeReplayControls(host:NativeReplayControlsHost,d:nu
    if(selected===6){await host.menu();return;}
    if(selected===2){host.control(2,2,0);m=host.memory();m[d+0x8ffe]=3;m[d+0x9aca]=0;}
    if(selected===3){m[d+0x8ffe]=0;host.control(2,3,0);host.memory()[d+0x9aca]=0;}
-   if(selected===4){m[d+0x9aca]=1;host.pauseAudio();host.control(2,4,0);redraw();}
+   if(selected===4){m[d+0x9aca]=1;await host.pauseAudio();host.control(2,4,0);redraw();}
    if(selected===5){
-    m[d+0x9aca]=1;host.pauseAudio();host.control(2,5,0);redraw();host.seekStart();await host.waitTicks(50);host.control(2,4,0);redraw();return;
+    m[d+0x9aca]=1;await host.pauseAudio();host.control(2,5,0);redraw();await host.seekStart();await host.waitTicks(50);host.control(2,4,0);redraw();return;
    }
   }else{
    const action=originalReplayNavigation(host.memory(),d,key);

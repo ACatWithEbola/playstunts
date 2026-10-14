@@ -4,8 +4,11 @@ import {startOriginalMt32AllocatedNote} from './mt32-note-start.ts';
 import {applyOriginalMt32DriverControl} from './mt32-driver-control.ts';
 import {stopOriginalMt32Track} from './mt32-track-control.ts';
 import type {LoadedEffectResource} from './effect-runtime.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 
 export interface OriginalMt32EffectState {
+ physicsEngine?:PhysicsEngineVersion;
+ effectEngine?:PhysicsEngineVersion;
  timers:Uint8Array[];voices:Uint8Array[];lastNotes:Uint8Array;
  driver:Uint8Array;
 }
@@ -19,7 +22,7 @@ export function stepOriginalMt32Effects(before:OriginalMt32EffectState,resources
   return resource.instrument;
  };
  if(before.voices.some(v=>v[1]&&v[0]<16))throw Error('Music-owned voice timing is not reconstructed');
- const tick=stepOriginalMt32VoiceTimer(before,instrumentAt);
+ const tick=stepOriginalMt32VoiceTimer(before,instrumentAt,before.physicsEngine,before.effectEngine);
  let {voices,timers,lastNotes}=tick;const driver=before.driver.slice(),emptyVoice=new Uint8Array(46),emptyPatch=new Uint8Array(100);
  const writes=tick.writes.slice();
  for(let owner=16;owner<23;owner++){
@@ -41,7 +44,7 @@ export function stepOriginalMt32Effects(before:OriginalMt32EffectState,resources
     const h=view(table.header),entry=7+4*event.value;
     v.setUint16(0x1e,h.getUint16(entry,true),true);v.setUint16(0x20,h.getUint16(entry+2,true),true);
     const patch=instrumentAt(v.getUint16(0x1e,true),v.getUint16(0x20,true));timer[0x47]=patch[67]<16?patch[67]:(owner&15)+1;
-    writes.push(...applyOriginalMt32DriverControl('volume',timer[0x47],emptyVoice,emptyPatch,timer[0x28]).writes,...applyOriginalMt32DriverControl('instrument',timer[0x47],emptyVoice,patch).writes);
+    writes.push(...applyOriginalMt32DriverControl('volume',timer[0x47],emptyVoice,emptyPatch,timer[0x28]).writes,...applyOriginalMt32DriverControl('instrument',timer[0x47],emptyVoice,patch,0,0,before.physicsEngine).writes);
    }else if(event.kind==='volume'){
     timer[0x28]=event.value;
     writes.push(...applyOriginalMt32DriverControl('volume',timer[0x47],emptyVoice,emptyPatch,event.value).writes);
@@ -49,7 +52,7 @@ export function stepOriginalMt32Effects(before:OriginalMt32EffectState,resources
     // Original 0x2a96a returns -1 for a null instrument pointer.
     if(v.getUint32(0x1e,true)===0)continue;
     const command=new Uint8Array(10);command[4]=event.note;command[5]=event.velocity??timer[0x22];view(command).setUint32(6,event.duration,true);
-    const started=startOriginalMt32AllocatedNote({alternate:true,channelMasks:[],owner,instrument:instrumentAt(v.getUint16(0x1e,true),v.getUint16(0x20,true)),timers,voices,lastNotes,command});
+    const started=startOriginalMt32AllocatedNote({alternate:true,channelMasks:[],owner,instrument:instrumentAt(v.getUint16(0x1e,true),v.getUint16(0x20,true)),timers,voices,lastNotes,command},before.physicsEngine);
     ({timers,voices,lastNotes}=started);writes.push(...started.writes);
    }else{
     writes.push(...stopOriginalMt32Track(timers,voices,owner).writes);
@@ -59,5 +62,5 @@ export function stepOriginalMt32Effects(before:OriginalMt32EffectState,resources
   if(sequence.offset===null)v.setUint32(0,0,true);
   else {v.setUint16(0,resource.sequenceOffset+sequence.offset,true);v.setUint16(2,segment,true);}
  }
- return {timers,voices,lastNotes,driver,writes};
+ return {timers,voices,lastNotes,driver,writes,...(before.physicsEngine?{physicsEngine:before.physicsEngine}:{}),...(before.effectEngine?{effectEngine:before.effectEngine}:{})};
 }

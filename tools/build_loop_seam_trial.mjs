@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync,mkdirSync,existsSync,realpathSync} from 'node:fs';
+import {join,dirname,basename,isAbsolute} from 'node:path';
+import {createHash} from 'node:crypto';
+import {conditionLoopSeam} from './loop_seam_context.mjs';
+const [source,destination,startText,endText,fadeText,option]=process.argv.slice(2);
+assert.ok(option===undefined||option==='--round-to-output-frame');
+assert.ok([source,destination].every(p=>p&&isAbsolute(p))&&!existsSync(destination));
+const physical=join(realpathSync(dirname(destination)),basename(destination)),pub=realpathSync('public');assert.ok(physical!==pub&&!physical.startsWith(pub+'/'));
+const bytes=readFileSync(source),hash=b=>createHash('sha256').update(b).digest('hex'),before=hash(bytes);
+assert.equal(bytes.toString('ascii',8,12),'WAVE');assert.equal(bytes.readUInt16LE(20),3);assert.equal(bytes.readUInt16LE(22),2);assert.equal(bytes.readUInt16LE(34),32);
+const rate=bytes.readUInt32LE(24);let dataOffset=0,dataBytes=0;
+for(let at=12;at+8<=bytes.length;){const size=bytes.readUInt32LE(at+4);assert.ok(at+8+size<=bytes.length);if(bytes.toString('ascii',at,at+4)==='data'){dataOffset=at+8;dataBytes=size;break;}at+=8+size+(size&1);}
+assert.ok(dataOffset>0&&dataBytes>0&&dataBytes%8===0);
+const pcm=Float32Array.from({length:dataBytes/4},(_,i)=>bytes.readFloatLE(dataOffset+i*4));
+const requestedStart=Number(startText),requestedEnd=Number(endText);
+const start=option?Math.round(requestedStart*rate)/rate:requestedStart,end=option?Math.round(requestedEnd*rate)/rate:requestedEnd;
+const result=conditionLoopSeam(pcm,rate,start,end,Number(fadeText));
+const output=Buffer.from(bytes);result.output.forEach((v,i)=>output.writeFloatLE(v,dataOffset+i*4));
+assert.equal(hash(readFileSync(source)),before);
+mkdirSync(destination);writeFileSync(join(destination,'loop-seam-trial.wav'),output,{flag:'wx'});
+const {output:ignored,...bounds}=result;
+writeFileSync(join(destination,'manifest.json'),JSON.stringify({kind:'loop-context-crossfade',source,sourceSha256:before,outputSha256:hash(output),rate,frames:pcm.length/2,...bounds,requestedLoopStartSeconds:requestedStart,requestedLoopEndSeconds:requestedEnd,roundingOutputFrames:{start:result.loopStartFrame-requestedStart*rate,end:result.loopEndFrame-requestedEnd*rate},durationChanged:false,originalMidiModified:false,approvedForGame:false,audibleSeamVerified:false},null,2),{flag:'wx'});
+console.log(JSON.stringify({destination,...bounds,durationChanged:false,approvedForGame:false}));

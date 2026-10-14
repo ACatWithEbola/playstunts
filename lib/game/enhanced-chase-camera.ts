@@ -6,6 +6,7 @@ import type {RenderPose} from './render-pose.ts';
 import type {TrackObject} from '../physics/track.ts';
 import type {CollisionPlane} from '../physics/plane.ts';
 import type {Vector} from '../physics/math.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 
 export type EnhancedChaseCameraLevel=0|1|2|3;
 
@@ -46,7 +47,7 @@ export function nextEnhancedChaseCameraLevel(level:EnhancedChaseCameraLevel):Enh
 /** Presentation-only chase rig. Car poses are already converted from the
  * original fixed-point positions into renderer world units. The original
  * terrain contact routine protects the eye without changing simulation data. */
-export function createEnhancedChaseCamera(track:{raw:number[];objects:TrackObject[];planes:CollisionPlane[]}){
+export function createEnhancedChaseCamera(track:{raw:number[];objects:TrackObject[];planes:CollisionPlane[];physicsEngine?:PhysicsEngineVersion}){
  const position=new Vector3(),target=new Vector3(),forward=new Vector3(),up=new Vector3(),lastCar=new Vector3();
  const desiredPosition=new Vector3(),desiredTarget=new Vector3(),desiredForward=new Vector3();
  const turn=createChaseTurnOffset(),turnAxis=new Vector3(0,1,0);
@@ -54,7 +55,7 @@ export function createEnhancedChaseCamera(track:{raw:number[];objects:TrackObjec
  let rig:ChaseRig=copyRig(ENHANCED_CHASE_CAMERA_PRESETS[1]),transitionFrom:ChaseRig=copyRig(ENHANCED_CHASE_CAMERA_PRESETS[1]),transitionTo:ChaseRig=copyRig(ENHANCED_CHASE_CAMERA_PRESETS[1]),transitionAt=0;
  const clear=(point:Vector,mode:number):Vector=>{
   const source=[Math.round(point[0]),Math.round(point[1]),Math.round(-point[2])] as Vector;
-  const result=originalExternalCameraClearance(source,track.raw,track.objects,track.planes,mode);
+  const result=originalExternalCameraClearance(source,track.raw,track.objects,track.planes,mode,track.physicsEngine);
   // The integer query decides clearance, not display position. Returning its
   // rounded eye made the fractional car slide back and forth within every
   // world unit, especially at low speed. Apply only the clearance correction.

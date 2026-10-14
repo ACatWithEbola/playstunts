@@ -3,7 +3,7 @@ import type {Vector} from './math.ts';
 import {opponentPose} from './opponent-pose.ts';
 import {opponentSelectTarget} from './opponent-select-target.ts';
 import {opponentTargetAngle} from './opponent-target-angle.ts';
-import {stepOpponentRoute,stepOpponentRouteNear,type OpponentRouteState} from './opponent-route-step.ts';
+import {advanceOpponentRoute,stepOpponentRoute,stepOpponentRouteNear,type OpponentRouteState} from './opponent-route-step.ts';
 import type {OpponentControls} from './opponent-controls.ts';
 import {opponentSteeringStep} from './opponent-steering-step.ts';
 import {opponentEngineCommand} from './opponent-engine-command.ts';
@@ -13,7 +13,7 @@ export interface OpponentDecisionState extends OpponentControls {
  contactCaller?:{frameOffset:number;pathOffset:number;incomingSI:number;incomingDI:number};targetAlternate?:number;position:Vector;rotation:Vector;sliding:number;route:OpponentRouteState;routeTarget:OpponentRouteTarget;
 }
 /** Supplied 0x6e70..0x7334, ending before the engine call. Lookup owns original speed context. */
-export function opponentDecision(state:OpponentDecisionState,playerPosition:Vector,playerCrash:number,mode:number,path:ArrayLike<number>,lookup:(entry:number,point:number)=>OpponentRouteTarget&{last:number}){
+export function opponentDecision(state:OpponentDecisionState,playerPosition:Vector,playerCrash:number,mode:number,path:ArrayLike<number>,lookup:(entry:number,point:number)=>OpponentRouteTarget&{last:number},cadenceSteps:{steering:8|16;speed:1|2;modernRoute?:boolean}={steering:8,speed:1}){
  let route={...state.route},routeTarget={...state.routeTarget};
  let targetAlternate=state.targetAlternate;
  const retainAlternate=()=>{if(targetAlternate!==undefined&&routeTarget.alternate!==undefined)targetAlternate=routeTarget.alternate;};
@@ -26,15 +26,25 @@ export function opponentDecision(state:OpponentDecisionState,playerPosition:Vect
   if(contactEntryRegisters)contactEntryRegisters[0]=opponentRouteDistance(routeTarget.midpoint,pose.position).distance&65535;
   const near=stepOpponentRouteNear(route,routeTarget.midpoint,pose.position,path,lookup);
   route=near.state;if(near.lookup){routeTarget=near.lookup;retainAlternate();}
-  const selected=opponentSelectTarget(routeTarget.midpoint,routeTarget.first,routeTarget.second,pose.position,pose.player,pose.matrix,mode,playerCrash);
+  let forced=!!((state.wheelAngle<<16)>>16)||(mode&255)===2;
+  for(;;){
+  const selected=opponentSelectTarget(routeTarget.midpoint,routeTarget.first,routeTarget.second,pose.position,pose.player,pose.matrix,mode,playerCrash,avoidance);
   avoidance=selected.avoidance;
-  const {angle}=opponentTargetAngle(selected.target,pose.position,pose.matrix);
+  const {angle}=opponentTargetAngle(selected.target,pose.position,pose.matrix,!!cadenceSteps.modernRoute);
   const turned=stepOpponentRoute(route,angle,state.sliding,path,lookup);
   route=turned.state;if(turned.lookup){routeTarget=turned.lookup;retainAlternate();}
   if(contactEntryRegisters&&state.contactCaller)contactEntryRegisters[1]=(turned.lookup?state.contactCaller.pathOffset:state.contactCaller.frameOffset-26)&65535;
-  steering=opponentSteeringStep(state.steering,(state.frontContact&255)?angle:0);
+  // MS91 727D..72A9 can force exactly one additional route advance and
+  // recompute the target using the unchanged sampled pose. Legacy has no loop.
+  if(cadenceSteps.modernRoute&&!forced&&(angle>65||angle< -65)){
+   forced=true;const advanced=advanceOpponentRoute(route,path,lookup);
+   route=advanced.state;routeTarget=advanced.lookup;retainAlternate();continue;
+  }
+  steering=opponentSteeringStep(state.steering,(state.frontContact&255)?angle:0,cadenceSteps.steering);
+  break;
+  }
  }
- const engine=opponentEngineCommand(state.rearContact,state.crash,state.wheelAngle,state.roadSpeed,state.speed,routeTarget.side,mode,state.demandedGrip,state.surfaceGrip);
+ const engine=opponentEngineCommand(state.rearContact,state.crash,state.wheelAngle,state.roadSpeed,state.speed,routeTarget.side,mode,state.demandedGrip,state.surfaceGrip,cadenceSteps.speed);
  const {midpoint,first,second,side}=routeTarget;
  return {...(contactEntryRegisters?{contactEntryRegisters}:{}),...(targetAlternate===undefined?{}:{targetAlternate}),route,routeTarget:{midpoint,first,second,side},avoidance,active,steering,...engine};
 }

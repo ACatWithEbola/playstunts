@@ -15,14 +15,18 @@ export function stepDrivingCar(before:DrivingState,tuning:EngineTuning&GripTunin
  race.stats[2]=frame&65535;
  race.stats[9]=Math.max(race.stats[9],car.engineRoadSpeed);
  const effects:CrashEffect[]=[];
- for(const impact of car.crashImpacts){
-  const transition=updateCrashState({...race,crash:before.car.grip.crash,speed:before.car.engine.speed,roadSpeed:impact.roadSpeed,yaw:impact.yaw},impact.cause,0);
+ const signBoundary=car.signImpact?.afterCrashImpacts??car.crashImpacts.length;
+ const signParticles=()=>{if(car.signImpact){const hit=car.signImpact;particles=generateParticles(particles,hit.owner,hit.yaw,hit.speed,track.physicsEngine);}};
+ for(const [index,impact] of car.crashImpacts.entries()){
+  if(index===signBoundary)signParticles();
+  const transition=updateCrashState({...race,crash:before.car.grip.crash,speed:before.car.engine.speed,roadSpeed:impact.roadSpeed,yaw:impact.yaw},impact.cause,0,track.framesPerSecond??20);
   race=transition.state;
   for(const effect of transition.effects){
    effects.push(effect);
-   if(effect.type==='particles')particles=generateParticles(particles,effect.car,effect.yaw,effect.mode);
+   if(effect.type==='particles')particles=generateParticles(particles,effect.car,effect.yaw,effect.mode,track.physicsEngine);
   }
  }
+ if(signBoundary===car.crashImpacts.length)signParticles();
  if(before.car.engine.allContact!==0 && car.engine.allContact===0)race.stats[10]=(race.stats[10]+1)&65535;
  const accumulated=(race.stats[0]+race.stats[1]*65536+car.engine.roadSpeed)>>>0;
  race.stats[0]=accumulated&65535;race.stats[1]=accumulated>>>16;
@@ -34,5 +38,5 @@ export function stepDrivingCar(before:DrivingState,tuning:EngineTuning&GripTunin
  * particles once in the shared stage after both cars and the cameras. */
 export function stepDriving(...args:Parameters<typeof stepDrivingCar>){
  const result=stepDrivingCar(...args);
- return {...result,particles:result.particles.active?advanceParticles(result.particles,result.car.pose.position[1]):result.particles};
+ return {...result,particles:result.particles.active?advanceParticles(result.particles,result.car.pose.position[1],args[4].framesPerSecond??20):result.particles};
 }

@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {addPcm,comparePcm} from './verify_arrangement_trial.mjs';
+const raw=values=>{const b=Buffer.alloc(values.length*4);values.forEach((v,i)=>b.writeFloatLE(v,i*4));return b;};
+const sum=new Float32Array(4);
+addPcm(sum,raw([.25,-.25,0,.125]));addPcm(sum,raw([.125,.125,.25,-.125]));
+comparePcm(sum,raw([.375,-.125,.25,0]));
+assert.throws(()=>comparePcm(sum,raw([.375,-.125,.25,.001])));
+assert.throws(()=>comparePcm(sum,raw([.375,-.125,0,.25])));
+assert.throws(()=>addPcm(sum,raw([0,NaN,0,0])));
+assert.throws(()=>addPcm(sum,raw([0,0])));
+assert.throws(()=>comparePcm(sum,raw([0,0])));
+console.log('Exact PCM sum control passes; changed/shifted samples, nonfinite input and truncated PCM reject');

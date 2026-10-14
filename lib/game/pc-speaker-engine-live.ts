@@ -13,7 +13,7 @@ export function updateOriginalPcSpeakerEngineLive(before:OriginalPcSpeakerEngine
    const [owner,volume]=call.args;
    if(!timers[owner])throw Error('Missing original live-volume timer');
    timers[owner][0x28]=volume;
-   for(let index=0;index<voices.length;index++)if(voices[index][0]===owner)setOriginalPcSpeakerVolume(driver,index,volume);
+   for(let index=0;index<voices.length;index++)if(voices[index][0]===owner)setOriginalPcSpeakerVolume(driver,index,volume,before.physicsEngine);
   }else if(call.kind==='pitch'){
    const [index,frequency]=call.args,record=voices[index];
    if(!record)throw Error('Missing original live-pitch voice');

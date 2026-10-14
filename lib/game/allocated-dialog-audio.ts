@@ -1,8 +1,10 @@
 import {originalMenuAudioControl} from './menu-audio-control.ts';
 import {adlibVolume} from './adlib-volume.ts';
 import {adlibUpdate} from './adlib-update.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
+import {versionedAdlibRegisterWrites} from './versioned-adlib-register-writes.ts';
 /** Original regular-driver pause/resume on the live allocated audio tables. */
-export function controlAllocatedDialogAudio(memory:Uint8Array,d:number,driverSegment:number,operation:'pause-audio'|'resume-audio'){
+export function controlAllocatedDialogAudio(memory:Uint8Array,d:number,driverSegment:number,operation:'pause-audio'|'resume-audio',driverGeneration?:PhysicsEngineVersion){
  const v=new DataView(memory.buffer,memory.byteOffset,memory.byteLength),word=(at:number)=>v.getUint16(d+at,true);
  if(memory[d+0x4e06])throw Error('Allocated dialog audio requires regular AdLib mode');
  const before={paused:memory[d+0x4e02],guard:word(0x4e0c),musicEnabled:memory[d+0x4e03],soundEnabled:memory[d+0x4e05],alternate:0,alternateVolume:memory[d+0x4e0b],trackCount:memory[d+0x88e2],volumes:Array.from({length:24},(_,i)=>memory[d+0x8046+i*72]),pausedVolumes:Array.from(memory.slice(d+0x6f78,d+0x6f90)),soundVolumes:Array.from(memory.slice(d+0x6f90,d+0x6fa8))};
@@ -13,7 +15,7 @@ export function controlAllocatedDialogAudio(memory:Uint8Array,d:number,driverSeg
   if(effect.type==='volume'){
    memory[d+0x8046+effect.owner*72]=effect.value;
    for(let index=1;index<memory[d+0x9fe4];index++){
-    const at=d+0xa036+index*46;if(memory[at]===effect.owner)writes.push(...adlibVolume(instrument(at),index-1,effect.value,memory[driverSegment*16+0x957+index-1]));
+    const at=d+0xa036+index*46;if(memory[at]===effect.owner)writes.push(...adlibVolume(instrument(at),index-1,effect.value,memory[driverSegment*16+(driverGeneration==='ms-1991'?0x974:0x957)+index-1]));
    }
   }else if(effect.type==='update-voice'){
    const at=d+0xa036+effect.index*46,channel=memory[at+44];
@@ -21,5 +23,5 @@ export function controlAllocatedDialogAudio(memory:Uint8Array,d:number,driverSeg
   }else if(effect.type!=='flush')throw Error('Unexpected dialog audio operation');
  }
  memory.set(state.pausedVolumes,d+0x6f78);memory[d+0x4e02]=state.paused;v.setUint16(d+0x4e0c,state.guard,true);
- return writes;
+ return versionedAdlibRegisterWrites(memory.subarray(driverSegment*16,driverSegment*16+0xa7d),writes,driverGeneration);
 }

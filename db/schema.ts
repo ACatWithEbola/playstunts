@@ -1,4 +1,8 @@
 import {integer,sqliteTable,text,index} from 'drizzle-orm/sqlite-core';
+// Immutable engine sidecar. Absence identifies legacy without rewriting rows.
+export const raceEngines=sqliteTable('race_engines',{
+ id:text('id').primaryKey(),physicsEngine:text('physics_engine').notNull(),
+});
 // Private reset archive, never exposed through public score/replay APIs.
 export const leaderboardResetBackups=sqliteTable('leaderboard_reset_backups',{
  id:text('id').primaryKey(),payload:text('payload').notNull(),createdAt:integer('created_at').notNull(),purgedAt:integer('purged_at').notNull().default(0),purgeToken:text('purge_token').notNull().default(''),

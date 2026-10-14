@@ -16,7 +16,7 @@ export function rasterOriginalDrawCall(memory:Uint8Array,d:number,cs:number,call
   case 0x246bc:rasterOriginalPolygon(call.points!,rectangle,a[1],span,a[0]);break;
   case 0x21394:rasterOriginalPolygon(call.points!,rectangle,a[1],span,a[0],a[2]);break;
   case 0x21d98:for(const [x,y,color] of rasterOriginalLine(a[0],a[1],a[2],a[3],a[4],rectangle))span(x,y,1,color);break;
-  case 0x24ea8:rasterOriginalCircle(memory,d,a[0],a[1],a[2],a[3],rectangle,span);if(registers){const effect=originalCircleRegisterEffect(memory,d,a[0],a[1],a[2],a[3],rectangle,registers.counter,registers.index);return {counter:effect.si,index:effect.di};}break;
+  case 0x24ea8:rasterOriginalCircle(memory,d,a[0],a[1],a[2],a[3],rectangle,span,call.physicsEngine);if(registers){const effect=originalCircleRegisterEffect(memory,d,a[0],a[1],a[2],a[3],rectangle,registers.counter,registers.index,call.physicsEngine);return {counter:effect.si,index:effect.di};}break;
   case 0x28ab2:rasterOriginalWheel(call.points!,a[0],a.slice(1),rectangle,span);break;
   case 0x2795a:rasterOriginalPoint(memory,cs,a[0],a[1],a[2]);break;
   default:throw Error(`Unsupported original raster entry ${call.address.toString(16)}`);

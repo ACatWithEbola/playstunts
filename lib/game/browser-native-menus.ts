@@ -1,8 +1,10 @@
 /* oxlint-disable typescript/unbound-method, typescript/no-misused-spread -- Native menu services intentionally pass plain callback properties and split DOS-safe ASCII names. */
 import {bundledTrackReplays} from './bundled-track-replays.ts';
+import {startNativeMusic} from './native-music-start.ts';
 import showroomMaterials from '../../public/game/track-materials.json';
 import {createUpgradedCarMenu} from './upgraded-car-menu';
 import type {createUpgradedRaceScene} from './upgraded-race-scene';
+import {prepareUpgradedScene} from './prepare-upgraded-scene.ts';
 export interface BrowserGraphicsSwitch {enabled:boolean;chaseCamera?:0|1|2|3;selectOriginalCamera?:()=>void;refresh?:()=>void;notice?:(message:string)=>void;unavailable?:()=>void;performanceFrame?:(at:number)=>void;resetPerformance?:()=>void;setPerformancePaused?:(paused:boolean)=>void;}
 import {focusBrowserGameCanvas} from './browser-game-focus.ts';
 import {createBrowserHerculesPresenter} from './browser-hercules-presenter.ts';
@@ -30,7 +32,7 @@ import {runAllocatedRaceResults} from './native-allocated-race-results.ts';
 import {drawOriginalRaceWaiting} from './race-waiting-dialog.ts';
 import {loadAllocatedReplay,type AllocatedReplayLoadServices} from './allocated-replay-load.ts';
 import type {NativeDemoData} from './native-demo-runtime.ts';
-import {selectAllocatedMouseControl,selectAllocatedGraphicsLevel} from './allocated-mouse-selection.ts';
+import {selectAllocatedMouseControl,selectAllocatedGraphicsLevel,selectAllocatedMs91Graphics} from './allocated-mouse-selection.ts';
 import {drawOriginalFont,measureOriginalFont} from './font-raster.ts';
 import {originalElapsedInputTicks} from './elapsed-input-ticks.ts';
 import type {createNativeManualRaceRuntime} from './native-manual-race-runtime.ts';
@@ -66,6 +68,12 @@ import {createGlobalScoreClient} from './browser-global-scores.ts';
 import {GLOBAL_SCORE_DATABASE} from './global-score-format.ts';
 import {captureGlobalRace} from './global-race-recording.ts';
 import {createGlobalScoreFileStore} from './global-score-file-store.ts';
+import {selectBrowserFutureRaceEngine,createBrowserMenuGraphicsSettings} from './browser-future-race-engine.ts';
+import {configuredFutureRaceCadence} from './future-race-settings.ts';
+import {optionsVersionResources} from './options-version-resources.ts';
+import {ms91DialogResources,ms91EditorDialogResources} from './ms91-dialog-resources.ts';
+import {versionedGameDialogHost} from './versioned-game-dialog-host.ts';
+import type {Ms91GraphicsSettings} from './ms91-graphics-options.ts';
 import {completedScoreProof,namedCompletedScore,type CompletedScoreOffer} from './completed-score-offer.ts';
 import type {Assets} from './types.ts';
 const ENHANCED_BACKGROUND_ROOT='/site/enhanced-backgrounds';
@@ -74,12 +82,21 @@ type TextResources={resources:NativeDialogHost['resources']};
 type ScreenResources=NativeEditorHost['screenResources'];
 type RouteResources=NativeEditorHost['routeResources'];
 export interface BrowserNativeMenuOptions {
- graphics?:BrowserGraphicsSwitch;canvas:HTMLCanvasElement;assets:Assets;music:Awaited<ReturnType<typeof createNativeMusic>>;
+ /** Explicit host ownership; cumulative input time and retained game phase. */
+ clock?:{counter():number;gameCounter():number};
+ tickWakeup?:'timer';
+ onFrameWait?:(event:{requestedAt:number;frameAt:number;pollFinishedAt:number})=>void;
+ frameTimingNow?:()=>number;
+ pollAudioWhileFrameWaiting?:boolean;
+ /** Optional retained MS91 preferences; capability also exists for imported MS91 races. */
+ experimentalMs91GraphicsSettings?:Ms91GraphicsSettings;
+ graphics?:BrowserGraphicsSwitch;canvas:HTMLCanvasElement;assets:Assets;music:Awaited<ReturnType<typeof createNativeMusic>>&{controlAsync?:(operation:Parameters<Awaited<ReturnType<typeof createNativeMusic>>['control']>[0])=>Promise<number>;playAsync?:(name:import('./native-music-score.ts').NativeMusicScore)=>Promise<void>};
  settings?:NativeOptionsHost['settings'];signal?:AbortSignal;displayMode?:NativeBrowserDisplayMode;hercules?:boolean;configuration?:number[];track?:NativeTrackMenuHost['track'];onScreen?:(screen:string)=>void;
 }
 /** Browser services for the native menus. The caller handles intro/race/exit
  * transitions; all submenus use the same live configuration and file overlay. */
 export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions){
+ const graphicsSettings=createBrowserMenuGraphicsSettings(options.experimentalMs91GraphicsSettings);
  const json=async<T>(name:string):Promise<T>=>{const r=await fetch('/game/'+name+'.json');if(!r.ok)throw Error('Original menu resource could not load: '+name);return r.json() as Promise<T>;};
  const binary=async(name:string)=>{const r=await fetch('/game/'+name);if(!r.ok)throw Error('Original menu resource could not load: '+name);return new Uint8Array(await r.arrayBuffer());};
  const enhancedMainMenuPromise=loadEnhancedStaticArtwork(ENHANCED_STATIC_ARTWORK.mainMenuTexture);
@@ -95,7 +112,9 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
  const sharedScores=await createGlobalScoreClient(await openNativeFilePersistence(GLOBAL_SCORE_DATABASE));
  const runHistory=new WeakMap<ReturnType<typeof createNativeRaceSession>,ReturnType<typeof captureGlobalRace>>();
  let scoreContext:{runtime:Awaited<ReturnType<typeof createNativeManualRaceRuntime>>;state:NativeRaceResultsState}|undefined;
- const files=createGlobalScoreFileStore(localFiles,sharedScores,()=>scoreContext?{...scoreContext,history:runHistory.get(scoreContext.runtime.session)}:undefined);
+ const scoreEngine=()=>scoreContext?.runtime.session.physicsEngine??selectBrowserFutureRaceEngine();
+ const scoreCadence=()=>scoreContext?.runtime.session.framesPerSecond??configuredFutureRaceCadence(scoreEngine(),graphicsSettings(scoreEngine()));
+ const files=createGlobalScoreFileStore(localFiles,sharedScores,()=>scoreContext?{...scoreContext,history:runHistory.get(scoreContext.runtime.session)}:undefined,scoreEngine,scoreCadence);
  const registerRun=(runtime:Awaited<ReturnType<typeof createNativeManualRaceRuntime>>)=>{
   const session=runtime.session;
   if(runHistory.has(session))return;
@@ -108,7 +127,7 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
  let activeRace:Awaited<ReturnType<typeof createNativeManualRaceRuntime>>|undefined,racePoll:(()=>void|Promise<void>)|undefined;
  const presentHercules=options.hercules?createBrowserHerculesPresenter(options.canvas):undefined;
  const {canvas,music}=options,context=canvas.getContext('2d')!,surface=document.createElement('canvas');surface.width=320;surface.height=200;
- const drawing=surface.getContext('2d')!,image=drawing.createImageData(320,200),pixels=new Uint8Array(65536),input=createBrowserMenuInput(canvas,{joystickEnabled:()=>activeRace?!!activeRace.session.state.memory[0x2d1a0+0x4602]:drivingSettings.joystick,drivingBindings:()=>activeRace?activeRace.session.state.memory.subarray(0x2d1a0+0x430a,0x2d1a0+0x4314):[57,28,71,72,73,77,81,80,79,75],onPoll:()=>{if(options.signal?.aborted)throw new DOMException('Native menu closed','AbortError');return racePoll?.();}}),palette=materials.palette;
+ const drawing=surface.getContext('2d')!,image=drawing.createImageData(320,200),pixels=new Uint8Array(65536),input=createBrowserMenuInput(canvas,{clock:options.clock,pollWhileFrameWaiting:()=>!!activeRace&&!!options.pollAudioWhileFrameWaiting&&!canvas.ownerDocument.hidden,onFrameWait:options.onFrameWait,frameTimingNow:options.frameTimingNow,tickWakeup:options.tickWakeup,joystickEnabled:()=>activeRace?!!activeRace.session.state.memory[0x2d1a0+0x4602]:drivingSettings.joystick,drivingBindings:()=>activeRace?activeRace.session.state.memory.subarray(0x2d1a0+0x430a,0x2d1a0+0x4314):[57,28,71,72,73,77,81,80,79,75],onPoll:()=>{if(options.signal?.aborted)throw new DOMException('Native menu closed','AbortError');return racePoll?.();}}),palette=materials.palette;
  const readReplayInput=async(memory:()=>Uint8Array,delta?:number|(()=>number))=>{
   const key=await input.readMemory(memory,0x2d1a0,delta),m=memory(),view=new DataView(m.buffer,m.byteOffset,m.byteLength),at=0x2d1a0+0x9ad4;
   view.setUint16(at,view.getUint16(at,true)|input.replayActivationButtons(),true);
@@ -116,7 +135,7 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
  };
  const configuration=options.configuration??[67,79,85,78,0,1,0,255,0,0,0,0,0,68,69,70,65,85,76,84,0,0,1,0];
  const track=options.track??{name:'DEFAULT',path:'',raw:[...options.assets.tracks.find(t=>t.name==='DEFAULT')!.raw]};
- let entryPolls=0,selectedReplay:{bytes:Uint8Array;name:string;path:string}|undefined;
+ let entryPolls=0,selectedReplay:import('./native-allocated-race-preparation.ts').NativeSelectedReplay|undefined;
  // Original1AD1C forwards its literal1 to the complete device poll.
  // Fast-forward simulation is not gated to one browser frame per step.
  const fastForwardKey=async()=>{if((entryPolls++&15)===0)await input.nextFrame();return input.readImmediate(1).key;};
@@ -156,19 +175,21 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
   redraw();
  };
  const host={pixels,font,smallFont,resources:{...misc.resources,...mainText.resources},present,input:input.read,release:input.release,gameCounter:input.gameCounter,counter:input.counter,waitTicks:input.waitTicks,enumerate:async(path:string,extension:string)=>files.enumerate(path,extension),editPath:(path:string,length:number,timeout:number,field:{x:number;y:number})=>editNativePath({pixels,font,present,counters:input.counters,keyboard:input.keyboard},path,length,timeout,field)};
- const trackHost={...host,resources:{...host.resources,...trackText.resources}};
+ const trackHost={...host,resources:{...host.resources,...trackText.resources},scoreTimeMetadata:()=>({physicsEngine:scoreEngine(),framesPerSecond:scoreCadence()})};
  // Normal source mouse polling writes DS:893A, not the adjacent editor row
  // word DS:A38C. Keep that word from the captured initialized source image.
  const editor:NativeEditorHost={...trackHost,track,mainFrameBP:0xeefe,retainedMouseButtons:()=>baseline[0x2d1a0+0xa38c]|baseline[0x2d1a0+0xa38d]<<8,screenResources:{font,text:trackHost.resources,objects,art,labelKeys:art.map(a=>a.labelResource),pages:Array.from({length:11},(_,i)=>paletteMemory.bytes.slice(i*36)),terrainNames:terrainNames.names,images:Object.fromEntries(Object.entries(packedArt.resources).filter(([name])=>name!=='!cg0').map(([name,r])=>[name,expandEditorArt(r.bytes)]))},routeResources:{objects,records,metadataVectors,sampleVectors},presets,errorKeys:errorKeys.keys,saveName:state=>editNativeSaveName(trackHost,state,'Track'),exists:async(path,name)=>files.exists(path,name,'.trk'),...createNativeEditorFileWrites(files),readTrack:(path,name)=>files.read(path,name,'.trk')};
  const car=async(config:number[],opponent:number)=>{
-  show('car');focusBrowserGameCanvas(canvas);const carHost:NativeCarMenuHost={...host,configuration:config,opponent,opponentArt:opponent?opponentArt.resources['opp'+opponent]:undefined,baseline,cars:options.assets.cars as unknown as NativeCarMenuHost['cars'],art:carArt.resources,descriptions:carArt.descriptions,bank:id=>binary('car-models/'+id.toLowerCase()+'.bin')};
+  show('car');focusBrowserGameCanvas(canvas);const carHost:NativeCarMenuHost={...host,physicsEngine:selectBrowserFutureRaceEngine(),configuration:config,opponent,opponentArt:opponent?opponentArt.resources['opp'+opponent]:undefined,baseline,cars:options.assets.cars as unknown as NativeCarMenuHost['cars'],art:carArt.resources,descriptions:carArt.descriptions,bank:id=>binary('car-models/'+id.toLowerCase()+'.bin')};
   if(!options.displayMode){
    const preview=document.createElement('canvas');preview.width=canvas.width;preview.height=canvas.height;const previewContext=preview.getContext('2d')!;
    const base=document.createElement('canvas');base.width=320;base.height=200;const baseContext=base.getContext('2d')!,baseImage=baseContext.createImageData(320,200);
    let modelMemory:Uint8Array|undefined,showroom:ReturnType<typeof createUpgradedCarMenu>|undefined,failed=false;
    const presentCar=()=>{paint();if(options.graphics){options.graphics.refresh=presentCar;if(options.graphics.enabled&&modelMemory&&!failed){try{showroom??=createUpgradedCarMenu(palette,showroomMaterials.indices);previewContext.setTransform(1,0,0,1,0,0);previewContext.imageSmoothingEnabled=false;previewContext.drawImage(base,0,0,preview.width,preview.height);previewContext.drawImage(showroom.draw(modelMemory,preview.width,preview.height),0,0);if(showroom.lastBuildMilliseconds!==undefined)canvas.dataset.upgradedCarBuildMs=showroom.lastBuildMilliseconds.toFixed(1);}catch{failed=true;showroom?.close();showroom=undefined;options.graphics.notice?.('Upgraded car preview unavailable; original graphics remain active.');return;}context.save();context.beginPath();context.rect(0,0,canvas.width,95*canvas.height/200);context.clip();context.drawImage(preview,0,0);context.restore();}}};
    carHost.captureModel=(memory,background)=>{
-    for(let i=0;i<64000;i++){const c=background[i]*3;baseImage.data.set([palette[c],palette[c+1],palette[c+2],255],i*4);}baseContext.putImageData(baseImage,0,0);
+    // Reuse the image buffer: allocating a four-byte array for every pixel
+    // creates64000 transient arrays on each car-preview presentation.
+    for(let i=0;i<64000;i++){const c=background[i]*3,at=i*4;baseImage.data[at]=palette[c];baseImage.data[at+1]=palette[c+1];baseImage.data[at+2]=palette[c+2];baseImage.data[at+3]=255;}baseContext.putImageData(baseImage,0,0);
     modelMemory=memory;
    };
    carHost.present=presentCar;
@@ -185,7 +206,12 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
   opponentHost.present=()=>{pixels.set(display.pixels());paint(display.palette,display);};
   await runNativeOpponentMenu(opponentHost,display.presentation);
  };
+ const legacyEditor=editor;
  const editTrack=async()=>{
+  const originalEditor=legacyEditor;
+  const physicsEngine=selectBrowserFutureRaceEngine();
+  const resources=ms91EditorDialogResources(originalEditor.resources,physicsEngine);
+  const editor={...originalEditor,physicsEngine,resources,screenResources:{...originalEditor.screenResources,text:resources}};
   show('editor');if(!options.displayMode)return runNativeEditor(editor);
   const display=await prepareBrowserNativeEditorDisplay({catalog:await loadBrowserOriginalResourceCatalog()},options.displayMode,{...editor.screenResources,art,terrainNames:terrainNames.names},options.hercules),{owner}=display;
   const present=()=>{pixels.set(display.pixels());paint(display.palette,display);},editPath:NativeDialogHost['editPath']=(path,length,timeout,field)=>editNativeDisplayPath({memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,present,counters:input.counters,keyboard:input.keyboard},path,length,timeout,field,0xe800);
@@ -222,8 +248,15 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
   const dialogs=createNativeDisplayDialogRuntime({...menuHost,memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,capture:retain=>captureNativeDisplayDialogBackground(owner,retain),present},0xe800,{enumerate:host.enumerate,editPath:(path,length,timeout,field)=>editNativeDisplayPath({memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,present,counters:input.counters,keyboard:input.keyboard},path,length,timeout,field,0xe800)});
   await runNativeTrackMenu(menuHost,false,createNativeDisplayTrackPresentation(display,menuHost,dialogs.file));
  };
- const readSelectedReplay=async({path,name}:{path:string;name:string})=>{const bytes=await files.read(path,name,'.rpl');selectedReplay={bytes:bytes.slice(),name,path};replay=decodeOriginalReplayFile(bytes);configuration.splice(0,24,...replay.header);track.raw=Array.from(bytes.slice(24,0x722));track.name=String.fromCharCode(...configuration.slice(13,22)).split('\0')[0];};
- const settings:NativeOptionsHost={...host,settings:drivingSettings,get replayPath(){return track.path;},set replayPath(path:string){track.path=path;},audio:async operation=>music.control(operation),loadReplay:async({path,name})=>{const backdrop=captureWaitingBackdrop(),waiting=baseline.slice();new DataView(waiting.buffer).setUint16(0x2d1a0+0x8a10,150,true);const content=drawOriginalRaceWaiting(pixels,font,host.resources.ewai,waiting,0x2d1a0);show('race');presentWaiting(content.layout.bounds,backdrop);await readSelectedReplay({path,name});},calibrateJoystick:async()=>{
+ const readSelectedReplay=async({path,name}:{path:string;name:string})=>{
+  const bytes=await files.read(path,name,'.rpl'),decoded=decodeOriginalReplayFile(bytes);
+  const selected={bytes:bytes.slice(),name,path,physicsEngine:files.physicsEngine(path,name,'.rpl'),framesPerSecond:files.framesPerSecond(path,name,'.rpl')};
+  const raw=Array.from(bytes.slice(24,0x722)),trackName=String.fromCharCode(...decoded.header.slice(13,22)).split('\0')[0];
+  // Failed decoding/identity lookup must not replace only part of the menu's
+  // retained selection and accidentally pair it with the previous track.
+  selectedReplay=selected;replay=decoded;configuration.splice(0,24,...decoded.header);track.raw=raw;track.name=trackName;
+ };
+ const settings:NativeOptionsHost={...host,settings:drivingSettings,get replayPath(){return track.path;},set replayPath(path:string){track.path=path;},audio:async operation=>music.controlAsync?music.controlAsync(operation):music.control(operation),loadReplay:async({path,name})=>{const backdrop=captureWaitingBackdrop(),waiting=baseline.slice();new DataView(waiting.buffer).setUint16(0x2d1a0+0x8a10,150,true);const content=drawOriginalRaceWaiting(pixels,font,host.resources.ewai,waiting,0x2d1a0);show('race');presentWaiting(content.layout.bounds,backdrop);await readSelectedReplay({path,name});},calibrateJoystick:async()=>{
   const saved=pixels.slice();settings.settings.joystick=true;settings.settings.mouse=false;
   const content=drawOriginalDialog(pixels,font,host.resources.ejoy,0,{text:15,border:4,disabled:1},undefined,3),calibration=createOriginalJoystickCalibration(content.fields,r=>{for(let y=r.y;y<r.y+r.height;y++)for(let x=r.x;x<r.x+r.width;x++)pixels[(y*320+x)&65535]=r.color;},{grid:4,indicator:15});
   for(;;){const sample=await input.read();calibration.step(sample.joystickDirection);present();if(sample.key||sample.joystickButtons){settings.settings.joystick=calibration.finish();break;}}
@@ -235,23 +268,31 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
   return runNativeMainMenuSelection({counter:input.counter,input:input.read,redraw(){display.redraw();nativePresent();},selectScreen(){},outline(selection,color){display.outline(selection,color);nativePresent();}});
  };
  const selectOptions=async()=>{
+  const engine=selectBrowserFutureRaceEngine();settings.physicsEngine=engine;
+  settings.ms91GraphicsSettings=graphicsSettings(engine);
+  const versioned=optionsVersionResources(host.resources,engine);
+  settings.resources=settings.ms91GraphicsSettings?ms91DialogResources(versioned,engine):versioned;
   show('options');focusBrowserGameCanvas(canvas);if(!options.displayMode)return runNativeOptions(settings);
   const display=await prepareBrowserNativeMenuDisplay({catalog:await loadBrowserOriginalResourceCatalog()},options.displayMode,options.hercules),{owner}=display,{d,mode,drawing}=owner,present=()=>{pixels.set(display.pixels());paint(display.palette,display);},word=(at:number)=>{const m=owner.memory();return m[d+at]|m[d+at+1]<<8;};
-  const nativeDialogs=createNativeDisplayDialogRuntime({...settings,memory:owner.memory,d,mode,drawing,capture:retain=>captureNativeDisplayDialogBackground(owner,retain),present},0xe800,{enumerate:host.enumerate,editPath:(path,length,timeout,field)=>editNativeDisplayPath({memory:owner.memory,d,mode,drawing,present,counters:input.counters,keyboard:input.keyboard},path,length,timeout,field,0xe800)}),dialogs={file:nativeDialogs.file,dialog(resource:string,mode:number,selected=0,border=4,disabled?:ReadonlyArray<number>){return nativeDialogs.dialog(resource,mode,selected,border===4?word(0x4ec2):border===1?word(0x4ec0):border,disabled);}};
+  const nativeDialogs=createNativeDisplayDialogRuntime({...settings,memory:owner.memory,d,mode,drawing,capture:retain=>captureNativeDisplayDialogBackground(owner,retain),present},0xe800,{enumerate:host.enumerate,editPath:(path,length,timeout,field)=>editNativeDisplayPath({memory:owner.memory,d,mode,drawing,present,counters:input.counters,keyboard:input.keyboard},path,length,timeout,field,0xe800)}),dialogs={file:nativeDialogs.file,dialog(resource:string,mode:number,selected=0,border=4,disabled?:ReadonlyArray<number>,marked?:readonly boolean[]){return nativeDialogs.dialog(resource,mode,selected,border===4?word(0x4ec2):border===1?word(0x4ec0):border,disabled,marked);}};
   const nativeHost:NativeOptionsHost={...settings,present,get replayPath(){return track.path;},set replayPath(path:string){track.path=path;},loadReplay:async selection=>{const backdrop=captureWaitingBackdrop(),high={cga:0x5e0,tandy:0x620,ega:0x45c}[mode];new DataView(owner.memory().buffer).setUint16(d+0x8a10+high,150,true);const content=drawOriginalRaceWaitingDisplay(owner.memory(),d,mode,drawing,host.resources.ewai,0xe800);pixels.set(display.pixels());presentWaiting(content.layout.bounds,backdrop,()=>paint(display.palette,display));await readSelectedReplay(selection);},calibrateJoystick:async()=>{
    const restore=captureNativeDisplayDialogBackground(owner,false);drivingSettings.joystick=true;drivingSettings.mouse=false;
    try{const content=drawOriginalDialogDisplay(owner.memory(),d,mode,drawing,host.resources.ejoy,0,{text:word(0x4e8a),border:word(0x4ec2),disabled:word(0x4ec0)},0xe800,undefined,3),calibration=createOriginalJoystickCalibration(content.fields,r=>drawing.rectangle(r.x,r.y,r.width,r.height,r.color),{grid:word(0x4ec2),indicator:word(0x4e8a)});
     for(;;){const sample=await input.read();calibration.step(sample.joystickDirection);present();if(sample.key||sample.joystickButtons){drivingSettings.joystick=calibration.finish();break;}}
    }finally{restore();present();}
+   if(engine==='ms-1991'&&!drivingSettings.joystick)await dialogs.dialog('ejox',0);
   }};
   return runNativeOptions(nativeHost,createNativeDisplayOptionsPresentation(owner,nativeHost,dialogs));
  };
  if(options.displayMode)lastNativeDisplay=await prepareBrowserNativeMenuDisplay({catalog:await loadBrowserOriginalResourceCatalog()},options.displayMode,options.hercules);
- return {configuration,track,elapsedSinceInputPoll:input.elapsedSinceInputPoll,selectOptions,selectCar:car,selectOpponent:opponent,selectTrack,setInputActive:input.setActive,settings:drivingSettings,get replay(){return replay;},get selectedReplay(){return selectedReplay;},raceEntryKey:fastForwardKey,fadeMusic:()=>music.fadeOut(input.waitTicks),close:()=>{window.removeEventListener('online',retryScores);input.close();files.close();},
+ return {configuration,track,elapsedSinceInputPoll:input.elapsedSinceInputPoll,selectOptions,selectCar:car,selectOpponent:opponent,selectTrack,setInputActive:input.setActive,settings:drivingSettings,get ms91GraphicsSettings(){return graphicsSettings(selectBrowserFutureRaceEngine());},get replay(){return replay;},get selectedReplay(){return selectedReplay;},raceEntryKey:fastForwardKey,fadeMusic:()=>music.fadeOut(input.waitTicks),close:()=>{window.removeEventListener('online',retryScores);input.close();files.close();},
   /** Use the live allocated game banks and retained framebuffer. */
   async allocatedRacePresentation(runtime:Awaited<ReturnType<typeof createNativeManualRaceRuntime>>,onPoll:()=>void|Promise<void>,alternate?:Awaited<ReturnType<typeof prepareBrowserNativeManualDisplay>>){
    registerRun(runtime);
-   let upgraded:ReturnType<typeof createUpgradedRaceScene>|undefined,loading=false,closed=false,failed=false;
+   // Last prepared session identity: diagnostic only, never a source of physics.
+   canvas.dataset.preparedRaceEngine=runtime.session.physicsEngine;
+   canvas.dataset.preparedRaceCadence=String(runtime.session.framesPerSecond);
+   let upgraded:ReturnType<typeof createUpgradedRaceScene>|undefined,loading=false,closed=false,failed=false,loadingPromise:Promise<void>|undefined;
    const graphics=options.graphics;if(graphics){runtime.enableGraphicsCapture();graphics.resetPerformance?.();}
    const presentWorld=()=>{
     if(!graphics){display();return;}graphics.refresh=presentWorld;
@@ -260,11 +301,14 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
     // Results -> View Replay constructs a fresh enhanced scene. Retain the
     // results/loading composition until it is ready instead of exposing the
     // native 3D frame for one browser frame during that asynchronous handoff.
-    if(transition==='hold'){if(!loading){loading=true;graphics.notice?.('Loading upgraded driving graphics…');void import('./upgraded-race-scene').then(({createUpgradedRaceScene})=>{if(closed)return;upgraded=createUpgradedRaceScene(options.assets,baseline,runtime,()=>graphics.chaseCamera??0,()=>graphics.selectOriginalCamera?.());graphics.refresh?.();}).catch(()=>{failed=true;graphics.notice?.('Upgraded graphics are unavailable. Original graphics remain active.');graphics.refresh?.();});}return;}
+    if(transition==='hold'){if(!loading){loading=true;graphics.notice?.('Loading upgraded driving graphics…');loadingPromise=import('./upgraded-race-scene').then(async({createUpgradedRaceScene})=>{if(closed)return;const scene=createUpgradedRaceScene(options.assets,baseline,runtime,()=>graphics.chaseCamera??0,()=>graphics.selectOriginalCamera?.());await prepareUpgradedScene(scene,()=>closed,ready=>{upgraded=ready;graphics.refresh?.();});}).catch(()=>{if(closed)return;failed=true;graphics.notice?.('Upgraded graphics are unavailable. Original graphics remain active.');graphics.refresh?.();});}return;}
     const scene=upgraded;if(!scene)return;
     try{const shown=scene.draw(canvas);if(shown)graphics.performanceFrame?.(performance.now());graphics.notice?.(shown?'Upgraded driving graphics · experimental':'Preparing upgraded driving graphics…');}catch{failed=true;scene.close();upgraded=undefined;display();graphics.notice?.('Upgraded graphics are unavailable. Original graphics remain active.');}
    };
-   const gameText=await json<TextResources>('race-dialog-text');
+   const originalGameText=await json<TextResources>('race-dialog-text');
+   // A loaded legacy recording may run inside the MS91 preview. Dialogs
+   // therefore follow the allocated race, not the future-race URL selection.
+   const gameText={...originalGameText,resources:ms91DialogResources(originalGameText.resources,runtime.session.physicsEngine)};
    activeRace=runtime;racePoll=onPoll;
    const memory=()=>runtime.session.state.memory;
    const display=()=>{pixels.set(runtime.pixels);show('race');paint(alternate?.palette,undefined,alternate?.owner);};
@@ -291,17 +335,20 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
    redraw();
    };
    const displayDialogs=(resources:Record<string,ReadonlyArray<number>>)=>{
+    // Dialog parsing/marks must use the loaded race identity, too.
+    const raceHost={...host,physicsEngine:runtime.session.physicsEngine};
     if(!alternate){
-     const presentDialog=(bounds:readonly number[]|null)=>presentRaceDialog(bounds),editPath:NativeDialogHost['editPath']=(path,length,timeout,field)=>editNativePath({pixels,font,present:()=>activeDialogBounds?presentDialog(activeDialogBounds):paint(),counters:()=>input.counters(),keyboard:()=>input.keyboard()},path,length,timeout,field),dialogHost={...host,resources,presentDialog,editPath};
+     const presentDialog=(bounds:readonly number[]|null)=>presentRaceDialog(bounds),editPath:NativeDialogHost['editPath']=(path,length,timeout,field)=>editNativePath({pixels,font,present:()=>activeDialogBounds?presentDialog(activeDialogBounds):paint(),counters:()=>input.counters(),keyboard:()=>input.keyboard()},path,length,timeout,field),dialogHost={...raceHost,resources,presentDialog,editPath};
      const dialog=createNativeDialogRuntime(dialogHost);
      return {file:(...args:Parameters<typeof dialog.file>)=>dialog.file(...args),dialog:(...args:Parameters<typeof dialog.dialog>)=>dialog.dialog(...args),saveName:(state:{name:string;path:string},title:string)=>editNativeSaveName(dialogHost,state,title)};
     }
-    const owner=alternate.owner,presentDialog=(bounds:readonly number[]|null)=>presentRaceDialog(bounds,alternateDialogPresent),editPath:NativeDialogHost['editPath']=(path,length,timeout,field)=>editNativeDisplayPath({memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,present:()=>activeDialogBounds?presentDialog(activeDialogBounds):alternateDialogPresent(),counters:()=>input.counters(),keyboard:()=>input.keyboard()},path,length,timeout,field,0xe800),dialogHost={...host,memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,resources,capture:(retain:boolean)=>captureNativeDisplayDialogBackground(owner,retain),present:alternateDialogPresent,presentDialog,editPath};
+    const owner=alternate.owner,presentDialog=(bounds:readonly number[]|null)=>presentRaceDialog(bounds,alternateDialogPresent),editPath:NativeDialogHost['editPath']=(path,length,timeout,field)=>editNativeDisplayPath({memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,present:()=>activeDialogBounds?presentDialog(activeDialogBounds):alternateDialogPresent(),counters:()=>input.counters(),keyboard:()=>input.keyboard()},path,length,timeout,field,0xe800),dialogHost={...raceHost,memory:owner.memory,d:owner.d,mode:owner.mode,drawing:owner.drawing,resources,capture:(retain:boolean)=>captureNativeDisplayDialogBackground(owner,retain),present:alternateDialogPresent,presentDialog,editPath};
     const dialog=createNativeDisplayDialogRuntime(dialogHost,0xe800,{enumerate:(...args)=>host.enumerate(...args),editPath});
-    return {file:(...args:Parameters<typeof dialog.file>)=>dialog.file(...args),dialog(resource:string,mode:number,selected=0,border=4,disabled?:ReadonlyArray<number>){const m=owner.memory(),originalBorder=m[owner.d+0x4ec2]|(m[owner.d+0x4ec3]<<8);return dialog.dialog(resource,mode,selected,border===4?originalBorder:border===1?(m[owner.d+0x4ec0]|(m[owner.d+0x4ec1]<<8)):border,disabled);},saveName:(state:{name:string;path:string},title:string)=>editNativeDisplaySaveName(dialogHost,state,title,0xe800)};
+    return {file:(...args:Parameters<typeof dialog.file>)=>dialog.file(...args),dialog(resource:string,mode:number,selected=0,border=4,disabled?:ReadonlyArray<number>,marked?:readonly boolean[]){const m=owner.memory(),originalBorder=m[owner.d+0x4ec2]|(m[owner.d+0x4ec3]<<8);return dialog.dialog(resource,mode,selected,border===4?originalBorder:border===1?(m[owner.d+0x4ec0]|(m[owner.d+0x4ec1]<<8)):border,disabled,marked);},saveName:(state:{name:string;path:string},title:string)=>editNativeDisplaySaveName(dialogHost,state,title,0xe800)};
    };
-   const dialogs=displayDialogs(gameText.resources),setupDialogs=displayDialogs(host.resources);
-   const saveResources={...host.resources,...Object.fromEntries(['esav','efex','eser'].map(key=>[key,trackText.resources[key]]))},saveDialogs=displayDialogs(saveResources);
+   const modernGraphics=graphicsSettings(runtime.session.physicsEngine);
+   const dialogs=displayDialogs(gameText.resources),setupDialogs=displayDialogs(modernGraphics?ms91DialogResources(host.resources,runtime.session.physicsEngine):host.resources);
+   const saveResources=ms91DialogResources({...host.resources,...Object.fromEntries(['esav','efex','eser'].map(key=>[key,trackText.resources[key]]))},runtime.session.physicsEngine),saveDialogs=displayDialogs(saveResources);
    const saveName=(state:{name:string;path:string},title:string)=>saveDialogs.saveName(state,title);
    const dialog=async(resource:string,mode:number,selected:number,border:number,disabled?:ReadonlyArray<number>)=>{pixels.set(runtime.pixels);return dialogs.dialog(resource,mode,selected,border,disabled);};
    let waitingField:{x:number;y:number}|undefined;
@@ -316,9 +363,18 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
 
    focusBrowserGameCanvas(canvas);
    const waiting=()=>{const backdrop=captureWaitingBackdrop();if(!alternate){const content=drawOriginalRaceWaiting(pixels,font,host.resources.ewai,memory(),0x2d1a0);show('race');presentWaiting(content.layout.bounds,backdrop);}else{const owner=alternate.owner,m=owner.memory(),v=new DataView(m.buffer),live=memory(),source=new DataView(live.buffer),at={cga:0x8ff0,tandy:0x9030,ega:0x8e6c}[owner.mode];v.setInt16(owner.d+at,source.getInt16(0x2d1a0+0x8a10,true),true);restoreOriginalDisplayWindow(m,owner.d,owner.mode);const content=drawOriginalRaceWaitingDisplay(m,owner.d,owner.mode,owner.drawing,host.resources.ewai,0xe800);live[0x2d1a0+0x131]=0;pixels.set(alternate.display.pixels());show('race');presentWaiting(content.layout.bounds,backdrop,()=>paint(alternate.palette,undefined,alternate.owner));}canvas.style.cursor='none';};
-   return {control,present:presentWorld,presentWorld,dialog,opponent,waiting,saveName,saveDialog:saveDialogs.dialog,file:setupDialogs.file,setupDialog:async(resource:string,mode:number,selected:number,border:number)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(resource,mode,selected,border);},read:()=>readReplayInput(memory,()=>originalElapsedInputTicks(memory(),0x2d1a0)),input:(delta:number)=>readReplayInput(memory,delta),ctrlHeld:input.ctrlHeld,waitTicks:input.waitTicks,
-    changeGraphics:(writeAudio:(writes:number[][])=>void)=>selectAllocatedGraphicsLevel({memory,audio:operation=>writeAudio(runtime.dialogAudio(operation)),dialog:async(...args)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(...args);},hideCursor(){canvas.style.cursor='none';}},0x2d1a0),
-    selectMouse:(writeAudio:(writes:number[][])=>void)=>selectAllocatedMouseControl({memory,audio:operation=>writeAudio(runtime.dialogAudio(operation)),dialog:async(...args)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(...args);},hideCursor(){canvas.style.cursor='none';}},0x2d1a0),
+   return {async prepareWorld(){presentWorld();await loadingPromise;if(closed)throw new DOMException('Race presentation closed','AbortError');},control,present:presentWorld,presentWorld,dialog,opponent,waiting,saveName,saveDialog:saveDialogs.dialog,file:setupDialogs.file,setupDialog:async(resource:string,mode:number,selected:number,border:number)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(resource,mode,selected,border);},read:()=>readReplayInput(memory,()=>originalElapsedInputTicks(memory(),0x2d1a0)),input:(delta:number)=>readReplayInput(memory,delta),ctrlHeld:input.ctrlHeld,waitTicks:input.waitTicks,
+    changeGraphics:async(writeAudio:(writes:number[][])=>void|Promise<void>)=>{
+     const graphicsHost={memory,audio:(operation:'pause-audio'|'resume-audio')=>writeAudio(runtime.dialogAudio(operation)),hideCursor(){canvas.style.cursor='none';}};
+     if(!modernGraphics){await selectAllocatedGraphicsLevel({...graphicsHost,dialog:async(...args)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(...args);}},0x2d1a0);return;}
+     const oldVideo=modernGraphics.slowVideoManagement;
+     try{await selectAllocatedMs91Graphics({...graphicsHost,dialog:async(resource,mode,selected,border,marked)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(resource,mode,selected,border,undefined,marked);}},0x2d1a0,modernGraphics);}
+     finally{
+      drivingSettings.graphics=modernGraphics.graphics;
+      if(oldVideo!==modernGraphics.slowVideoManagement)runtime.setMs91VideoManagement(modernGraphics.slowVideoManagement);
+     }
+    },
+    selectMouse:(writeAudio:(writes:number[][])=>void|Promise<void>)=>selectAllocatedMouseControl({memory,audio:operation=>writeAudio(runtime.dialogAudio(operation)),dialog:async(...args)=>{pixels.set(runtime.pixels);return setupDialogs.dialog(...args);},hideCursor(){canvas.style.cursor='none';}},0x2d1a0),
     hideCursor(){canvas.style.cursor='none';},
     counter:()=>originalElapsedInputTicks(memory(),0x2d1a0)&65535,nextFrame:input.nextFrame,key:input.takeKey,mouseButtons:()=>input.mouse().buttons,joystickButtons:input.joystickButtons,releaseInput:input.release,releaseDrivingInput:input.releaseDrivingInput,resetMouse:input.resetMouse,
     devices:{mouse:input.mouse,controls:input.controls,keyDown:input.keyDown,joystickSteering:input.joystickSteering},
@@ -330,7 +386,7 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
    const [art,packed]=await Promise.all([json<NativeReplayBarArt>('replay-bar-art'),binary('sdgame.pvs')]);
    session.restoreReplayBank(packed);const memory=()=>session.state.memory;
    const display=()=>{pixels.set(background.subarray(0,Math.min(background.length,pixels.length)));show('replay');present();};
-   const control=createNativeReplayBar({memory,pixels:()=>background,font:replayFont,art,present:display},0x2d1a0);
+   const control=createNativeReplayBar({memory,pixels:()=>background,font:replayFont,art,present:display,physicsEngine:session.physicsEngine,framesPerSecond:session.framesPerSecond},0x2d1a0);
    focusBrowserGameCanvas(canvas);
    return {control,present:display,read:()=>readReplayInput(memory),input:(delta:number)=>readReplayInput(memory,delta),ctrlHeld:input.ctrlHeld,waitTicks:input.waitTicks};
   },
@@ -353,19 +409,21 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
      if(!selected)return 0;writeString(memory(),0x98,selected.path);writeString(memory(),0xea,selected.name);return 1;
     },
     async readReplay(){if(!selected)throw Error('Original replay load requires a selected file');return files.read(selected.path,selected.name,'.rpl');},
+    replayPhysicsEngine(){if(!selected)throw Error('Replay engine requires a selected file');return files.physicsEngine(selected.path,selected.name,'.rpl');},
+    replayFramesPerSecond(){if(!selected)throw Error('Replay cadence requires a selected file');return files.framesPerSecond(selected.path,selected.name,'.rpl');},
    });
   },
-  async saveReplay(session:ReturnType<typeof createNativeRaceSession>,state:{name:string;path:string},pauseAudio:()=>void,displayOverride?:{saveName(state:{name:string;path:string},title:string):Promise<{name:string;path:string}|null>;saveDialog(resource:string,mode:number,selected:number,border:number):Promise<number>;present():void}){
+  async saveReplay(session:ReturnType<typeof createNativeRaceSession>,state:{name:string;path:string},pauseAudio:()=>void|Promise<void>,displayOverride?:{saveName(state:{name:string;path:string},title:string):Promise<{name:string;path:string}|null>;saveDialog(resource:string,mode:number,selected:number,border:number):Promise<number>;present():void}){
    // These three MAIN resources were extracted with the editor's save flow.
    // Do not merge TEDIT emen or GAME econ into the shared file-dialog scope.
-   const saveHost={...host,resources:{...host.resources,...Object.fromEntries(['esav','efex','eser'].map(key=>[key,trackText.resources[key]]))}},dialogs=createNativeDialogRuntime(saveHost);
+   const saveHost=versionedGameDialogHost({...host,resources:{...host.resources,...Object.fromEntries(['esav','efex','eser'].map(key=>[key,trackText.resources[key]]))}},session.physicsEngine),dialogs=createNativeDialogRuntime(saveHost);
    let destination={...state};if(displayOverride)displayOverride.present();else show('replay');focusBrowserGameCanvas(canvas);
    return saveNativeReplay({pauseAudio,
     editName:async()=>!!await (displayOverride?displayOverride.saveName(state,String.fromCharCode(...host.resources.erep).split('\0')[0]):editNativeSaveName(saveHost,state,String.fromCharCode(...host.resources.erep).split('\0')[0])),
     buildPath:()=>{destination={...state};},
     exists:()=>Promise.resolve(files.exists(destination.path,destination.name,'.rpl')),
     dialog:(resource,mode,selected)=>{const m=session.state.memory;return (displayOverride?.saveDialog??dialogs.dialog)(resource,mode,selected,new DataView(m.buffer,m.byteOffset,m.byteLength).getUint16(0x2d1a0+0x4ec0,true));},
-    write:()=>session.saveReplay(async bytes=>{try{await files.write(destination.path,destination.name,'.rpl',bytes);return 0;}catch{return 1;}}),
+    write:()=>session.saveReplay(async bytes=>{try{await files.write(destination.path,destination.name,'.rpl',bytes,session.physicsEngine,session.framesPerSecond);return 0;}catch{return 1;}}),
    });
   },
   /** Replay dialogs share the browser's original font, input and surface,
@@ -373,7 +431,7 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
   async replayMenu(session:ReturnType<typeof createNativeRaceSession>,services:Omit<Parameters<typeof session.replayMenu>[0],'dialog'>,background:Uint8Array,displayOverride?:{dialog(resource:string,mode:number,selected:number,border:number,disabled?:ReadonlyArray<number>):Promise<number>;present():void}){
    if(displayOverride){displayOverride.present();focusBrowserGameCanvas(canvas);await session.replayMenu({...services,dialog:displayOverride.dialog});return;}
    const gameText=await json<TextResources>('race-dialog-text');
-   const dialogs=createNativeDialogRuntime({...host,resources:gameText.resources});
+   const dialogs=createNativeDialogRuntime(versionedGameDialogHost({...host,resources:gameText.resources},session.physicsEngine));
    if(background.length<64000)throw Error('Replay presentation requires the retained game framebuffer');
    pixels.set(background.subarray(0,Math.min(background.length,pixels.length)));show('replay');present();focusBrowserGameCanvas(canvas);
    await session.replayMenu({...services,selectControl:(...args)=>{services.selectControl(...args);if(args[0]===1){pixels.set(background.subarray(0,Math.min(background.length,pixels.length)));present();}},dialog:(...args)=>dialogs.dialog(...args)});
@@ -381,21 +439,24 @@ export async function createBrowserNativeMenus(options:BrowserNativeMenuOptions)
   async allocatedRaceResults(data:NativeDemoData,runtime:Awaited<ReturnType<typeof createNativeManualRaceRuntime>>,progress:(stage:number)=>void,displayMode?:NativeBrowserDisplayMode):Promise<number>{
    const alternate=displayMode?await prepareBrowserNativeResultsDisplay(data,displayMode,options.hercules):undefined;
    const resultPresent=()=>{if(!alternate){present();return;}pixels.set(alternate.pixels());show('results');paint(alternate.palette,undefined,alternate.owner);};
-   const dialogs=alternate?createNativeDisplayDialogRuntime({...host,memory:alternate.owner.memory,d:alternate.owner.d,mode:alternate.owner.mode,drawing:alternate.owner.drawing,capture:retain=>captureNativeDisplayDialogBackground(alternate.owner,retain),present:resultPresent},0xe800):createNativeDialogRuntime(host);
+   const resultDialogHost=versionedGameDialogHost(host,runtime.session.physicsEngine);
+   const dialogs=alternate?createNativeDisplayDialogRuntime({...resultDialogHost,memory:alternate.owner.memory,d:alternate.owner.d,mode:alternate.owner.mode,drawing:alternate.owner.drawing,capture:retain=>captureNativeDisplayDialogBackground(alternate.owner,retain),present:resultPresent},0xe800):createNativeDialogRuntime(resultDialogHost);
    const parts=(filename:string)=>{const value=filename.replaceAll('/','\\'),end=Math.max(value.lastIndexOf('\\'),/^[A-Za-z]:/.test(value)?1:-1);return {path:value.slice(0,end+1),name:value.slice(end+1)};};
+   const raceFiles=createGlobalScoreFileStore(localFiles,sharedScores,()=>undefined,()=>runtime.session.physicsEngine,()=>runtime.session.framesPerSecond);
    try{return await runAllocatedRaceResults(data,runtime,{progress,
-    async readFile(filename){const {path,name}=parts(filename);try{return files.exists(path,name,'')?await files.read(path,name,''):null;}catch{return null;}},
-    async writeFile(filename,bytes){const {path,name}=parts(filename);try{await files.write(path,name,'',bytes);return 0;}catch{return 1;}},
+    async readFile(filename){const {path,name}=parts(filename);try{return raceFiles.exists(path,name,'')?await raceFiles.read(path,name,''):null;}catch{return null;}},
+    async writeFile(filename,bytes){const {path,name}=parts(filename);try{await raceFiles.write(path,name,'',bytes);return 0;}catch{return 1;}},
     insertTrackDisk:()=>{const m=runtime.session.state.memory;return dialogs.dialog('eihd',1,1,alternate?new DataView(alternate.owner.memory().buffer).getUint16(alternate.owner.d+0x4ec2,true):new DataView(m.buffer,m.byteOffset,m.byteLength).getUint16(0x2d1a0+0x4ec2,true));},
     present:(state,services)=>{scoreContext={runtime,state};return this.results(state,services,alternate);},
    });}finally{scoreContext=undefined;alternate?.release();}
   },
   async results(state:NativeRaceResultsState,services:{randomWord():number;randomByte():number;files?:NativeHighScorePreparationHost;selectEvaluation?:NativeRaceResultsHost['selectEvaluation'];prepareScores?:NativeRaceResultsHost['prepareScores']},alternate?:Awaited<ReturnType<typeof prepareBrowserNativeResultsDisplay>>){
-   const scoreText=await json<TextResources>('high-score-text'),resultHost={...host,resources:{...host.resources,...scoreText.resources}},dialogs=createNativeDialogRuntime(resultHost);
+   const scoreText=await json<TextResources>('high-score-text'),resultHost=versionedGameDialogHost({...host,resources:{...host.resources,...scoreText.resources}},state.panel.physicsEngine),dialogs=createNativeDialogRuntime(resultHost);
    const read=async(extension:string)=>{try{return files.exists(state.trackPath,state.trackName,extension)?await files.read(state.trackPath,state.trackName,extension):null;}catch{return null;}};
    const scoreFiles:NativeHighScorePreparationHost=services.files??{readSavedTrack:()=>read('.trk'),insertTrackDisk:()=>dialogs.dialog('eihd',1,1,4),readScores:()=>read('.hig'),writeScores:async bytes=>{try{await files.write(state.trackPath,state.trackName,'.hig',bytes);return true;}catch{return false;}}};
    const results:NativeRaceResultsHost={...resultHost,playResultMusic:name=>music.play(name),smallFont,counter:input.counter,files:scoreFiles,evaluation:opponent=>json<NativeEvaluationResources>('opponent-evaluation/'+opponent),randomWord:services.randomWord,randomByte:services.randomByte,selectEvaluation:services.selectEvaluation,prepareScores:services.prepareScores?async current=>{const eligibility=await services.prepareScores!(current);return runHistory.get(scoreContext!.runtime.session)?.continued&&eligibility.status===1?{...eligibility,status:0}:eligibility;}:undefined};
    show('results');focusBrowserGameCanvas(canvas);
+   results.playResultMusic=name=>startNativeMusic(music,name,()=>!!options.signal?.aborted);
    results.scoresPrepared=async(current,eligibility)=>{
     window.dispatchEvent(new CustomEvent('stunts-completed-score',{detail:null}));
     if(!scoreContext)return;

@@ -1,12 +1,13 @@
 import {TRACK_DISPLAY_LAYOUTS,type OriginalTrackDisplayLayout} from './track-display-layout.ts';
 import {i16} from '../physics/math.ts';
 import {slopeRoadMap} from '../physics/slope-road-map.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 /** SuppliedE91D..ED51. The overview halves coordinates and drains after each
  * tile. Its region pointer changes permanently after a four-tile terrain pass. */
-export function originalTrackOverviewSubmissions(memory:Uint8Array,d:number,emit:(record:number[]|null)=>void,layout:OriginalTrackDisplayLayout=TRACK_DISPLAY_LAYOUTS.mcga,regionPointer=0xb100){
+export function originalTrackOverviewSubmissions(memory:Uint8Array,d:number,emit:(record:number[]|null)=>void,layout:OriginalTrackDisplayLayout=TRACK_DISPLAY_LAYOUTS.mcga,regionPointer=0xb100,engine?:PhysicsEngineVersion){
  const view=new DataView(memory.buffer,memory.byteOffset,memory.byteLength),word=(o:number)=>view.getUint16(d+(o&65535),true),signed=(o:number)=>view.getInt16(d+(o&65535),true),byte=(o:number)=>memory[d+(o&65535)];
  const terrain=(x:number,y:number)=>memory[word(layout.address(0x9ad2))*16+((word(layout.address(0x9ad0))+word(layout.address(0x89d4)+y*2)+x)&65535)],tile=(x:number,y:number)=>memory[word(layout.address(0x9358))*16+((word(layout.address(0x9356))+word(layout.address(0xa350)+y*2)+x)&65535)];
- const half=(value:number,camera:number)=>Math.trunc(i16(value-camera)/2),camera=[signed(0x8f6),signed(0x8f8),signed(0x8fa)],record=new Uint8Array(20),v=new DataView(record.buffer);
+ const half=(value:number,camera:number)=>engine==='ms-1991'?i16(value-camera)>>1:Math.trunc(i16(value-camera)/2),camera=[signed(0x8f6),signed(0x8f8),signed(0x8fa)],record=new Uint8Array(20),v=new DataView(record.buffer);
  const set=(o:number,value:number)=>v.setUint16(o,value,true);set(8,regionPointer);set(16,1024);
  const position=(x:number,y:number,height:number)=>[half(signed(layout.address(0xa3e2)+x*2),camera[0]),half(height,camera[1]),half(signed(layout.address(0xa796)+y*2),camera[2])];
  const draw=(position:readonly number[],descriptor:number,angle:number,flags:number,paint:number)=>{position.forEach((n,i)=>set(i*2,n));set(6,descriptor);set(14,angle);record[18]=flags;record[19]=paint;emit(Array.from(record));};

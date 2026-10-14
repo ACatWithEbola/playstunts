@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync} from 'node:fs';
+const [sourcePath,targetPath,countArg,opponentMode]=process.argv.slice(2);assert.ok(sourcePath&&targetPath&&sourcePath!==targetPath);
+assert.ok(opponentMode===undefined||opponentMode==='--keep-opponent');
+const source=readFileSync(sourcePath),count=countArg===undefined?source.length-0x724:Number(countArg);
+assert.ok(Number.isInteger(count)&&count>0&&count<=source.length-0x724);
+const probe=Buffer.from(source.subarray(0,0x724+count));
+assert.equal(source.length,0x724+new DataView(source.buffer,source.byteOffset,source.byteLength).getUint16(24,true));
+if(opponentMode!=='--keep-opponent')probe[6]=0;
+new DataView(probe.buffer,probe.byteOffset,probe.byteLength).setUint16(24,count,true);
+writeFileSync(targetPath,probe,{flag:'wx'});
+assert.deepEqual(readFileSync(sourcePath),source);
+assert.deepEqual(probe.subarray(26),source.subarray(26,probe.length));
+console.log(JSON.stringify({sourceUnchanged:true,trackUnchanged:true,inputPrefixUnchanged:true,frames:count,syntheticOpponentDisabled:opponentMode!=='--keep-opponent'}));

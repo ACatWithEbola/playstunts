@@ -1,4 +1,4 @@
-/** Combined original contact pass for reconstructed track geometry at 20 Hz.
+/** Combined original contact pass for reconstructed track geometry.
  * Race/audio/particle consumers receive accepted crash events separately.
  */
 import { i16, vecTransform, type Vector } from './math.ts';
@@ -11,12 +11,17 @@ import { placeWall, type CollisionWall } from './wall.ts';
 import { wallResponse } from './wall-response.ts';
 import { wheelPlaneContact } from './wheel-plane-contact.ts';
 import { stepSuspension } from './suspension.ts';
+import {scaleSteeringWord,type PhysicsEngineVersion} from './engine-version.ts';
 export interface CrashImpact {cause:1|2|3|4|5;yaw:number;roadSpeed:number}
 export interface TrackGeometry {
+  physicsEngine?: PhysicsEngineVersion;
+  framesPerSecond?:10|20;
   mode?: number;
+  runtimeMode?:number;
   otherCar?:{selected:0|1;body:import('./car-overlap.ts').CollisionBody;state:import('./race-car-contact.ts').RaceContactCar;dimensions:Vector;radius:number};
   landmarks?: {dimensions:Vector;radius:number;hillHeight:number};
   posts?: {column:number;terrainRow:number;height:number;heading:number;dimensions:Vector;radius:number};
+  signs?:import('./sign-contact.ts').SignCollisionData;
   raw: number[];
   objects: TrackObject[];
   planes: CollisionPlane[];
@@ -47,17 +52,19 @@ export function trackContact(
       : ([0, 0, 0] as Vector);
   const proposalState = {
     ...chassis,
+    physicsEngine:track.physicsEngine,
     suspension: chassis.suspension.map((n) =>
       i16(n + (invertedPull < 0 ? invertedPull : 0)),
     ),
   };
-  let origins = proposeWheels({ ...proposalState, roadSpeed: 0 }, wheels);
-  let proposed = proposeWheels(proposalState, wheels);
+  const fps=track.framesPerSecond??20;
+  let origins = proposeWheels({ ...proposalState, roadSpeed: 0 }, wheels,fps);
+  let proposed = proposeWheels(proposalState, wheels,fps);
   const scaledRoadSpeed = i16(
-    Math.trunc(((chassis.roadSpeed & 65535) * 1408) / 15360),
+    Math.trunc(((chassis.roadSpeed & 65535) * 1408) / (fps===10?7680:15360)),
   );
   const front = chassis.allContact
-    ? Math.trunc(chassis.frontWheelAngle / 4)
+    ? scaleSteeringWord(chassis.frontWheelAngle,2,track.physicsEngine)
     : 0;
   // File 0x7851 skips the stack-array writes at zero scaled movement.
   const wheelAngles = scaledRoadSpeed === 0 ? retainedWheelAngles :
@@ -103,6 +110,8 @@ export function trackContact(
         proposed[w],
         history[w].map((n) => n * 64) as Vector,
         track.mode??0,
+        undefined,
+        track.physicsEngine,
       );
       const plane = track.planes[contact.planeId];
       if (!plane) throw Error(`Missing original plane ${contact.planeId}`);
@@ -116,6 +125,7 @@ export function trackContact(
         const wall = track.walls[contact.wall];
         if (!wall) throw Error(`Missing original wall ${contact.wall}`);
         const response = wallResponse({
+          physicsEngine:track.physicsEngine,
           proposed,
           origins,
           previous: history[w],
@@ -149,6 +159,8 @@ export function trackContact(
         }
       }
       const result = wheelPlaneContact({
+        physicsEngine:track.physicsEngine,
+        framesPerSecond:fps,
         directHeight:track.mode===2,
         origin: origins[w],
         proposed: proposed[w],
@@ -194,6 +206,7 @@ export function trackContact(
         rc5: suspension.rc5[w],
       },
       distances[w]!,
+      track.physicsEngine,
     );
     suspension.rc2[w] = result.rc2;
     suspension.rc4[w] = result.rc4;

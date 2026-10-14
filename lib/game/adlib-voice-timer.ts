@@ -7,7 +7,7 @@ export interface AdlibVoiceTimerState {voices:Uint8Array[];timers:Uint8Array[];l
  * Instrument lookup uses the original far pointer retained in each voice.
  * Music-owner duration processing belongs to the separate music path.
  */
-export function stepAdlibVoiceTimer(before:AdlibVoiceTimerState,instrumentAt:(offset:number,segment:number)=>Uint8Array){
+export function stepAdlibVoiceTimer(before:AdlibVoiceTimerState,instrumentAt:(offset:number,segment:number)=>Uint8Array,driverGeneration?:import('../physics/engine-version.ts').PhysicsEngineVersion){
  const voices=before.voices.map(v=>v.slice()),timers=before.timers.map(t=>t.slice()),lastNotes=before.lastNotes.slice();
  const writes:number[][]=[],calls:number[]=[];
  for(let index=0;index<voices.length;index++){
@@ -16,8 +16,8 @@ export function stepAdlibVoiceTimer(before:AdlibVoiceTimerState,instrumentAt:(of
   if(old.length!==46)throw Error('Invalid original hardware voice');
   const data=new DataView(old.buffer),instrument=instrumentAt(data.getUint16(16,true),data.getUint16(18,true));
   const owner=old[0],timer=timers[owner];
-  if(!timer||timer.length!==72)throw Error('Missing original voice owner');
-  const tick=stepVoiceTick(old,instrument,timer[0x25],timer[0x15],lastNotes[owner]);
+  if(!timer||(timer.length!==72&&timer.length!==76))throw Error('Missing original voice owner');
+  const tick=stepVoiceTick(old,instrument,timer[0x25],timer[0x15],lastNotes[owner],driverGeneration);
   voices[index]=tick.record;timer[0x15]=tick.ownerCount;lastNotes[owner]=tick.ownerNote;
   for(const offset of tick.calls){
    calls.push(offset);

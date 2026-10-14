@@ -4,7 +4,7 @@ import {selectOriginalReplayControl} from './replay-control-selection.ts';
 export interface NativeReplayBarArt {keys:ReadonlyArray<string>;resources:Record<string,ReadonlyArray<number>>}
 /** Drawing/selection boundary for the original replay controller. The caller
  * supplies its already-loaded SDGAME pointer table and retained screen/font. */
-export function createNativeReplayBar(host:{memory():Uint8Array;pixels():Uint8Array;font:Uint8Array;art:NativeReplayBarArt;present():void},d:number){
+export function createNativeReplayBar(host:{memory():Uint8Array;pixels():Uint8Array;font:Uint8Array;art:NativeReplayBarArt;present():void;physicsEngine?:import('../physics/engine-version.ts').PhysicsEngineVersion;framesPerSecond?:10|20},d:number){
  return (mode:number,start:number,current:number)=>{
   const memory=host.memory();
   if(mode===0){initializeOriginalReplayResources(memory,d);return;}
@@ -20,7 +20,7 @@ export function createNativeReplayBar(host:{memory():Uint8Array;pixels():Uint8Ar
   }
   drawOriginalReplayBar(host.pixels(),memory,d,start,current,host.font,(offset,segment)=>{
    const resource=resources.get(segment*16+offset);if(!resource)throw Error('Original replay sprite pointer is not loaded');return resource;
-  });
+  },{physicsEngine:host.physicsEngine,framesPerSecond:host.framesPerSecond});
   host.present();
  };
 }

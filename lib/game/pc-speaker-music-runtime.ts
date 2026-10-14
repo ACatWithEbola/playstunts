@@ -1,6 +1,7 @@
 import {applyMusicSequenceControl} from './music-sequence-control.ts';
 import {applyOriginalPcSpeakerTrackControl,stopOriginalPcSpeakerTrack} from './pc-speaker-track-control.ts';
-import {setOriginalPcSpeakerVolume} from './pc-speaker-control.ts';
+import {setOriginalPcSpeakerVolume,pcSpeakerChannelMasks} from './pc-speaker-control.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 import {updateOriginalPcSpeakerVoice,stepOriginalPcSpeakerOutput} from './pc-speaker-output.ts';
 import {startOriginalPcSpeakerNote} from './pc-speaker-note-start.ts';
 import {stepOriginalPcSpeakerVoiceTimer} from './pc-speaker-voice-timer.ts';
@@ -9,11 +10,12 @@ import type {OriginalMusicSeed} from './music-runtime.ts';
 import {readSoundCommand} from './sound-command.ts';
 import {stepOriginalMusicTimer} from './music-timer.ts';
 import {stepVoiceDuration} from './voice-duration.ts';
-export interface OriginalPcSpeakerMusicSeed extends OriginalMusicSeed {driver:number[];port61:number;}
+export interface OriginalPcSpeakerMusicSeed extends OriginalMusicSeed {physicsEngine?:PhysicsEngineVersion;driver:number[];port61:number;}
 const view=(b:Uint8Array)=>new DataView(b.buffer,b.byteOffset,b.byteLength);
 /** Original music command execution for the supplied TITL and SLCT scores.
  * The seed is the original loader's initialized state; playback is native. */
 export function createOriginalPcSpeakerMusicRuntime(seed:OriginalPcSpeakerMusicSeed){
+ if(seed.physicsEngine==='ms-1991'&&(seed.hardware.length!==7||seed.driver.length<0x2e9))throw Error('MS1991 PC15 music requires complete seven-slot state');
  const bank=Uint8Array.from(seed.bank),patches=Uint8Array.from(seed.voices),header=seed.header;
  let timers=seed.timers.map(t=>Uint8Array.from(t)),voices=seed.hardware.map(t=>Uint8Array.from(t)),lastNotes=Uint8Array.from(seed.lastNotes);
  let commandArgument=seed.commandArgument??0,driver=Uint8Array.from(seed.driver),port61=seed.port61;
@@ -21,7 +23,7 @@ export function createOriginalPcSpeakerMusicRuntime(seed:OriginalPcSpeakerMusicS
  const state={masterVolume:seed.masterVolume??127,accumulator:0,interval:128,tracks:bank[header+7+bank[header+6]*4]};
  const instrumentAt=(offset:number,segment:number)=>{if(segment!==0x9000)throw Error('Invalid original music instrument segment');return patches.slice(offset,offset+100);};
  let writes:number[][]=[];
- function release(){for(let i=0;i<voices.length;i++){const v=voices[i];if(!v[1]||v[0]>=16)continue;const next=stepVoiceDuration(v,timers[v[0]][0x25]);voices[i]=next.record;}}
+ function release(){for(let i=0;i<voices.length;i++){const v=voices[i];if(!v[1]||v[0]>=16)continue;const next=stepVoiceDuration(v,timers[v[0]][0x25],seed.physicsEngine);voices[i]=next.record;}}
  function sequence(owner:number){
   let timer=timers[owner],v=view(timer);
   if(v.getUint32(0x18,true)){v.setUint32(0x18,v.getUint32(0x18,true)-1,true);return;}
@@ -35,16 +37,16 @@ export function createOriginalPcSpeakerMusicRuntime(seed:OriginalPcSpeakerMusicS
     let offset=v.getUint16(0x1e,true),segment=v.getUint16(0x20,true);let instrument=(offset||segment)?instrumentAt(offset,segment):new Uint8Array(100);
     if(instrument[5]===5){const note=op&127,map=[0,2,1,2,2,2,5,2,6,2,6,2,2,3,2,4];[offset,segment]=seed.percussion[note>=24&&note<=39?map[note-24]:2];instrument=instrumentAt(offset,segment);}
     const command=new Uint8Array(10);command[4]=op&127;command[5]=op<128?timer[0x22]:arg;view(command).setUint32(6,c.duration??0,true);
-    const next=startOriginalPcSpeakerNote({alternate:false,channelMasks:[1,2,4,8,16],owner,instrument,instrumentPointer:{offset,segment},timers,voices,lastNotes,command},driver);
+    const next=startOriginalPcSpeakerNote({alternate:false,channelMasks:pcSpeakerChannelMasks(seed.physicsEngine),owner,instrument,instrumentPointer:{offset,segment},timers,voices,lastNotes,command},driver);
     ({timers,voices,lastNotes,driver}=next);timer=timers[owner];v=view(timer);
    }else if(op===0xd9){
     if(timer[4]){const p=5+timer[4]*4;v.setUint32(0,v.getUint32(p,true),true);timer[4]--;}
-    else{v.setUint32(0,0,true);writes.push(...stopOriginalPcSpeakerTrack(driver,timers,voices,owner).writes);}
+    else{v.setUint32(0,0,true);writes.push(...stopOriginalPcSpeakerTrack(driver,timers,voices,owner,owner,seed.physicsEngine).writes);}
    }else if(op===0xda)writes.push(...resetTrack(owner));
    else if(applyMusicSequenceControl(timer,op,arg,c.duration??0)){}
    else if(op===0xdc){const at=header+7+arg*4;v.setUint32(0x1e,view(bank).getUint32(at,true),true);}
    else if(op===0xdd){if(!arg)throw Error('Original score specifies zero tempo');state.interval=Math.floor(32000/arg);}
-   else if(op===0xde){timer[0x28]=arg;for(let i=0;i<voices.length;i++)if(voices[i][0]===owner)setOriginalPcSpeakerVolume(driver,i,arg);}
+   else if(op===0xde){timer[0x28]=arg;for(let i=0;i<voices.length;i++)if(voices[i][0]===owner)setOriginalPcSpeakerVolume(driver,i,arg,seed.physicsEngine);}
    else if(op===0xdf)applyOriginalPcSpeakerTrackControl(driver,timers,voices,owner,arg,c.duration??0);
    else if(op===0xe0)timer[0x16]=arg;
    else if(op===0xe1)timer[0x24]=arg;
@@ -60,17 +62,17 @@ export function createOriginalPcSpeakerMusicRuntime(seed:OriginalPcSpeakerMusicS
   v.setUint32(0x18,(v.getUint32(0x18,true)-1)>>>0,true);
  }
  function resetTrack(owner:number){
-  const result=stopOriginalPcSpeakerTrack(driver,timers,voices,owner),timer=timers[owner],v=view(timer);
+  const result=stopOriginalPcSpeakerTrack(driver,timers,voices,owner,owner,seed.physicsEngine),timer=timers[owner],v=view(timer);
   for(const [at,value] of [[0x22,127],[0x23,owner],[0x16,15],[0x32,0],[4,0],[0x24,0],[0x15,0],[0x1c,0],[0x28,state.masterVolume],[0x25,0],[0x29,0],[0x2a,0],[0x2b,0],[0x2c,0],[0x47,255]])timer[at]=value;
   for(const at of [0,2,0x18,0x1a,0x1e,0x20,0x26])v.setUint16(at,0,true);lastNotes[owner]=0;markers[owner]=0;return result.writes;
  }
  function control(effect:OriginalMenuAudioEffect){
   const output:number[][]=[];
-  if(effect.type==='volume'){timers[effect.owner][0x28]=effect.value;for(let i=0;i<voices.length;i++)if(voices[i][0]===effect.owner)setOriginalPcSpeakerVolume(driver,i,effect.value);}
-  else if(effect.type==='update-voice'){const voice=voices[effect.index];if(voice?.[1]&&voice[44]){const rv=view(voice),timer=timers[(rv.getUint16(42,true)-0x801e)/72];updateOriginalPcSpeakerVoice(driver,voice[44],voice,timer,instrumentAt(rv.getUint16(16,true),rv.getUint16(18,true)));}}
-  else if(effect.type==='stop-tracks')output.push(...stopOriginalPcSpeakerTrack(driver,timers,voices,effect.first,effect.last).writes);
-  else if(effect.type==='flush')output.push(...stepOriginalPcSpeakerOutput(driver,port61).writes);
+  if(effect.type==='volume'){timers[effect.owner][0x28]=effect.value;for(let i=0;i<voices.length;i++)if(voices[i][0]===effect.owner)setOriginalPcSpeakerVolume(driver,i,effect.value,seed.physicsEngine);}
+  else if(effect.type==='update-voice'){const voice=voices[effect.index];if(voice?.[1]&&voice[44]){const rv=view(voice),timer=timers[(rv.getUint16(42,true)-0x801e)/72];updateOriginalPcSpeakerVoice(driver,voice[44],voice,timer,instrumentAt(rv.getUint16(16,true),rv.getUint16(18,true)),seed.physicsEngine);}}
+  else if(effect.type==='stop-tracks')output.push(...stopOriginalPcSpeakerTrack(driver,timers,voices,effect.first,effect.last,seed.physicsEngine).writes);
+  else if(effect.type==='flush')output.push(...stepOriginalPcSpeakerOutput(driver,port61,seed.physicsEngine).writes);
   else if(effect.type==='master-volume')throw Error('Alternate driver volume is not PC15');for(const [port,value] of output)if(port===0x61)port61=value;return output;
  }
- return {state,control,get driver(){return driver;},get port61(){return port61;},get markers(){return markers;},get timers(){return timers;},get voices(){return voices;},get lastNotes(){return lastNotes;},tick(sequenceEnabled=true){writes=[];const updated=stepOriginalPcSpeakerVoiceTimer({timers,voices,lastNotes,driver},instrumentAt,port61);({timers,voices,lastNotes,driver}=updated);writes.push(...updated.writes);if(sequenceEnabled)stepOriginalMusicTimer(state,release,sequence);else release();for(const [port,value] of writes)if(port===0x61)port61=value;return writes;}};
+ return {state,control,get driver(){return driver;},get port61(){return port61;},get markers(){return markers;},get timers(){return timers;},get voices(){return voices;},get lastNotes(){return lastNotes;},tick(sequenceEnabled=true){writes=[];const updated=stepOriginalPcSpeakerVoiceTimer({physicsEngine:seed.physicsEngine,timers,voices,lastNotes,driver},instrumentAt,port61);({timers,voices,lastNotes,driver}=updated);writes.push(...updated.writes);if(sequenceEnabled)stepOriginalMusicTimer(state,release,sequence);else release();for(const [port,value] of writes)if(port===0x61)port61=value;return writes;}};
 }

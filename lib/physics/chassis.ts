@@ -4,12 +4,13 @@
  */
 import { i16,intAtan2,vecTransform,type Vector } from './math.ts';
 import { rotateX,rotateY,rotateZXY } from './rotation.ts';
-export interface ChassisState {position:Vector;rotation:Vector;roadSpeed:number;frontWheelAngle:number;wheelAngle:number;spin:number;allContact:number;suspension:number[]}
+import {scaleSteeringWord,uses1991Physics,type PhysicsEngineVersion} from './engine-version.ts';
+export interface ChassisState {position:Vector;rotation:Vector;roadSpeed:number;frontWheelAngle:number;wheelAngle:number;spin:number;allContact:number;suspension:number[];physicsEngine?:PhysicsEngineVersion}
 export function proposeWheels(s:ChassisState,coordinates:Vector[],fps:10|20=20):Vector[] {
  const [yaw,pitch,roll]=s.rotation;
  const orientation=rotateZXY(-roll,-pitch,-yaw);
  const distance=i16(Math.trunc((s.roadSpeed&65535)*1408/(fps===20?15360:7680)));
- const front=s.allContact?Math.trunc(s.frontWheelAngle/4):0;
+ const front=s.allContact?scaleSteeringWord(s.frontWheelAngle,2,s.physicsEngine):0;
  return coordinates.map((coordinate,index)=>{
   let local:Vector=[coordinate[0],i16(-s.suspension[index]-384),coordinate[2]];
   if(s.spin&1023)local=vecTransform(local,rotateY(-s.spin));
@@ -22,9 +23,9 @@ export function proposeWheels(s:ChassisState,coordinates:Vector[],fps:10|20=20):
  });
 }
 /** Input centres include the contact resolution and suspension height. */
-export function reconstructPose(centres:Vector[]):{position:Vector;rotation:Vector} {
+export function reconstructPose(centres:Vector[],physicsEngine?:PhysicsEngineVersion):{position:Vector;rotation:Vector} {
  if(centres.length!==4)throw Error('Four wheel centres are required');
- const position=[0,1,2].map(axis=>Math.trunc(centres.reduce((sum,wheel)=>(sum+wheel[axis])|0,0)/4)) as Vector;
+ const position=[0,1,2].map(axis=>{const sum=centres.reduce((sum,wheel)=>(sum+wheel[axis])|0,0);return uses1991Physics(physicsEngine)?sum>>2:Math.trunc(sum/4);}) as Vector;
  let relative=centres.map(w=>w.map((n,axis)=>i16(n-position[axis])) as Vector);
  position[1]=Math.max(0,position[1]);
  for(const axis of [0,2])position[axis]=position[axis]>0x1df100?0x1df0ff:Math.max(0xf00,position[axis]);
@@ -49,6 +50,6 @@ export function horizontalWheelMotion(s:ChassisState,fps:10|20=20):Vector[] {
   const world=vecTransform([0,0,distance],rotateZXY(-s.rotation[2],-s.rotation[1],-s.rotation[0]));
   yaw=intAtan2(i16(-world[0]),world[2]);
  }
- const front=s.allContact?Math.trunc(s.frontWheelAngle/4):0;
+ const front=s.allContact?scaleSteeringWord(s.frontWheelAngle,2,s.physicsEngine):0;
  return [0,1,2,3].map(index=>vecTransform([0,0,distance],rotateY(-i16(yaw+s.wheelAngle-(index<2?front:0)))));
 }

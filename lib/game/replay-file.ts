@@ -6,7 +6,7 @@ import {decodeTrackFile,encodeTrackFile} from './track-file.ts';
  */
 export function decodeOriginalReplayFile(bytes:Uint8Array){
  if(bytes.length<0x722)throw Error('Original replay file is shorter than its header and track');
- const header=bytes.slice(0,24),count=new DataView(header.buffer).getUint16(22,true);
+ const header=bytes.slice(0,24),count=new DataView(header.buffer,header.byteOffset,header.byteLength).getUint16(22,true);
  if(bytes.length<0x722+count)throw Error('Original replay file is shorter than its declared input history');
  return {header,track:decodeTrackFile(bytes.slice(24,0x722)),inputs:bytes.slice(0x722,0x722+count),trailing:bytes.slice(0x722+count)};
 }

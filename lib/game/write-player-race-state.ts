@@ -8,6 +8,7 @@ export function writePlayerRaceState(before:Uint8Array,previous:PlayerDrivingSta
  const out=before.slice(),v=new DataView(out.buffer,out.byteOffset,out.byteLength),word=(at:number,n:number)=>v.setUint16(at,n,true),byte=(at:number,n:number)=>v.setUint8(at,n),vector=(at:number,values:readonly number[])=>values.forEach((n,i)=>word(at+i*2,n));
  const {car,race,particles}=current.driving,{engine:e,grip:g,suspension:s}=car,{progress:p,guidance:n}=current.navigation,base=0x8c38;
  if(carUpdated){
+ if(car.signImpact)byte(0x8eb0+car.signImpact.index,1);
  car.pose.position.forEach((value,i)=>v.setInt32(base+i*4,value,true));vector(base+24,car.pose.rotation);
  const prior=previous.driving.car;
  if(!(prior.grip.crash&&prior.engine.speed===0&&prior.engine.roadSpeed===0&&prior.suspension.rc1.every(n=>n===0)))prior.pose.position.forEach((value,i)=>v.setInt32(base+12+i*4,value,true));

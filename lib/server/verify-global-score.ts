@@ -9,25 +9,29 @@ import {createShortcutAssessment} from './shortcut-assessment.ts';
 import {createFullRouteWitness} from './full-route-witness.ts';
 import {routeEvidenceGates} from './route-evidence-gates.ts';
 import {createGrassSpeedExploit} from './grass-speed-exploit.ts';
+import {resolvePhysicsEngine,LEGACY_PHYSICS} from '../physics/engine-version.ts';
+import {versionedRouteTables} from '../game/versioned-route-tables.ts';
 
 /** Re-run the original inputs with server-owned car/track physics. A claimed
  * time alone, a crashed replay or a different car cannot enter the board. */
 export async function verifyGlobalScore(value:unknown,data:NativeDemoData){
  const submission=validateScoreSubmission(value),replay=Uint8Array.from(submission.replay);
+ const physicsEngine=resolvePhysicsEngine(submission.physicsEngine);
  validateReplayEncoding(replay,MAX_RANKED_FRAMES);
  const configuration=Array.from(replay.slice(0,24)),track=Array.from(replay.slice(24,0x722));
  const carCode=String.fromCharCode(...configuration.slice(0,4)),car=data.cars.find(c=>c.id===carCode);
  if(!car||configuration[5]>1||configuration[6]>6)throw Error('Invalid race configuration');
- const prepared=await createNativeManualRaceSession(data,{configuration,track,name:'GLOBAL',camera:0,graphics:2,soundEnabled:false},{resetMouse(){}}),d=0x2d1a0;
+ const raceData=versionedRouteTables({...data,physicsEngine,framesPerSecond:20 as const});
+ const prepared=await createNativeManualRaceSession(raceData,{configuration,track,name:'GLOBAL',camera:0,graphics:2,soundEnabled:false},{resetMouse(){}}),d=0x2d1a0;
  prepared.session.skipIntroduction();
- const preparedRoute=prepareRaceTrack(track,data.records,data.vectors,data.samples,data.objects),assessment=createShortcutAssessment(preparedRoute.graph);
- const gates=routeEvidenceGates(track,preparedRoute,data);
+ const preparedRoute=prepareRaceTrack(track,raceData.records,raceData.vectors,raceData.samples,raceData.objects),assessment=createShortcutAssessment(preparedRoute.graph);
+ const gates=routeEvidenceGates(track,preparedRoute,raceData);
  const witness=createFullRouteWitness(preparedRoute.graph,gates);
  const grassExploit=createGrassSpeedExploit(car);
  let completedInputs=0;
  for(const input of replay.slice(0x722)){
-  let result=captureOriginalRaceInput(prepared.session.state.memory,d,input);
-  if(result.action==='continue-prompt'){prepared.session.resumeRecording(0);result=captureOriginalRaceInput(prepared.session.state.memory,d,input);}
+  let result=captureOriginalRaceInput(prepared.session.state.memory,d,input,20,physicsEngine);
+  if(result.action==='continue-prompt'){prepared.session.resumeRecording(0);result=captureOriginalRaceInput(prepared.session.state.memory,d,input,20,physicsEngine);}
   if(!result.recorded)throw Error('Invalid race recording length');
   prepared.session.originalMemory.writeMemory(prepared.session.state.memory);
   const beforeCar=prepared.session.state.player.driving.car;
@@ -54,5 +58,8 @@ export async function verifyGlobalScore(value:unknown,data:NativeDemoData){
  // the label; geometric witness telemetry remains diagnostic, not a rule.
  const routeAssessment=assessment.result()==='shortcuts_detected'||grassExploit.result()?'shortcuts_detected':'full_route';
  const assessmentReason=grassExploit.result()?'grass_speed':assessment.reason()||'full_route';
- return {record,carCode,ticks:panel.playerTime,replay:canonicalReplay,routeAssessment,assessmentReason,routeEvidence:{gates:witness.progress(),fullRoute:witness.result(!!panel.playerTime),grassUncertain:grassExploit.uncertain()},trackHash:await scoreHash(Uint8Array.from(track)),id:await scoreHash(Uint8Array.from([...canonicalReplay,...record]))};
+ // Legacy hashes stay byte-for-byte identical. New-engine IDs are domain
+ // separated so identical controls cannot overwrite a legacy acceptance.
+ const identity=Uint8Array.from([...canonicalReplay,...record,...(physicsEngine===LEGACY_PHYSICS?[]:new TextEncoder().encode('\0physics:'+physicsEngine))]);
+ return {physicsEngine,record,carCode,ticks:panel.playerTime,replay:canonicalReplay,routeAssessment,assessmentReason,routeEvidence:{gates:witness.progress(),fullRoute:witness.result(!!panel.playerTime),grassUncertain:grassExploit.uncertain()},trackHash:await scoreHash(Uint8Array.from(track)),id:await scoreHash(identity)};
 }

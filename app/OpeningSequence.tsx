@@ -1,13 +1,18 @@
 'use client';
 import {WebsiteText,WebsiteElement} from '@/app/WebsiteLanguage';
+import TouchDrivingControls from './TouchDrivingControls';
+import {closeRunAudio} from '@/lib/game/close-run-audio';
 import introMaterials from '@/public/game/track-materials.json';
 import {useCrtDisplay} from './use-crt-display';
 import {isFpsToggle} from '@/lib/game/enhanced-shortcuts';
+import {isChaseToggle} from '@/lib/game/chase-shortcut';
 import {fallbackToOriginalGraphics,GRAPHICS_UNAVAILABLE_NOTICE} from '@/lib/game/browser-graphics-fallback';
 import './crt-display.css';
-import {applyNativeStartupAudio} from '@/lib/game/native-launch-profile';
+import {applyNativeStartupAudioAsync} from '@/lib/game/native-launch-profile';
 import {useEffect,useRef,useState,type KeyboardEvent as ReactKeyboardEvent} from 'react';
-import {createBrowserNativeMt32Music,type BrowserNativeMt32Device,type BrowserMt32Power} from '@/lib/game/browser-native-mt32-music';
+import {createBrowserNativeMt32Music,createBrowserMt32Power,type BrowserNativeMt32Device,type BrowserMt32Power} from '@/lib/game/browser-native-mt32-music';
+import {browserUsesTimedMt32,createBrowserTimedMt32Session,reconstructTimedMt32Resources} from '@/lib/game/browser-timed-mt32-session';
+import {startNativeMusic} from '@/lib/game/native-music-start';
 import {createNativeTandyMusic} from '@/lib/game/native-tandy-music';
 import {serviceSuppliedTandySilentRequests} from '@/lib/game/supplied-tandy-bios';
 import {executeReadyMt32Program} from '@/lib/game/ready-mt32-program';
@@ -22,6 +27,9 @@ import {confirmBrowserOpeningExit,type BrowserOpeningDisplay} from '@/lib/game/b
 import type {NativeBrowserDisplayMode} from '@/lib/game/browser-native-display-race';
 import {createNativePcSpeakerMusic} from '@/lib/game/native-pc-speaker-music';
 import type {createBrowserNativeMenus,BrowserGraphicsSwitch} from '@/lib/game/browser-native-menus';
+import {browserPreviewGraphicsSettings,selectBrowserFutureRaceEngine} from '@/lib/game/browser-future-race-engine';
+import {versionedTitleArtwork} from '@/lib/game/versioned-title-resource';
+import {replayVideoSettings} from '@/lib/game/future-race-settings';
 import type {BrowserNativeDemoData} from '@/lib/game/browser-native-demo';
 import type {Assets} from '@/lib/game/types';
 import {originalTitleCards} from '@/lib/game/title-cards';
@@ -41,6 +49,7 @@ import type {Vector} from '@/lib/physics/math';
 import {createFramePerformanceCounter,type FramePerformanceSnapshot} from '@/lib/game/frame-performance';
 import {ENHANCED_STATIC_ARTWORK,loadEnhancedStaticArtwork} from '@/lib/game/enhanced-static-artwork';
 import {createSynchronizedRemixedMusic,decodeRemixedMusic,preloadRemixedMusicFiles,type SynchronizedRemixedMusic} from '@/lib/game/remixed-music';
+import {ms91SunoMusic} from '@/lib/game/ms91-suno-music';
 
 type EnhancedChaseCameraLevel=0|1|2|3;
 const ENHANCED_CHASE_CAMERA_LABELS=['Original','Close','Standard','Far'] as const;
@@ -88,13 +97,15 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
   if(isFpsToggle(event)){
    event.preventDefault();event.stopPropagation();event.nativeEvent.stopImmediatePropagation();const visible=!performanceVisible;setPerformanceVisible(visible);setGraphicsNotice(visible?'FPS counter shown':'FPS counter hidden');return;
   }
-  if(event.repeat||event.ctrlKey||event.metaKey||event.altKey||event.shiftKey||!performanceRunning.current)return;
-  if(event.code==='KeyV'){
+  if(!performanceRunning.current)return;
+  if(isChaseToggle(event)){
    event.preventDefault();event.stopPropagation();event.nativeEvent.stopImmediatePropagation();const level=nextEnhancedChaseCameraLevel((graphics.current.chaseCamera??0) as EnhancedChaseCameraLevel);graphics.current.chaseCamera=level;setGraphicsNotice(level?`Enhanced chase camera · ${ENHANCED_CHASE_CAMERA_LABELS[level]}`:'Original Stunts camera');graphics.current.refresh?.();return;
   }
+  if(event.repeat||event.ctrlKey||event.metaKey||event.altKey||event.shiftKey)return;
   if((graphics.current.chaseCamera??0)>0&&(event.code==='KeyC'||/^F[1-4]$/.test(event.code)))graphics.current.selectOriginalCamera?.();
  };
  const audioContext=useRef<AudioContext|null>(null),[started,setStarted]=useState(autoStart);
+ const previousAudioRelease=useRef<Promise<void>>(Promise.resolve());
  const surface=useRef<HTMLElement>(null),[fullscreen,setFullscreen]=useState(false),[fullscreenError,setFullscreenError]=useState('');
  const canvas=useRef<HTMLCanvasElement>(null),[status,setStatus]=useState('Ready to play Stunts'),[error,setError]=useState('');
  const [trackExplanation,setTrackExplanation]=useState('');
@@ -114,42 +125,75 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
   audioContext.current=runAudio;void runAudio.resume();setError('');
   let music:SynchronizedRemixedMusic|undefined;
   let roland:Awaited<ReturnType<typeof createBrowserNativeMt32Music>>|undefined,unsubscribeRoland:(()=>void)|undefined;
+  let timedRoland:Awaited<ReturnType<typeof createBrowserTimedMt32Session>>|undefined;
+  const remixFiles=ms91SunoMusic(selectBrowserFutureRaceEngine());
+  const timedPlayback=browserUsesTimedMt32(window.location,soundDevice,selectBrowserFutureRaceEngine());
+  const timedPower=timedPlayback?(rolandPower??createBrowserMt32Power()):undefined;
+  const clockEpoch=performance.now(),wallTicks=()=>Math.floor((performance.now()-clockEpoch)*PC_PIT_INPUT_HZ/(ORIGINAL_PIT_DIVISOR*1000));
+  const checkTimedMusic=()=>{if(timedRoland?.music.failure)throw timedRoland.music.failure;};
+  const menuClock=timedPlayback?{counter:()=>{checkTimedMusic();return timedRoland?.clock.inputClock.counter()??wallTicks();},gameCounter:()=>{checkTimedMusic();return timedRoland?.clock.inputClock.gameCounter()??Math.floor(wallTicks()/5);}}:undefined;
   let menus:Awaited<ReturnType<typeof createBrowserNativeMenus>>|undefined;
   const demoAbort=new AbortController();
   let demoData:BrowserNativeDemoData|undefined,demoCamera=0,demoRandomState:number[]|undefined;
   let openingDisplay:BrowserOpeningDisplay|undefined,retainedSession:RetainedMenuSession|undefined;
   let disposed=false,animation=0,wake:(()=>void)|undefined;
+  const awaitPreviousAudio=previousAudioRelease.current;
   const element=canvas.current!;
-  const openingInput=createBrowserMenuInput(element);
+  const openingInput=createBrowserMenuInput(element,{clock:menuClock});
   let menuClockAt=openingInput.counter();
   const takeRetainedSession=()=>{
    const now=openingInput.counter();
    if(retainedSession){
-    const clock=advanceRetainedMenuClock(retainedSession.clock,now-menuClockAt);
+    const clock=timedRoland?timedRoland.clock.snapshot():advanceRetainedMenuClock(retainedSession.clock,now-menuClockAt);
     retainedSession={...retainedSession,clock,lastInputCounter:menus?(clock.callbackCounter-menus.elapsedSinceInputPoll())>>>0:retainedSession.lastInputCounter};
    }
    menuClockAt=now;return retainedSession;
   };
   const frame=()=>new Promise<void>(resolve=>{wake=resolve;animation=requestAnimationFrame(()=>{wake=undefined;resolve();});});
   async function run(){
-   const [{createBrowserNativeMenus},{loadBrowserNativeDemoData,runBrowserNativeDemo},{runBrowserNativeOpening},{runBrowserNativeManualRace},{createUpgradedIntro},{rasterOriginalDrawCall},{initializeOriginalCarSimulation},{createOriginalIntroDriving},{createOriginalIntroRenderer},{createOriginalCanvasRaster}]=await loadOpeningRuntime();
+   await awaitPreviousAudio;if(disposed)return;
+   const [{createBrowserNativeMenus:makeMenus},{loadBrowserNativeDemoData,runBrowserNativeDemo:runDemo},{runBrowserNativeOpening},{runBrowserNativeManualRace:runManual},{createUpgradedIntro},{rasterOriginalDrawCall},{initializeOriginalCarSimulation},{createOriginalIntroDriving},{createOriginalIntroRenderer},{createOriginalCanvasRaster}]=await loadOpeningRuntime();
+   const createBrowserNativeMenus=(options:Parameters<typeof makeMenus>[0])=>makeMenus({...options,clock:menuClock,tickWakeup:timedRoland?'timer':undefined});
+   const timedRaceData=<T extends Parameters<typeof runManual>[0]['data'],>(data:T):T=>timedRoland?{...data,soundDevice:{kind:'mt32',driverGeneration:selectBrowserFutureRaceEngine(),execute:reconstructTimedMt32Resources}}:data;
+   const timedRace=()=>timedRoland?.race();
+   const runBrowserNativeDemo=async(options:Parameters<typeof runDemo>[0])=>{
+    const restored=await runDemo({...options,data:timedRaceData(options.data),timedMt32:timedRace()});
+    if(timedRoland&&restored.retainedSession)await timedRoland.restoreMenuClock(restored.retainedSession.clock);
+    return restored;
+   };
+   const runBrowserNativeManualRace=async(options:Parameters<typeof runManual>[0])=>{
+    const restored=await runManual({...options,data:timedRaceData(options.data),timedMt32:timedRace()});
+    if(timedRoland&&restored.retainedSession)await timedRoland.restoreMenuClock(restored.retainedSession.clock);
+    return restored;
+   };
    if(disposed)return;
    setStatus('Loading original opening assets…');
-   const remixedTitlePromise=decodeRemixedMusic(runAudio,['titl']).catch(()=>({}));
+   const remixedTitlePromise=decodeRemixedMusic(runAudio,['titl'],remixFiles?.paths).catch(()=>({}));
    const json=async<T,>(name:string):Promise<T>=>{const r=await fetch('/game/'+name+'.json');if(!r.ok)throw Error('Original opening asset failed to load: '+name);return r.json() as Promise<T>;};
    const binary=async(name:string)=>{const r=await fetch('/game/'+name);if(!r.ok)throw Error('Original opening asset failed to load: '+name);return new Uint8Array(await r.arrayBuffer());};
    const enhancedTitlesPromise=Promise.all([loadEnhancedStaticArtwork(ENHANCED_STATIC_ARTWORK.prod),loadEnhancedStaticArtwork(ENHANCED_STATIC_ARTWORK.titl)]);
-   const [titles,credits,layout,shapes,materials,font,_menu,startup,baseline,objects,planes,walls,records,points,indices]=await Promise.all([json<{resources:Record<string,{bytes:number[]}>}>('title-art'),json<{resources:Record<string,number[]>}>('credits-art'),json<{text:{text:string;x:number;y:number;color:number;shadow:number}[]}>('credits-layout'),json<{resources:Record<string,{bytes:number[]}>}>('intro-shapes'),json<{palette:number[]}>('track-materials'),binary('fontdef.fnt'),binary('main-menu-art.bin'),binary('native-race-startup.bin'),binary('native-render-resources.bin'),json<IntroDrivingData['objects']>('track-objects'),json<IntroDrivingData['planes']>('collision-planes'),json<{walls:IntroDrivingData['walls']}>('collision-walls'),json<IntroDrivingData['records']>('route-records'),json<IntroDrivingData['points']>('route-point-vectors'),json<IntroDrivingData['indices']>('route-speed-indices')]);
+const [originalTitles,credits,layout,shapes,materials,font,_menu,startup,baseline,objects,planes,walls,records,points,indices]=await Promise.all([json<{resources:Record<string,{bytes:number[]}>}>('title-art'),json<{resources:Record<string,number[]>}>('credits-art'),json<{text:{text:string;x:number;y:number;color:number;shadow:number}[]}>('credits-layout'),json<{resources:Record<string,{bytes:number[]}>}>('intro-shapes'),json<{palette:number[]}>('track-materials'),binary('fontdef.fnt'),binary('main-menu-art.bin'),binary('native-race-startup.bin'),binary('native-render-resources.bin'),json<IntroDrivingData['objects']>('track-objects'),json<IntroDrivingData['planes']>('collision-planes'),json<{walls:IntroDrivingData['walls']}>('collision-walls'),json<IntroDrivingData['records']>('route-records'),json<IntroDrivingData['points']>('route-point-vectors'),json<IntroDrivingData['indices']>('route-speed-indices')]);
+   const titles=versionedTitleArtwork(originalTitles,selectBrowserFutureRaceEngine());
    const [enhancedProd,enhancedTitl]=await enhancedTitlesPromise;
    retainedSession=readRetainedMenuSession(startup,0x2d1a0);menuClockAt=openingInput.counter();
    if(disposed)return;
-   const originalMusic=soundDevice==='mt32'?(roland=await createBrowserNativeMt32Music(runAudio,demoAbort.signal,rolandPower)).music:await (soundDevice==='tandy'?createNativeTandyMusic(runAudio):soundDevice==='pc-speaker'?createNativePcSpeakerMusic(runAudio):createNativeMusic(runAudio));
-   music=createSynchronizedRemixedMusic(runAudio,originalMusic,{},audioUpdateState.enabled);audioUpdateState.controller=music;
+   if(timedPower){
+    const generation=selectBrowserFutureRaceEngine();
+    if(generation!=='ms-1990'&&generation!=='ms-1991')throw Error('Timed Roland preview requires a Mindscape edition');
+    const patch=await binary('original-resources/MT32.PLB');
+    timedRoland=await createBrowserTimedMt32Session({context:runAudio,signal:demoAbort.signal,power:timedPower,generation,clock:retainedSession.clock,wallTicks,patch,profile:{cpuHz:4772728,pollCycles:20,resetClocks:Math.ceil(.014*PC_PIT_INPUT_HZ),initialPort61:0,interrupts(){},cancelled:()=>disposed,yieldTask:()=>new Promise(resolve=>setTimeout(resolve,0))}});
+    menuClockAt=openingInput.counter();
+   }
+   const originalMusic=timedRoland?.music??(soundDevice==='mt32'?(roland=await createBrowserNativeMt32Music(runAudio,demoAbort.signal,rolandPower)).music:await (soundDevice==='tandy'?createNativeTandyMusic(runAudio,selectBrowserFutureRaceEngine()):soundDevice==='pc-speaker'?createNativePcSpeakerMusic(runAudio,selectBrowserFutureRaceEngine()):createNativeMusic(runAudio,selectBrowserFutureRaceEngine())));
+   music=createSynchronizedRemixedMusic(runAudio,originalMusic,{},audioUpdateState.enabled,remixFiles?.timing,{scheduledFade:!!timedRoland&&selectBrowserFutureRaceEngine()==='ms-1991',continuousOriginalFade:!!timedRoland&&selectBrowserFutureRaceEngine()==='ms-1991'});audioUpdateState.controller=music;
    void remixedTitlePromise.then(buffers=>{if(!disposed)music?.addBuffers(buffers);});
-   void remixedTitlePromise.then(()=>decodeRemixedMusic(runAudio,['slct','vict','over'])).then(buffers=>{if(!disposed)music?.addBuffers(buffers);}).catch(()=>{});
+   // A larger lossless result song must not hold the menu/victory buffers back.
+   for(const score of ['slct','vict','over'] as const)void remixedTitlePromise.then(()=>decodeRemixedMusic(runAudio,[score],remixFiles?.paths)).then(buffers=>{if(!disposed)music?.addBuffers(buffers);}).catch(()=>{});
    if(disposed){audioUpdateState.controller=undefined;music.close();roland?.output.close();return;}
-   if(roland&&onRolandDevice)unsubscribeRoland=roland.power.subscribe(onRolandDevice);onRolandPower?.(roland?.power);
-   applyNativeStartupAudio(initiallyMuted,music.control);
+   const activePower=timedRoland?.power??roland?.power;
+   if(activePower&&onRolandDevice)unsubscribeRoland=activePower.subscribe(onRolandDevice);onRolandPower?.(activePower);
+   await applyNativeStartupAudioAsync(initiallyMuted,music.controlAsync);
+   if(disposed)return;
    const context=element.getContext('2d')!;context.imageSmoothingEnabled=false;
    const originalSurface=document.createElement('canvas');originalSurface.width=320;originalSurface.height=200;const originalContext=originalSurface.getContext('2d')!,originalImage=originalContext.createImageData(320,200);
    const enhancedTitleSurface=document.createElement('canvas');enhancedTitleSurface.width=element.width;enhancedTitleSurface.height=element.height;const enhancedTitleContext=enhancedTitleSurface.getContext('2d')!;
@@ -172,8 +216,9 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
    async function timed(flow:Generator<{type:'timer'}|{type:'input';delta:number},number,number>){let step=flow.next();while(!step.done&&!disposed){step=flow.next(step.value.type==='timer'?await timer():takeKey(step.value.delta));}return step.done?step.value:0;}
    const present=(mode:number)=>timed(originalSpritePresentation({selectVideo(){},hideMouse(){},showMouse(){},drawWhole(){video.set(windowPixels);titleReveal.fill(1,0,64000);display();},drawPass(pass){video=drawOriginalTitleRevealPass(video,rows,{width:320,height:200,x:0,y:0,pixels:windowPixels.subarray(0,64000)},pass);titleReveal=drawOriginalTitleRevealPass(titleReveal,rows,{width:320,height:200,x:0,y:0,pixels:opaqueTitlePixels},pass);display();}},mode));
    async function playOpening(){
-    if(displayMode){music!.play('titl');openingInput.setActive(false);demoData??=await loadBrowserNativeDemoData(loadedAssets);const random=demoRandomState??Array.from(demoData.base.subarray(0x2d1a0+0x9f5c,0x2d1a0+0x9f62));const opening=await runBrowserNativeOpening(element,displayMode,demoAbort.signal,demoData,loadedAssets,random,stage=>{if(!disposed)setStatus('Original '+stage);},hercules);demoRandomState=opening.randomState;openingDisplay=opening.display;return opening.key;}
-    music!.play('titl');openingInput.setActive(true);
+    openingInput.setActive(false);await startNativeMusic(music!,'titl',()=>disposed);
+    if(displayMode){demoData??=await loadBrowserNativeDemoData(loadedAssets);const random=demoRandomState??Array.from(demoData.base.subarray(0x2d1a0+0x9f5c,0x2d1a0+0x9f62));const opening=await runBrowserNativeOpening(element,displayMode,demoAbort.signal,demoData,loadedAssets,random,stage=>{if(!disposed)setStatus('Original '+stage);},hercules);demoRandomState=opening.randomState;openingDisplay=opening.display;return opening.key;}
+    openingInput.setActive(true);
    let selected='prod';focusBrowserGameCanvas(element);setStatus('Original title sequence');
    const titleFlow=originalTitleCards({hideMouse(){},clearVideo(){video.fill(0);titleReveal.fill(0);selectedTitle=undefined;display();},showMouse(){},clearWindow(){windowPixels.fill(0);},locate(name){selected=name;selectedTitle=name;titleReveal.fill(0);const b=titles.resources[name].bytes;return b[10]+256*b[11];},draw(){windowPixels.set(titles.resources[selected].bytes.slice(16));}});
    let step=titleFlow.next();while(!step.done&&!disposed){const value=step.value.type==='present'?await present(step.value.argument):await timed(originalInputWait(step.value.argument));step=titleFlow.next(value);}
@@ -184,7 +229,7 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
     const data={tuning,simulation,raw:loadedAssets.tracks.find(t=>t.name==='DEFAULT')!.raw,objects,planes,walls:walls.walls,records,points,indices} as IntroDrivingData,d=0x2d1a0;
     initializeOriginalCarSimulation(startup,d,simulation,true);
     initializeOriginalIntroScene(startup,d,(entry,point)=>{const target=trackOpponentRoutePoint(data.raw,originalIntroRoute,entry,point,records,points,objects,indices,startup.subarray(d+0x9362,d+0x9362+511));return {...target,midpoint:target.midpoint as Vector,first:target.first as Vector,second:target.second as Vector};});
-    const driving=createOriginalIntroDriving(startup.subarray(d,d+65536),data),renderer=createOriginalIntroRenderer(baseline,shapes.resources,demoRandomState),raster=createOriginalCanvasRaster(renderer.memory,palette,(width,height)=>{const c=document.createElement('canvas');c.width=width;c.height=height;return c;});
+    const driving=createOriginalIntroDriving(startup.subarray(d,d+65536),data),renderer=createOriginalIntroRenderer(baseline,shapes.resources,demoRandomState,data.physicsEngine),raster=createOriginalCanvasRaster(renderer.memory,palette,(width,height)=>{const c=document.createElement('canvas');c.width=width;c.height=height;return c;});
     const rasterMemory=renderer.memory.slice(),rv=new DataView(rasterMemory.buffer),cs=0x209e0;
     for(const [o,n] of [[0x5d96,0x9000],[0x5d9e,0x6376],[0x5da8,320],[0x5dae,0],[0x5da0,0],[0x5db0,320],[0x5da2,320],[0x5da4,0],[0x5da6,200]])rv.setUint16(cs+o,n,true);
     for(let y=0;y<200;y++)rv.setUint16(cs+0x6376+y*2,y*320,true);
@@ -221,34 +266,39 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
    let openingKey=await playOpening();
    if(disposed)return;
    openingInput.setActive(false);
-   menus=await createBrowserNativeMenus({settings:{mouse:false,joystick:false,graphics:0},graphics:graphics.current,canvas:element,assets:loadedAssets,music,displayMode,hercules,signal:demoAbort.signal,track:{name:'DEFAULT',path:directory,raw:initialTrack??[...loadedAssets.tracks.find(t=>t.name==='DEFAULT')!.raw]},onScreen:screen=>{if(!disposed)setStatus(screen==='main'?'Original main menu':screen==='editor'?'Original track editor':screen==='race'?'Stunts':screen==='results'?'Race results':screen==='replay'?'Replay':'Original '+screen+' menu');}});
+   menus=await createBrowserNativeMenus({pollAudioWhileFrameWaiting:!!timedRoland&&selectBrowserFutureRaceEngine()==='ms-1991',frameTimingNow:()=>runAudio.currentTime*1000,experimentalMs91GraphicsSettings:browserPreviewGraphicsSettings(),settings:{mouse:false,joystick:false,graphics:0},graphics:graphics.current,canvas:element,assets:loadedAssets,music,displayMode,hercules,signal:demoAbort.signal,track:{name:'DEFAULT',path:directory,raw:initialTrack??[...loadedAssets.tracks.find(t=>t.name==='DEFAULT')!.raw]},onScreen:screen=>{if(!disposed)setStatus(screen==='main'?'Original main menu':screen==='editor'?'Original track editor':screen==='race'?'Stunts':screen==='results'?'Race results':screen==='replay'?'Replay':'Original '+screen+' menu');}});
    if(disposed){menus.close();return;}
    element.dataset.openingComplete='true';
    for(;;){
     if(disposed)return;openingInput.setActive(false);
     if(originalOpeningExitDecision(openingKey??0)==='confirm'){
      menus.setInputActive(false);setStatus('Exit Stunts?');
-     if(originalOpeningExitDecision(27,await confirmBrowserOpeningExit(element,demoAbort.signal,openingDisplay))==='exit'){onBackRef.current();return;}
+     if(originalOpeningExitDecision(27,await confirmBrowserOpeningExit(element,demoAbort.signal,openingDisplay,selectBrowserFutureRaceEngine()))==='exit'){onBackRef.current();return;}
      openingInput.setActive(true);openingKey=await playOpening();continue;
     }
-    menus.setInputActive(true);music.play('slct');
+    menus.setInputActive(false);await startNativeMusic(music,'slct',()=>disposed);menus.setInputActive(true);
     const transition=await menus.run();menus.setInputActive(false);if(disposed)return;
     if(transition.type==='intro'){openingInput.setActive(true);openingKey=await playOpening();continue;}
     if(transition.type==='exit'){onBackRef.current();return;}
     if(transition.type==='demo'){
      setStatus('Loading original demonstration');
-     await menus.fadeMusic();if(disposed)return;
-     demoData??=await loadBrowserNativeDemoData(loadedAssets);if(soundDevice==='pc-speaker')demoData.soundDevice={kind:'pc-speaker',port61:()=>0};else if(soundDevice==='tandy')demoData.soundDevice={kind:'tandy',port61:()=>0,interruptCx:()=>0,bios:serviceSuppliedTandySilentRequests};else if(soundDevice==='mt32')demoData.soundDevice={kind:'mt32',execute:executeReadyMt32Program,async executeInitialization(program){const writes:number[][]=[];const result=await executeCooperativeReadyMt32Program(program,{write(batch){writes.push(...batch);},cancelled:()=>disposed});return {result,writes};}};if(disposed)return;
-     const restored=await runBrowserNativeDemo({assets:loadedAssets,graphicsSwitch:graphics.current,canvas:element,context:runAudio,mt32Output:roland?.output,displayMode,hercules,data:demoData,menu:{configuration:menus.configuration,track:menus.track.raw,name:menus.track.name,path:menus.track.path,camera:demoCamera,randomState:demoRandomState,retainedSession:takeRetainedSession(),graphics:menus.settings.graphics,soundEnabled:music.settings.soundEnabled},joystickEnabled:menus.settings.joystick,signal:demoAbort.signal,onFrame(){if(!disposed)setStatus('Original demonstration — press a key to return');}});
+     await menus.fadeMusic();
+     if(disposed)return;
+     demoData??=await loadBrowserNativeDemoData(loadedAssets);if(soundDevice==='pc-speaker')demoData.soundDevice={kind:'pc-speaker',port61:()=>0};else if(soundDevice==='tandy')demoData.soundDevice={kind:'tandy',driverGeneration:selectBrowserFutureRaceEngine(),port61:()=>0,interruptCx:()=>0,bios:serviceSuppliedTandySilentRequests};else if(soundDevice==='mt32')demoData.soundDevice={kind:'mt32',execute:executeReadyMt32Program,async executeInitialization(program){const writes:number[][]=[];const result=await executeCooperativeReadyMt32Program(program,{write(batch){writes.push(...batch);},cancelled:()=>disposed});return {result,writes};}};if(disposed)return;
+     if(soundDevice===undefined)demoData.soundDevice={kind:'adlib',driverGeneration:selectBrowserFutureRaceEngine()};
+     const restored=await runBrowserNativeDemo({assets:loadedAssets,graphicsSwitch:graphics.current,canvas:element,context:runAudio,mt32Output:roland?.output,displayMode,hercules,data:replayVideoSettings(demoData,menus.ms91GraphicsSettings),menu:{configuration:menus.configuration,track:menus.track.raw,name:menus.track.name,path:menus.track.path,camera:demoCamera,randomState:demoRandomState,retainedSession:takeRetainedSession(),graphics:menus.settings.graphics,soundEnabled:music.settings.soundEnabled},joystickEnabled:menus.settings.joystick,signal:demoAbort.signal,onFrame(){if(!disposed)setStatus('Original demonstration — press a key to return');}});
      demoCamera=restored.camera;demoRandomState=restored.randomState;retainedSession=restored.retainedSession;menuClockAt=openingInput.counter();
      menus.configuration.splice(0,24,...restored.configuration);menus.track.raw=restored.track;continue;
     }
     if(transition.type==='drive'||transition.type==='replay'){
      const recording=transition.type==='replay'?menus.selectedReplay:undefined;if(transition.type==='replay'&&!recording)throw Error('Original replay selection is missing');
-     setTrackExplanation('');setStatus(recording?'Preparing replay':'Preparing race');await menus.fadeMusic();if(disposed)return;
-     demoData??=await loadBrowserNativeDemoData(loadedAssets);if(soundDevice==='pc-speaker')demoData.soundDevice={kind:'pc-speaker',port61:()=>0};else if(soundDevice==='tandy')demoData.soundDevice={kind:'tandy',port61:()=>0,interruptCx:()=>0,bios:serviceSuppliedTandySilentRequests};else if(soundDevice==='mt32')demoData.soundDevice={kind:'mt32',execute:executeReadyMt32Program,async executeInitialization(program){const writes:number[][]=[];const result=await executeCooperativeReadyMt32Program(program,{write(batch){writes.push(...batch);},cancelled:()=>disposed});return {result,writes};}};if(disposed)return;
+     setTrackExplanation('');setStatus(recording?'Preparing replay':'Preparing race');
+     await menus.fadeMusic();
+     if(disposed)return;
+     demoData??=await loadBrowserNativeDemoData(loadedAssets);if(soundDevice==='pc-speaker')demoData.soundDevice={kind:'pc-speaker',port61:()=>0};else if(soundDevice==='tandy')demoData.soundDevice={kind:'tandy',driverGeneration:selectBrowserFutureRaceEngine(),port61:()=>0,interruptCx:()=>0,bios:serviceSuppliedTandySilentRequests};else if(soundDevice==='mt32')demoData.soundDevice={kind:'mt32',execute:executeReadyMt32Program,async executeInitialization(program){const writes:number[][]=[];const result=await executeCooperativeReadyMt32Program(program,{write(batch){writes.push(...batch);},cancelled:()=>disposed});return {result,writes};}};if(disposed)return;
+     if(soundDevice===undefined)demoData.soundDevice={kind:'adlib',driverGeneration:selectBrowserFutureRaceEngine()};
      let restored:Awaited<ReturnType<typeof runBrowserNativeManualRace>>;
-     try{restored=await runBrowserNativeManualRace({context:runAudio,mt32Output:roland?.output,displayMode,hercules,data:demoData,menus,replay:recording,menu:{configuration:transition.configuration,track:menus.track.raw,name:menus.track.name,path:menus.track.path,camera:demoCamera,randomState:demoRandomState,retainedSession:takeRetainedSession(),graphics:menus.settings.graphics,mouse:menus.settings.mouse,joystick:menus.settings.joystick,soundEnabled:music.settings.soundEnabled},signal:demoAbort.signal,stopMusic:music.stop,onStage(stage){if(disposed)return;performanceRunning.current=stage==='race';if(performanceRunning.current)graphics.current.setPerformancePaused?.(false);else{graphics.current.chaseCamera=0;graphics.current.resetPerformance?.();}setStatus(({loading:'Preparing race',race:'Stunts',results:'Race results',seeking:'Preparing replay'})[stage]);},onFrame(frame,mode,clock,blocked){element.dataset.raceFrame=String(frame);element.dataset.raceMode=String(mode);element.dataset.raceClock=String(clock);element.dataset.raceClockBlocked=String(blocked);element.dataset.raceAudioState=runAudio.state; element.dataset.raceAudioTime=String(runAudio.currentTime);}});}
+     try{restored=await runBrowserNativeManualRace({context:runAudio,mt32Output:roland?.output,displayMode,hercules,data:demoData,menus,replay:recording,menu:{configuration:transition.configuration,track:menus.track.raw,name:menus.track.name,path:menus.track.path,camera:demoCamera,randomState:demoRandomState,retainedSession:takeRetainedSession(),graphics:menus.settings.graphics,mouse:menus.settings.mouse,joystick:menus.settings.joystick,soundEnabled:music.settings.soundEnabled},signal:demoAbort.signal,stopMusic:music.stopAsync,onStage(stage){if(disposed)return;performanceRunning.current=stage==='race';if(performanceRunning.current)graphics.current.setPerformancePaused?.(false);else{graphics.current.chaseCamera=0;graphics.current.resetPerformance?.();}setStatus(({loading:'Preparing race',race:'Stunts',results:'Race results',seeking:'Preparing replay'})[stage]);}});}
      catch(reason){
       const code=originalTrackValidationCode(reason);if(code===null)throw reason;
       performanceRunning.current=false;graphics.current.resetPerformance?.();setTrackExplanation(trackValidationExplanation(code));
@@ -260,9 +310,61 @@ export default function OpeningSequence({assets,onBack,backLabel="← Back",soun
     }
    }
   }
-  void run().catch(e=>{openingInput.close();if(!disposed)onRunningChange?.(false);unsubscribeRoland?.();onRolandDevice?.(undefined);onRolandPower?.(undefined);menus?.close();if(audioUpdateState.controller===music)audioUpdateState.controller=undefined;music?.close();roland?.output.close();void runAudio.close().catch(()=>{});if(!disposed)setError(e instanceof Error?e.message:String(e));});
-  return()=>{graphicsState.refresh=undefined;disposed=true;onRunningChange?.(false);demoAbort.abort();unsubscribeRoland?.();onRolandDevice?.(undefined);onRolandPower?.(undefined);menus?.close();if(audioUpdateState.controller===music)audioUpdateState.controller=undefined;music?.close();roland?.output.close();void runAudio.close().catch(()=>{});cancelAnimationFrame(animation);wake?.();openingInput.close();};
+  let audioRelease:Promise<void>|undefined;
+  const releaseAudio=()=>audioRelease??=closeRunAudio([()=>music?.stopAsync(),()=>music?.close(),()=>timedRoland?.closeAsync(),()=>roland?.output.close(),()=>{if(timedPower&&!rolandPower)timedPower.close();},()=>runAudio.close()]);
+  const running=run().catch(async e=>{demoAbort.abort();openingInput.close();if(!disposed)onRunningChange?.(false);unsubscribeRoland?.();onRolandDevice?.(undefined);onRolandPower?.(undefined);menus?.close();if(audioUpdateState.controller===music)audioUpdateState.controller=undefined;try{await releaseAudio();}catch{}if(!disposed)setError(e instanceof Error?e.message:String(e));});
+  return()=>{graphicsState.refresh=undefined;disposed=true;if(audioContext.current===runAudio)audioContext.current=null;onRunningChange?.(false);demoAbort.abort();unsubscribeRoland?.();onRolandDevice?.(undefined);onRolandPower?.(undefined);menus?.close();if(audioUpdateState.controller===music)audioUpdateState.controller=undefined;cancelAnimationFrame(animation);wake?.();openingInput.close();previousAudioRelease.current=running.finally(releaseAudio);void previousAudioRelease.current.catch(()=>{});};
  },[assets,started,ready,soundDevice,displayMode,initiallyMuted,hercules,directory,initialTrack,onRolandDevice,onRolandPower,rolandPower,onRunningChange]);
- const startGame=()=>{if(!ready)return;void preloadRemixedMusicFiles(['titl']).catch(()=>{});void rolandPower?.powerOn().catch(()=>{});audioContext.current=new AudioContext();void audioContext.current.resume();setTrackExplanation('');setStarted(true);};
- return <section ref={surface} className={embedded?"launcher-game-session":undefined}><div className="game-toolbar game-mode-toolbar"><button onClick={onBack}>{<WebsiteText text={backLabel}/>}</button><WebsiteElement as="button" aria-pressed={upgraded} aria-label={upgraded?"Use original graphics":"Enable graphics update"} title="Switch between updated and original graphics" onClick={toggleGraphics}>{upgraded?<WebsiteText text={"Updated graphics"}/>:<WebsiteText text={"Original graphics"}/>}</WebsiteElement><WebsiteElement as="button" aria-pressed={audioUpgraded} aria-label={audioUpgraded?"Use original music":"Enable audio update"} title="Switch between remixed and original music" onClick={toggleAudioUpdate}>{audioUpgraded?<WebsiteText text={"Updated music"}/>:<WebsiteText text={"Original music"}/>}</WebsiteElement><span className="sr-only" role="status">{<WebsiteText text={status}/>}</span>{embedded&&<button onClick={()=>void toggleFullscreen()}>{fullscreen?<WebsiteText text={"Exit full screen"}/>:<WebsiteText text={"Full screen"}/>}</button>}{!started&&!embedded&&<button onClick={startGame}><WebsiteText text={"PLAY STUNTS"}/></button>}<WebsiteElement as="button" type="button" className="crt-toggle" aria-pressed={crt.enabled} title="Subtle scanlines and shaded screen edges, in either graphics mode" onClick={()=>{crt.toggle();if(started)focusBrowserGameCanvas(canvas.current!);}}><span className="crt-toggle-track" aria-hidden="true"/><WebsiteText text={" CRT display "}/><span className="crt-toggle-status" aria-hidden="true">{crt.enabled?<WebsiteText text={"ON"}/>:<WebsiteText text={"OFF"}/>}</span></WebsiteElement></div><output className={graphicsNotice===GRAPHICS_UNAVAILABLE_NOTICE?"original-track-explanation":"sr-only"} role="status">{graphicsNotice?<WebsiteText text={graphicsNotice}/>:<WebsiteText text={"Original graphics"}/>}</output><output className="sr-only">{<WebsiteText text={audioNotice}/>}</output><div className={(embedded?"launcher-screen ":"")+"crt-screen"+(crt.enabled?" crt-screen-on":"")}><WebsiteElement as="canvas" ref={canvas} width={1280} height={800} tabIndex={0} aria-label="Native Stunts opening, menus, races and track editor" onKeyDownCapture={enhancedShortcut} style={{width:embedded?'100%':'min(100%, calc((100dvh - 220px) * 4 / 3))',height:'auto',aspectRatio:'4 / 3',margin:'0 auto',display:'block',background:'#000',imageRendering:'auto'}}/>{upgraded&&performanceVisible&&performanceActive&&performanceStats&&<WebsiteElement as="output" className="enhanced-performance" aria-label={`Current ${Math.round(performanceStats.currentFps)} FPS, average ${Math.round(performanceStats.averageFps)} FPS, 1% low ${Math.round(performanceStats.low1Fps)} FPS`}><span><small><WebsiteText text={"FPS"}/></small><strong>{Math.round(performanceStats.currentFps)}</strong></span><span><small><WebsiteText text={"AVG"}/></small><strong>{Math.round(performanceStats.averageFps)}</strong></span><span><small><WebsiteText text={"1% LOW"}/></small><strong>{Math.round(performanceStats.low1Fps)}</strong></span></WebsiteElement>}{embedded&&!started&&<div className="launcher-screen-idle stunts-game-idle"><WebsiteElement as="img" className="stunts-idle-art" src={ENHANCED_STATIC_ARTWORK.mainMenu} srcSet={`${ENHANCED_STATIC_ARTWORK.mainMenuMobile} 640w, ${ENHANCED_STATIC_ARTWORK.mainMenu} 1280w`} sizes="(max-width: 700px) calc(100vw - 54px), 960px" width={1280} height={960} alt="" onError={event=>{if(!event.currentTarget.src.endsWith('/game/menu.png'))event.currentTarget.src='/game/menu.png';}}/><div className="stunts-idle-shade"/><span className="stunts-launch-frame"><button className="launcher-play" disabled={!ready} onPointerDown={()=>{void loadOpeningRuntime().catch(()=>{});void preloadRemixedMusicFiles(['titl']).catch(()=>{});void rolandPower?.powerOn().catch(()=>{});}} onClick={startGame}><span className="stunts-launch-label">{ready?<WebsiteText text={'PLAY STUNTS'}/>:<WebsiteText text={'LOADING STUNTS…'}/>}</span></button></span></div>}</div>{fullscreenError&&<p role="status">{<WebsiteText text={fullscreenError}/>}</p>}{trackExplanation&&<output className="original-track-explanation"><strong><WebsiteText text={"Why Stunts showed this:"}/></strong> {<WebsiteText text={trackExplanation}/>}</output>}{error&&<p role="alert">{<WebsiteText text={error}/>}</p>}</section>;
+ const startGame=()=>{if(!ready)return;void preloadRemixedMusicFiles(['titl'],ms91SunoMusic(selectBrowserFutureRaceEngine())?.paths).catch(()=>{});void rolandPower?.powerOn().catch(()=>{});audioContext.current=new AudioContext();void audioContext.current.resume();setTrackExplanation('');setStarted(true);};
+ const startVersion=(engine:'ms-1990'|'ms-1991')=>{if(!ready)return;const url=new URL(window.location.href);url.searchParams.set('play-engine',engine);window.history.replaceState(window.history.state,'',url);startGame();};
+ return <section ref={surface} className={embedded?"launcher-game-session":undefined}>
+<div className="game-toolbar game-mode-toolbar">
+<button onClick={onBack}>{<WebsiteText text={backLabel}/>}</button>
+<WebsiteElement as="button" aria-pressed={upgraded} aria-label={upgraded?"Use original graphics":"Enable graphics update"} title="Switch between updated and original graphics" onClick={toggleGraphics}>{upgraded?<WebsiteText text={"Updated graphics"}/>:<WebsiteText text={"Original graphics"}/>}</WebsiteElement>
+<WebsiteElement as="button" aria-pressed={audioUpgraded} aria-label={audioUpgraded?"Use original music":"Enable audio update"} title="Switch between remixed and original music" onClick={toggleAudioUpdate}>{audioUpgraded?<WebsiteText text={"Updated music"}/>:<WebsiteText text={"Original music"}/>}</WebsiteElement>
+<span className="sr-only" role="status">{<WebsiteText text={status}/>}</span>{embedded&&<button onClick={()=>void toggleFullscreen()}>{fullscreen?<WebsiteText text={"Exit full screen"}/>:<WebsiteText text={"Full screen"}/>}</button>}{!started&&!embedded&&<button onClick={startGame}>
+<WebsiteText text={"PLAY STUNTS"}/>
+</button>}<WebsiteElement as="button" type="button" className="crt-toggle" aria-pressed={crt.enabled} title="Subtle scanlines and shaded screen edges, in either graphics mode" onClick={()=>{crt.toggle();if(started)focusBrowserGameCanvas(canvas.current!);}}>
+<span className="crt-toggle-track" aria-hidden="true"/>
+<WebsiteText text={" CRT display "}/>
+<span className="crt-toggle-status" aria-hidden="true">{crt.enabled?<WebsiteText text={"ON"}/>:<WebsiteText text={"OFF"}/>}</span>
+</WebsiteElement>
+</div>
+<output className={graphicsNotice===GRAPHICS_UNAVAILABLE_NOTICE?"original-track-explanation":"sr-only"} role="status">{graphicsNotice?<WebsiteText text={graphicsNotice}/>:<WebsiteText text={"Original graphics"}/>}</output>
+<output className="sr-only">{<WebsiteText text={audioNotice}/>}</output>
+<div className={(embedded?"launcher-screen ":"")+"crt-screen"+(crt.enabled?" crt-screen-on":"")}>
+<WebsiteElement as="canvas" ref={canvas} width={1280} height={800} tabIndex={0} aria-label="Native Stunts opening, menus, races and track editor" onKeyDownCapture={enhancedShortcut} style={{width:embedded?'100%':'min(100%, calc((100dvh - 220px) * 4 / 3))',height:'auto',aspectRatio:'4 / 3',margin:'0 auto',display:'block',background:'#000',imageRendering:'auto'}}/>{upgraded&&performanceVisible&&performanceActive&&performanceStats&&<WebsiteElement as="output" className="enhanced-performance" aria-label={`Current ${Math.round(performanceStats.currentFps)} FPS, average ${Math.round(performanceStats.averageFps)} FPS, 1% low ${Math.round(performanceStats.low1Fps)} FPS`}>
+<span>
+<small>
+<WebsiteText text={"FPS"}/>
+</small>
+<strong>{Math.round(performanceStats.currentFps)}</strong>
+</span>
+<span>
+<small>
+<WebsiteText text={"AVG"}/>
+</small>
+<strong>{Math.round(performanceStats.averageFps)}</strong>
+</span>
+<span>
+<small>
+<WebsiteText text={"1% LOW"}/>
+</small>
+<strong>{Math.round(performanceStats.low1Fps)}</strong>
+</span>
+</WebsiteElement>}{embedded&&!started&&<div className="launcher-screen-idle stunts-game-idle">
+<WebsiteElement as="img" className="stunts-idle-art" src={ENHANCED_STATIC_ARTWORK.mainMenu} srcSet={`${ENHANCED_STATIC_ARTWORK.mainMenuMobile} 640w, ${ENHANCED_STATIC_ARTWORK.mainMenu} 1280w`} sizes="(max-width: 700px) calc(100vw - 54px), 960px" width={1280} height={960} alt="" onError={event=>{if(!event.currentTarget.src.endsWith('/game/menu.png'))event.currentTarget.src='/game/menu.png';}}/>
+<div className="stunts-idle-shade"/>
+<span className="stunts-launch-frame stunts-version-launch">
+<button className="launcher-play" disabled={!ready} onClick={()=>startVersion('ms-1991')}>
+<span className="stunts-launch-label">{ready?<WebsiteText text="PLAY 4D · FEB 25 1991"/>:<WebsiteText text={'LOADING STUNTS…'}/>}</span>
+</button>
+<button className="launcher-play" disabled={!ready} onClick={()=>startVersion('ms-1990')}>
+<span className="stunts-launch-label"><WebsiteText text="PLAY 4D · DEC 13 1990"/></span>
+</button>
+</span>
+</div>}</div>{started&&<TouchDrivingControls canvas={canvas}/>} {fullscreenError&&<p role="status">{<WebsiteText text={fullscreenError}/>}</p>}{trackExplanation&&<output className="original-track-explanation">
+<strong>
+<WebsiteText text={"Why Stunts showed this:"}/>
+</strong> {<WebsiteText text={trackExplanation}/>}</output>}{error&&<p role="alert">{<WebsiteText text={error}/>}</p>}</section>;
 }

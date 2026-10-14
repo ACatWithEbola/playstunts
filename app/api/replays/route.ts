@@ -1,14 +1,18 @@
 import {boundedRequestText} from '@/lib/server/bounded-request-body';
 import {env} from 'cloudflare:workers';
-import {GLOBAL_SCORE_RULES,scoreHash,scoreString} from '@/lib/game/global-score-format';
+import {GLOBAL_SCORE_RULES,MAX_RANKED_FRAMES,scoreHash,scoreString} from '@/lib/game/global-score-format';
+import {validateReplayEncoding} from '@/lib/game/upload-validation';
 import {verifyGlobalScore} from '@/lib/server/verify-global-score';
 import {globalScoreData} from '@/lib/server/global-score-data';
 import {publicScoreName} from '@/lib/game/public-score-name';
-import {currentCarScoresSQL,pruneCarScoresSQL,retainAcceptedScoresSQL,driverKey} from '@/lib/server/leaderboard-ranking';
+import {retainAcceptedScoresSQL,driverKey} from '@/lib/server/leaderboard-ranking';
 import {ROUTE_ASSESSMENT_VERSION} from '@/lib/server/route-assessment-version';
-import {retainRunHistorySQL,pruneRunHistorySQL} from '@/lib/server/run-history';
-import {replayScoresSQL,pruneSharedReplaysSQL} from '@/lib/server/shared-replay-retention';
+import {retainRunHistorySQL} from '@/lib/server/run-history';
+import {engineScopedRetention} from '@/lib/server/engine-scoped-retention';
+import {replayScoresSQL} from '@/lib/server/shared-replay-retention';
 import {sharedReplayTrackName} from '@/lib/game/shared-replay-import';
+import {assertRaceEngineIdentity,readRaceEngine} from '@/lib/server/race-engine-metadata';
+import {exportVersionedReplay} from '@/lib/game/versioned-replay-file';
 const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const bindings=()=>env as unknown as {DB:D1Database;ASSETS:Fetcher};
 export async function GET(request:Request){
@@ -18,8 +22,15 @@ export async function GET(request:Request){
  try{
   const db=bindings().DB;
   if(id){const row=await db.prepare('SELECT r.replay,s.track_hash FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE r.id=? AND s.rules=?').bind(id,GLOBAL_SCORE_RULES).first<{replay:string;track_hash:string}>();if(!row)return reply({error:'Replay not found'},404);
-   const bytes=Uint8Array.from(JSON.parse(row.replay) as number[]),name=sharedReplayTrackName(row.track_hash);bytes.fill(0,13,22);bytes.set(Array.from(name,c=>c.charCodeAt(0)),13);
-   return new Response(bytes,{headers:{'Content-Type':'application/octet-stream','Content-Disposition':`attachment; filename="R${id.slice(0,7).toUpperCase()}.RPL"`,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+   const retained:unknown=JSON.parse(row.replay);
+   if(!Array.isArray(retained)||retained.length>0x722+MAX_RANKED_FRAMES||retained.some(value=>!Number.isInteger(value)||value<0||value>255))throw Error('Invalid stored replay bytes');
+   const bytes=Uint8Array.from(retained);validateReplayEncoding(bytes,MAX_RANKED_FRAMES);
+   if(await scoreHash(bytes.subarray(24,0x722))!==row.track_hash)throw Error('Stored replay track identity mismatch');
+   const name=sharedReplayTrackName(row.track_hash);bytes.fill(0,13,22);bytes.set(Array.from(name,c=>c.charCodeAt(0)),13);
+   const physicsEngine=await readRaceEngine(db,id);
+   if(url.searchParams.get('format')==='metadata')return reply({physicsEngine});
+   const output=url.searchParams.get('format')==='canonical'?bytes:exportVersionedReplay(bytes,physicsEngine);
+return new Response(Uint8Array.from(output),{headers:{'Content-Type':'application/octet-stream','Content-Disposition':`attachment; filename="R${id.slice(0,7).toUpperCase()}.RPL"`,'X-Stunts-Physics-Engine':physicsEngine,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
   }
   const base=' FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE s.rules=?';
   const result=await db.prepare('SELECT s.id,s.track_hash,s.car_code,s.ticks,s.record,r.track_name,r.created_at'+base+(track?' AND s.track_hash=?':'')+(car?' AND s.car_code=?':'')+' ORDER BY '+(sort==='fastest'?'s.ticks ASC,r.created_at DESC,s.id':'r.created_at DESC,s.id')+' LIMIT 51 OFFSET ?').bind(GLOBAL_SCORE_RULES,...(track?[track]:[]),...(car?[car]:[]),page*50).all<{id:string;track_hash:string;car_code:string;ticks:number;record:string;track_name:string;created_at:number}>();
@@ -42,16 +53,18 @@ export async function POST(request:Request){
   // binds the exact record and recording; a renamed/arbitrary upload cannot pass.
   const accepted=await db.prepare('SELECT created_at FROM global_scores WHERE id=? AND rules=? UNION ALL SELECT created_at FROM accepted_scores WHERE id=? AND rules=? LIMIT 1').bind(verified.id,GLOBAL_SCORE_RULES,verified.id,GLOBAL_SCORE_RULES).first<{created_at:number}>();
   if(!accepted)return reply({error:'This run has no retained server acceptance record. An arbitrary replay upload cannot create a high score; older displaced scores may no longer be recoverable.'},422);
+  await assertRaceEngineIdentity(db,verified.id,verified.physicsEngine);
   const original=(raw as {replay:number[]}).replay,name=scoreString(original,13,22),trackName=/^[A-Za-z0-9_-]{1,8}$/.test(name)?name.toUpperCase():verified.trackHash.slice(0,8).toUpperCase();
+  const retention=engineScopedRetention(verified.physicsEngine);
   await db.batch([
    db.prepare('INSERT INTO global_scores(id,rules,track_hash,car_code,ticks,record,created_at,driver_key,route_assessment) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET route_assessment=excluded.route_assessment').bind(verified.id,GLOBAL_SCORE_RULES,verified.trackHash,verified.carCode,verified.ticks,JSON.stringify(Array.from(verified.record)),accepted.created_at,driverKey(verified.record,verified.id),verified.routeAssessment),
    db.prepare(retainAcceptedScoresSQL).bind(GLOBAL_SCORE_RULES,verified.trackHash),
    db.prepare('UPDATE run_history SET route_assessment=? WHERE id=?').bind(verified.routeAssessment,verified.id),
    db.prepare(retainRunHistorySQL).bind(GLOBAL_SCORE_RULES,verified.trackHash),
-   db.prepare(pruneRunHistorySQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
-   db.prepare(pruneCarScoresSQL).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
+   db.prepare(retention.history).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
+   db.prepare(retention.car).bind(GLOBAL_SCORE_RULES,verified.trackHash,GLOBAL_SCORE_RULES,verified.trackHash),
    ...(!privateCheck?[db.prepare('INSERT OR IGNORE INTO shared_replays(id,replay,track_name,created_at) SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM ('+replayScoresSQL+') WHERE id=?)').bind(verified.id,JSON.stringify(Array.from(verified.replay)),trackName,now,verified.id)]:[]),
-   db.prepare(pruneSharedReplaysSQL),
+   db.prepare(retention.shared),
    db.prepare('UPDATE shared_replays SET assessment_version=?,assessed_at=?,assessment_retry_at=0,assessment_reason=? WHERE id=?').bind(ROUTE_ASSESSMENT_VERSION,now,verified.assessmentReason??'',verified.id),
   ]);
   if(privateCheck)return reply({rechecked:true,id:verified.id,routeAssessment:verified.routeAssessment,ranked:!!await db.prepare('SELECT id FROM global_scores WHERE id=?').bind(verified.id).first()});

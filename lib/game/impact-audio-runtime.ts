@@ -11,7 +11,7 @@ export function impactAudioRuntime<T extends CarEffectState>(before:T,flags:numb
   const v=new DataView(state.car.buffer),headerOffset=v.getUint16(offset,true),headerSegment=v.getUint16(offset+2,true);
   const resource=resources.find(r=>r.headerOffset===headerOffset&&r.headerSegment===headerSegment);
   if(!resource)throw Error('Missing original impact sound resource');
-  const started=startEffect({...resource,enabled,master,requested:-1,priority:64,volume:v.getUint16(4,true)>>>4,timers:state.timers,lastNotes:state.lastNotes,markers:state.markers,busy:state.busy});
+  const started=startEffect({...resource,physicsEngine:before.effectEngine??before.physicsEngine,enabled,master,requested:-1,priority:64,volume:v.getUint16(4,true)>>>4,timers:state.timers,lastNotes:state.lastNotes,markers:state.markers,busy:state.busy});
   state={...state,...started};v.setUint16(20,started.voice,true);state.car[26]=1;
  }
  return {...state,writes:[] as number[][]};

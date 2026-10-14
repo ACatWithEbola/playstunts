@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {applyNativeStartupAudioAsync} from '../lib/game/native-launch-profile.ts';
+let release:()=>void=()=>{},entered:()=>void=()=>{};const operations:string[]=[];
+const reached=new Promise<void>(resolve=>{entered=resolve;});
+const muted=applyNativeStartupAudioAsync(true,async operation=>{
+ operations.push(operation);
+ if(operation==='toggle-music'){entered();await new Promise<void>(resolve=>{release=resolve;});}
+});
+await reached;assert.deepEqual(operations,['toggle-music']);release();await muted;
+assert.deepEqual(operations,['toggle-music','toggle-sound']);
+const failure=new Error('Sound transport interrupted');const failed:string[]=[];
+await assert.rejects(applyNativeStartupAudioAsync(true,async operation=>{failed.push(operation);throw failure;}),error=>error===failure);
+assert.deepEqual(failed,['toggle-music'],'Failed startup cannot deliver later effects toggle');
+await applyNativeStartupAudioAsync(false,()=>assert.fail('Normal launch does not toggle sound'));
+console.log('Muted async startup preserves toggle order, awaits delivery and stops after failure; normal startup untouched');
+const {startNativeMusic}=await import('../lib/game/native-music-start.ts');
+let finishStart:()=>void=()=>{},enterStart:()=>void=()=>{},cancelled=false;
+const startReached=new Promise<void>(resolve=>{enterStart=resolve;});
+let done=false;
+const starting=startNativeMusic({play(){assert.fail('Must await timed player');},async playAsync(name){assert.equal(name,'slct');enterStart();await new Promise<void>(resolve=>{finishStart=resolve;});}},'slct',()=>cancelled).then(()=>{done=true;});
+await startReached;assert.equal(done,false);finishStart();await starting;assert.equal(done,true);
+await startNativeMusic({play(name){assert.equal(name,'titl');}},'titl');
+cancelled=true;
+await assert.rejects(startNativeMusic({play(){assert.fail('Cancelled start must not invoke player');}},'over',()=>cancelled),{name:'AbortError'});
+cancelled=false;let finishCancelled:()=>void=()=>{},enteredCancelled:()=>void=()=>{};
+const cancellationReached=new Promise<void>(resolve=>{enteredCancelled=resolve;});
+const cancelledStart=startNativeMusic({play(){},async playAsync(){enteredCancelled();await new Promise<void>(resolve=>{finishCancelled=resolve;});}},'vict',()=>cancelled);
+const rejectedStart=assert.rejects(cancelledStart,{name:'AbortError'});
+await cancellationReached;cancelled=true;finishCancelled();await rejectedStart;
+console.log('Score-start boundary awaits timed players and rejects cancellation before/after startup; immediate players retained');

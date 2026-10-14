@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {runNativeReplayControls,type NativeReplayControlsHost} from '../lib/game/native-replay-controls.ts';
 import {originalRaceKeyCommand} from '../lib/game/race-key-command.ts';
 import {selectOriginalReplayControl} from '../lib/game/replay-control-selection.ts';
+import {originalReplayPointerInput} from '../lib/game/replay-pointer-input.ts';
+import {originalReplayNavigation} from '../lib/game/replay-navigation.ts';
 
 const d=0x2d1a0;
 const baseline=new Uint8Array(readFileSync(new URL('../public/game/native-resource-base.bin',import.meta.url)));
@@ -42,6 +44,19 @@ function fixture(visible:boolean,target:0|1=0){
  };
 }
 
+await test('paused visible replay accepts keyboard Right then Enter when pointer is outside the controls',async()=>{
+ const state=fixture(true);state.memory[d+0x9aca]=1;state.memory[d+0x31e9]=4;selectOriginalReplayControl(state.memory,d,4);
+ const flow=state.run();await state.frame({key:0x4d00,x:160,y:100});assert.equal(state.memory[d+0x31e9],3);
+ await state.frame({key:13,x:160,y:100});assert.equal(state.memory[d+0x9aca],0);
+ await state.frame({x:160,y:100});await flow;assert.equal(state.settled,true);
+});
+await test('original visible pointer hover reselects Stop before keyboard Enter instead of activating a stale Play selection',()=>{
+ const state=fixture(true),m=state.memory,v=state.view;selectOriginalReplayControl(m,d,4);
+ v.setInt16(d+0xa77c,Math.trunc((v.getInt16(d+0x3216+8,true)+v.getInt16(d+0x3228+8,true))/2),true);
+ v.setInt16(d+0xa7de,Math.trunc((v.getInt16(d+0x323a+8,true)+v.getInt16(d+0x324c+8,true))/2),true);
+ assert.equal(originalReplayPointerInput(m,d,0x4d00),0x4d00);originalReplayNavigation(m,d,0x4d00);assert.equal(m[d+0x31e9],3);
+ assert.equal(originalReplayPointerInput(m,d,13),13);assert.equal(m[d+0x31e9],4);
+});
 for(const rate of [60,120,240])for(const target of [0,1] as const)await test(`hidden playing replay presents every input RAF at ${rate} Hz, target ${target}`,async()=>{
  const state=fixture(false,target);
  for(let frame=0;frame<rate;frame++){

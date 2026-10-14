@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {bassNotePlan} from './bass_note_plan.mjs';
+const m=(frame,status,...data)=>({frame,status,data});
+const plan=bassNotePlan([m(-1,0xb2,121,0),m(10,0x92,45,100),m(20,0x82,45,0),m(25,0x82,45,0),m(30,0x92,47,127),m(40,0x92,47,0),m(50,0x92,50,80)],100);
+assert.deepEqual(plan.notes.map(n=>[n.pitch,n.startFrame,n.releaseFrame,n.windowTruncated]),[[45,10,20,false],[47,30,40,false],[50,50,100,true]]);
+assert.equal(plan.unmatchedReleases.length,1);assert.equal(plan.controls.length,1);
+assert.throws(()=>bassNotePlan([m(1,0x92,45,100),m(2,0x92,45,100)],100),/overlapping/);
+const assigned=bassNotePlan([m(1,0x92,45,100),m(2,0x92,45,100),m(3,0x82,45,0)],100,2,'verified-single-assign');
+assert.equal(assigned.notes[0].retriggerAbortFrame,2);assert.equal(assigned.notes[0].releaseFrame,2);assert.equal(assigned.notes[1].releaseFrame,3);
+assert.throws(()=>bassNotePlan([m(1,0xb2,64,127)],100),/Unsupported/);
+assert.throws(()=>bassNotePlan([m(1,0xe2,0,64)],100),/Unsupported/);
+assert.throws(()=>bassNotePlan([m(2,0x92,45,100),m(1,0x82,45,0)],100),/Unordered/);
+const stopped=bassNotePlan([m(1,0x92,45,100),m(2,0xb2,123,0)],100);assert.equal(stopped.notes[0].releaseFrame,2);
+console.log('Bass note plan preserves exact starts/releases, repeated inactive releases and explicit window truncation; rejects unsupported expression and ambiguous voices');

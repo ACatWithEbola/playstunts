@@ -5,10 +5,14 @@ import {handleNativeRecordingFull} from './native-recording-full.ts';
 import {pushOriginalCursorState,popOriginalCursorState} from './allocated-mouse-selection.ts';
 type Runtime=Awaited<ReturnType<typeof createNativeManualRaceRuntime>>;
 type Menus=Awaited<ReturnType<typeof createBrowserNativeMenus>>;
-type Presentation=Awaited<ReturnType<Menus['allocatedRacePresentation']>>;
+type MenuPresentation=Awaited<ReturnType<Menus['allocatedRacePresentation']>>;
+type Presentation=Omit<MenuPresentation,'prepareWorld'>&Partial<Pick<MenuPresentation,'prepareWorld'>>;
+type RaceWrites=Parameters<Awaited<ReturnType<typeof createBrowserRaceAudio>>['write']>[0];
+export interface BrowserAllocatedRaceAudio {write(writes:RaceWrites):void|Promise<void>}
+export interface BrowserNativeRaceAudio extends BrowserAllocatedRaceAudio {pump():void|Promise<void>;close():void;closeAsync?():Promise<void>}
 /** Browser boundary for the original manual outer loop. Replay loading can
  * replace the simulation while retaining the same browser audio output. */
-export async function runBrowserAllocatedRaceLoop(runtime:Runtime,menus:Pick<Menus,'replayMenu'|'saveReplay'>,presentation:Presentation,audio:Pick<Awaited<ReturnType<typeof createBrowserRaceAudio>>,'write'>,services:{signal:AbortSignal;showWaiting():void;loadReplay(runtime:Runtime,presentation:Presentation):Promise<{runtime:Runtime;presentation:Presentation}|void>;onFrame?:(frame:number,mode:number,clock:number,blocked:number)=>void}){
+export async function runBrowserAllocatedRaceLoop(runtime:Runtime,menus:Pick<Menus,'replayMenu'|'saveReplay'>,presentation:Presentation,audio:BrowserAllocatedRaceAudio,services:{signal:AbortSignal;showWaiting():void;loadReplay(runtime:Runtime,presentation:Presentation):Promise<{runtime:Runtime;presentation:Presentation}|void>;beforeFinish?():Promise<void>;onFrame?:(frame:number,mode:number,clock:number,blocked:number)=>void}){
  const d=0x2d1a0,memory=()=>runtime.session.state.memory;
  const aborted=()=>{if(services.signal.aborted)throw new DOMException('Native race closed','AbortError');};
  const pauseAudio=()=>audio.write(runtime.audio.produce()),selectMouse=()=>presentation.selectMouse(audio.write);
@@ -22,7 +26,7 @@ export async function runBrowserAllocatedRaceLoop(runtime:Runtime,menus:Pick<Men
  };
  const replayMenu=()=>menus.replayMenu(runtime.session,{pauseAudio,resetCounter:()=>presentation.releaseInput(),releaseDrivingInput:()=>presentation.releaseDrivingInput(),resetMouse:presentation.resetMouse,selectControl:presentation.control,loadReplay:async()=>{const replacement=await services.loadReplay(runtime,presentation);if(replacement){const previous=presentation;runtime=replacement.runtime;presentation=replacement.presentation;previous.close();}},saveReplay,changeGraphics:()=>presentation.changeGraphics(audio.write)},runtime.pixels,{dialog:presentation.dialog,present:presentation.present});
  const replayControls=()=>runtime.replayControls({...presentation,pauseAudio,selectMouse,resetMouse:presentation.resetMouse,menu:replayMenu,waitMessage(){runtime.drawReplayWait();presentation.present();}});
- runtime.renderCockpitWorld();presentation.presentWorld();
+ aborted();runtime.renderCockpitWorld();if(presentation.prepareWorld)await presentation.prepareWorld();else presentation.presentWorld();
  for(;;){
   aborted();await presentation.nextFrame();aborted();
   if(memory()[d+0xaa77]){
@@ -36,6 +40,7 @@ export async function runBrowserAllocatedRaceLoop(runtime:Runtime,menus:Pick<Men
   if(action==='exit')break;
  }
  aborted();
+ await services.beforeFinish?.();aborted();
  await runtime.finish({writeAudio:audio.write,async gameCounter(){await presentation.nextFrame();aborted();const m=memory();return new DataView(m.buffer,m.byteOffset,m.byteLength).getUint32(d+0x407a,true);},releaseInput:presentation.releaseInput,showWaiting:services.showWaiting,copyBackBuffer(){},resetMouse:presentation.resetMouse,opponent:presentation.opponent});
  return runtime;
 }

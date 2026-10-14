@@ -1,18 +1,22 @@
 import {stepEffectSequence} from './effect-player.ts';
 import {stepOriginalPcSpeakerVoiceTimer} from './pc-speaker-voice-timer.ts';
-import {startOriginalPcSpeakerNote} from './pc-speaker-note-start.ts';
-import {setOriginalPcSpeakerVolume} from './pc-speaker-control.ts';
+import {startOriginalPcSpeakerNote,type PcSpeakerNoteSampleHost} from './pc-speaker-note-start.ts';
+import {setOriginalPcSpeakerVolume,pcSpeakerChannelMasks} from './pc-speaker-control.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 import {stopOriginalPcSpeakerTrack} from './pc-speaker-track-control.ts';
 import type {LoadedEffectResource} from './effect-runtime.ts';
 
 export interface OriginalPcSpeakerEffectState {
+ physicsEngine?:PhysicsEngineVersion;
+ effectEngine?:PhysicsEngineVersion;
  timers:Uint8Array[];voices:Uint8Array[];lastNotes:Uint8Array;
  driver:Uint8Array;
 }
 const view=(b:Uint8Array)=>new DataView(b.buffer,b.byteOffset,b.byteLength);
 
 /** Original regular effect callback with PC15 tone voices and port output. */
-export function stepOriginalPcSpeakerEffects(before:OriginalPcSpeakerEffectState,resources:LoadedEffectResource[],port61:number,otherInstrumentAt?:(offset:number,segment:number)=>Uint8Array){
+export function stepOriginalPcSpeakerEffects(before:OriginalPcSpeakerEffectState,resources:LoadedEffectResource[],port61:number,otherInstrumentAt?:(offset:number,segment:number)=>Uint8Array,sampleHost?:PcSpeakerNoteSampleHost){
+ if(sampleHost&&sampleHost.physicsEngine!==before.physicsEngine)throw Error('PC15 sample host generation differs from loaded driver');
  const instrumentAt=(offset:number,segment:number)=>{
   const resource=resources.find(r=>r.instrumentOffset===offset&&r.instrumentSegment===segment);
   if(!resource){if(otherInstrumentAt)return otherInstrumentAt(offset,segment);throw Error('Missing original loaded instrument');}
@@ -20,8 +24,10 @@ export function stepOriginalPcSpeakerEffects(before:OriginalPcSpeakerEffectState
  };
  if(before.voices.some(v=>v[1]&&v[0]<16))throw Error('Music-owned voice timing is not reconstructed');
  const tick=stepOriginalPcSpeakerVoiceTimer(before,instrumentAt,port61);
+ if(tick.restoreVector)sampleHost?.emit({writes:[],restoreVector:tick.restoreVector});
  let {voices,timers,lastNotes,driver}=tick;
  const writes=tick.writes.slice();
+ const noteSampleHost=sampleHost?{...sampleHost,emit(result:Parameters<PcSpeakerNoteSampleHost['emit']>[0]){writes.push(...result.writes);sampleHost.emit({...result,writes:[]});}}:undefined;
  for(let owner=16;owner<23;owner++){
   let timer=timers[owner],v=view(timer);const wait=v.getUint32(0x18,true);
   if(wait){v.setUint32(0x18,(wait-1)>>>0,true);continue;}
@@ -44,21 +50,22 @@ export function stepOriginalPcSpeakerEffects(before:OriginalPcSpeakerEffectState
     timer[0x28]=event.value;
     for(let index=0;index<voices.length;index++){
      const record=voices[index];if(record[0]!==owner)continue;
-     setOriginalPcSpeakerVolume(driver,index,event.value);
+     setOriginalPcSpeakerVolume(driver,index,event.value,before.physicsEngine);
     }
    }else if(event.kind==='note'){
     // Original 0x2a96a returns -1 for a null instrument pointer.
     if(v.getUint32(0x1e,true)===0)continue;
     const command=new Uint8Array(10);command[4]=event.note;command[5]=event.velocity??timer[0x22];view(command).setUint32(6,event.duration,true);
-    const started=startOriginalPcSpeakerNote({alternate:false,channelMasks:[1,2,4,8,16],owner,instrument:instrumentAt(v.getUint16(0x1e,true),v.getUint16(0x20,true)),timers,voices,lastNotes,command},driver);
+    const started=startOriginalPcSpeakerNote({alternate:false,channelMasks:pcSpeakerChannelMasks(before.physicsEngine),owner,instrument:instrumentAt(v.getUint16(0x1e,true),v.getUint16(0x20,true)),timers,voices,lastNotes,command},driver,noteSampleHost);
     ({timers,voices,lastNotes,driver}=started);
    }else{
-    const stopped=stopOriginalPcSpeakerTrack(driver,timers,voices,owner);writes.push(...stopped.writes);
+    const stopped=stopOriginalPcSpeakerTrack(driver,timers,voices,owner,owner,before.physicsEngine);writes.push(...stopped.writes);
+    if(stopped.restoreVector)sampleHost?.emit({writes:[],restoreVector:stopped.restoreVector});
    }
   }
   v=view(timers[owner]);v.setUint32(0x18,sequence.wait,true);
   if(sequence.offset===null)v.setUint32(0,0,true);
   else {v.setUint16(0,resource.sequenceOffset+sequence.offset,true);v.setUint16(2,segment,true);}
  }
- return {timers,voices,lastNotes,driver,writes};
+ return {timers,voices,lastNotes,driver,writes,...(before.physicsEngine?{physicsEngine:before.physicsEngine}:{}),...(before.effectEngine?{effectEngine:before.effectEngine}:{})};
 }

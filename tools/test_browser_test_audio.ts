@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {browserTestAudioDiagnostics} from './research-browser-audio.ts';
+import {releaseInstrumentationFindings} from './check_release_test_instrumentation.mjs';
+for(const hostname of ['localhost','127.0.0.1','[::1]','::1'])assert.equal(browserTestAudioDiagnostics({hostname,search:'?preview-audio=observe'}),true);
+for(const hostname of ['playstunts.com','localhost.example.com','example.com'])assert.equal(browserTestAudioDiagnostics({hostname,search:'?preview-audio=observe'}),false);
+for(const search of ['', '?preview-audio=muted'])assert.equal(browserTestAudioDiagnostics({hostname:'localhost',search}),false);
+const opening=readFileSync('app/OpeningSequence.tsx','utf8');
+assert.ok(!opening.includes('silentAudioOutputContext')&&!opening.includes('browserTestAudioMuted')&&!opening.includes('testAudioOutput'));
+assert.deepEqual(releaseInstrumentationFindings([{path:'app/OpeningSequence.tsx',source:opening}]),[],'Main game must not restore temporary audio/drive measurements');
+console.log('Main game contains no temporary audio/drive measurements; archived research observer remains loopback-only');

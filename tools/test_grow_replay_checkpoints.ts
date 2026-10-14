@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import {fixtureData} from './global-score-fixture.ts';
+import {createNativeManualRaceRuntime} from '../lib/game/native-manual-race-runtime.ts';
+import {growReplayCheckpoints} from '../lib/game/grow-replay-checkpoints.ts';
+import {hasReplayCheckpointCapacity} from '../lib/game/replay-checkpoint-capacity.ts';
+import {readFileSync} from 'node:fs';
+import {readMs91BodyCaches,writeMs91BodyCaches} from '../lib/game/ms91-body-cache-memory.ts';
+const replay=new Uint8Array(readFileSync('public/game/replays/CTKFIN.RPL'));
+const runtime=await createNativeManualRaceRuntime({...fixtureData,physicsEngine:'ms-1990'},{configuration:Array.from(replay.slice(0,24)),track:Array.from(replay.slice(24,0x722)),name:'GROWQA',camera:0,graphics:2,soundEnabled:false},{resetMouse(){}});
+const liveSnapshot=runtime.session.state.memory.slice(),before=liveSnapshot.slice(),d=0x2d1a0;
+const v=new DataView(before.buffer),bank=v.getUint16(d+0x9c40,true)+v.getUint16(d+0x9c42,true)*16;
+for(let i=0;i<12000;i++)before[bank+i]=(i*17+37)&255;
+const inputSnapshot=before.slice();
+assert.equal(hasReplayCheckpointCapacity(before,d,20),true);assert.equal(hasReplayCheckpointCapacity(before,d,10),false);
+const grown=growReplayCheckpoints(before,d,10);assert.ok(hasReplayCheckpointCapacity(grown,d,10));assert.deepEqual(runtime.session.state.memory,liveSnapshot);
+assert.deepEqual(growReplayCheckpoints(grown,d,20),grown);assert.deepEqual(growReplayCheckpoints(grown,d,10),grown);
+assert.deepEqual(grown.subarray(bank,bank+12000),before.subarray(bank,bank+12000),'Recording buffer remains untouched');
+assert.deepEqual(before,inputSnapshot);assert.deepEqual(runtime.session.state.memory,liveSnapshot);
+for(const rate of [10,20] as const){
+ const modern=growReplayCheckpoints(before,d,rate,'ms-1991');
+ assert.ok(hasReplayCheckpointCapacity(modern,d,rate,'mcga','ms-1991'));
+ const caches:[Uint8Array,Uint8Array]=[new Uint8Array(24).fill(71),new Uint8Array(24).fill(193)];
+ const stored=writeMs91BodyCaches(modern,d,rate,caches),read=readMs91BodyCaches(stored,d,rate);
+ assert.deepEqual(read,caches);read[0][0]=0;assert.equal(readMs91BodyCaches(stored,d,rate)[0][0],71);
+ const mv=new DataView(modern.buffer),cacheAt=mv.getUint16(d+0xa030,true)+16*mv.getUint16(d+0xa032,true)+12000/(30*rate)*1120;
+ assert.deepEqual(stored.subarray(0,cacheAt),modern.subarray(0,cacheAt));
+ assert.deepEqual(stored.subarray(cacheAt+48),modern.subarray(cacheAt+48));
+ assert.deepEqual(stored.subarray(bank,bank+12000),before.subarray(bank,bank+12000));
+ assert.deepEqual(modern.subarray(bank,bank+12000),before.subarray(bank,bank+12000));
+ assert.deepEqual(before,inputSnapshot);
+}
+assert.throws(()=>readMs91BodyCaches(before,d,20),/resident full checkpoint/);
+const invalid=before.slice();new DataView(invalid.buffer).setUint16(d+0xa030,1,true);const invalidBefore=invalid.slice();
+assert.throws(()=>growReplayCheckpoints(invalid,d,10),/Invalid checkpoint/);assert.deepEqual(invalid,invalidBefore);
+console.log('Checkpoint growth replaces the smaller bank transactionally while preserving live input memory and recording bytes');

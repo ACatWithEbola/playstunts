@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {createOriginalTandyToneStream} from '../lib/game/tandy-tone-audio.ts';
+const options={variant:'pssj3' as const,clockHz:3579545,psgGain:0.5,speakerGain:1};
+let ticks=0;
+const stream=createOriginalTandyToneStream({tick(){ticks++;return {writes:[],bios:[{ax:0x8300,es:0,bx:0,cx:1,dx:1}]};}},[],48000,options);
+assert.throws(()=>stream.render(-1),/frame count/);assert.equal(ticks,0);
+assert.throws(()=>stream.render(1024),/DAC backend/);assert.equal(ticks,1);
+assert.throws(()=>stream.render(1024),/stream failed/);assert.equal(ticks,1,'Failed partial rendering cannot advance callbacks again');
+assert.throws(()=>stream.write([]),/stream failed/);
+const wrongPort=createOriginalTandyToneStream({tick:()=>({writes:[],bios:[]})},[],48000,options);
+assert.throws(()=>wrongPort.write([[0xc4,1]]),/sample hardware scheduler/);
+assert.throws(()=>wrongPort.render(512),/stream failed/);
+console.log('Tandy tone stream rejects sampled output explicitly and prevents partial-failure reuse; invalid frame preflight leaves healthy stream intact');

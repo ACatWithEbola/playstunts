@@ -14,3 +14,7 @@ export function nativeLaunchProfile(selection:Awaited<ReturnType<typeof readOrig
 export function applyNativeStartupAudio(initiallyMuted:boolean,control:(operation:'toggle-music'|'toggle-sound')=>unknown){
  if(initiallyMuted){control('toggle-music');control('toggle-sound');}
 }
+/** Timed transports complete each original startup toggle before the next. */
+export async function applyNativeStartupAudioAsync(initiallyMuted:boolean,control:(operation:'toggle-music'|'toggle-sound')=>unknown|Promise<unknown>){
+ if(initiallyMuted){await control('toggle-music');await control('toggle-sound');}
+}

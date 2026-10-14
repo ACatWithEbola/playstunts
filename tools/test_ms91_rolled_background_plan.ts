@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {buildMs91RolledBackgroundPlan} from '../lib/game/ms91-rolled-background-plan.ts';
+import type {Ms91Rectangle} from '../lib/game/ms91-rectangle-list.ts';
+const empty:Ms91Rectangle=[9999,-1,9999,-1],previous=Array.from({length:15},()=>[...empty] as Ms91Rectangle),working=structuredClone(previous),clip:Ms91Rectangle=[0,320,10,130];
+previous[3]=[20,40,20,30];previous[4]=[60,80,100,120];previous[5]=[0,320,40,80];
+const before=structuredClone({previous,working}),plan=buildMs91RolledBackgroundPlan(previous,working,clip,80,-10,30,false);
+assert.deepEqual(plan.sky,[0,320,40,80]);assert.deepEqual(plan.clearSky,[[20,40,20,30]]);assert.deepEqual(plan.clearGround,[[60,80,100,120]]);assert.deepEqual(plan.panorama,[0,320,40,80]);
+const full=buildMs91RolledBackgroundPlan(previous,working,clip,80,-10,30,true);assert.deepEqual(full.clearSky,[]);assert.deepEqual(full.clearGround,[]);assert.deepEqual(full.panorama,clip);
+const outside=buildMs91RolledBackgroundPlan(previous,working,clip,300,10,20,false);assert.equal(outside.panorama,null);
+assert.deepEqual({previous,working},before);
+console.log('Rolled background planner isolates changed sky/ground clears, clips panorama bands and preserves caller banks');

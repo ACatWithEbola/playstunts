@@ -1,4 +1,5 @@
 import {crashFrameSounds,type RaceFrameSound} from './race-frame-sounds.ts';
+import {readSignCollisionMemory} from './sign-collision-memory.ts';
 import {originalMovementAudioCall} from './movement-audio-call.ts';
 import {readRaceContactScratch,writeRaceContactScratch,writeRaceContactNeighbors,writeContactFrameOrigins} from '../physics/race-contact-scratch.ts';
 import {raceDrivingCaller} from '../physics/race-driving-caller.ts';
@@ -7,12 +8,14 @@ import {restoreReplayCheckpoint} from './restore-replay-checkpoint.ts';
 import {readPlayerDrivingState} from './initialized-player-driving.ts';
 import type {Vector} from '../physics/math.ts';
 import {beginReplayFrame} from './begin-replay-frame.ts';
+import {readMs91BodyCaches,decodeMs91BodyCache,encodeMs91BodyCache,writeMs91BodyCaches} from './ms91-body-cache-memory.ts';
 import {advanceRaceClock} from './race-clock.ts';
 import {idleRaceStep} from './idle-race-step.ts';
 import {stepSinglePlayerRaceTick} from './single-player-race-tick.ts';
 import {stepPlayerDriving,type PlayerDrivingState} from './player-driving-step.ts';
 import {writePlayerRaceState} from './write-player-race-state.ts';
 import type {RaceCameraState} from '../physics/race-cameras.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 export interface RecordedPlayerRace {memory:Uint8Array;dataSegment:number;player:PlayerDrivingState;camera:RaceCameraState;done:number;mode:number}
 /** Decode persistent race state after checkpoint restoration. Caller stack/contact scratch remains explicit input to driving. */
 export function readRecordedPlayerRace(memory:Uint8Array,dataSegment:number):RecordedPlayerRace{
@@ -21,18 +24,21 @@ export function readRecordedPlayerRace(memory:Uint8Array,dataSegment:number):Rec
  return {memory,dataSegment,player:readPlayerDrivingState(data),camera:{position:[0,1,2].map(a=>v.getInt16(0x8c06+a*2,true)) as Vector,previous:[0,1,2].map(a=>v.getInt16(0x8c12+a*2,true)) as Vector,selected:data[0x8ead]},done:data[0x8ff4],mode:data[0xa3c2]};
 }
 /** Restore persistent memory and decode it together so a caller cannot accidentally keep the pre-seek car state. */
-export function restoreRecordedPlayerRace(before:RecordedPlayerRace,target:number,initialize:Parameters<typeof restoreReplayCheckpoint>[3]){
- const restored=restoreReplayCheckpoint(before.memory,before.dataSegment,target,initialize);
+export function restoreRecordedPlayerRace(before:RecordedPlayerRace,target:number,initialize:Parameters<typeof restoreReplayCheckpoint>[3],framesPerSecond:10|20=20,engine?:PhysicsEngineVersion){
+ const restored=restoreReplayCheckpoint(before.memory,before.dataSegment,target,initialize,framesPerSecond,engine);
  return {state:readRecordedPlayerRace(restored.memory,before.dataSegment),checkpoint:restored.checkpoint};
 }
 export interface RecordedRaceCaller {stackSegment:number;entryStackPointer:number;incomingSI:number}
 export interface RecordedRaceResources {caller?:RecordedRaceCaller;produceAudio?:boolean;trackside:Parameters<typeof stepSinglePlayerRaceTick>[1];tuning:Parameters<typeof stepPlayerDriving>[1];wheels:Parameters<typeof stepPlayerDriving>[2];track:Parameters<typeof stepPlayerDriving>[4];navigation:Parameters<typeof stepPlayerDriving> extends [unknown,unknown,unknown,unknown,unknown,unknown,...infer Rest]?Rest:never}
 /** Original single-player caller order, with audio execution returned to its driver. */
 export function stepRecordedSinglePlayerRace(before:RecordedPlayerRace,resources:RecordedRaceResources){
- const prefix=beginReplayFrame(before.memory,before.dataSegment);const {memory}=prefix;
+ const fps=resources.track.framesPerSecond??20,modern=resources.track.physicsEngine==='ms-1991';
+ const prefix=beginReplayFrame(before.memory,before.dataSegment,fps,resources.track.physicsEngine);let {memory}=prefix;
  // Contact physics reads DS8eab, not the replay-control mode at DSa3c2.
- const track={...resources.track,mode:prefix.active};
+ const track={...resources.track,mode:prefix.active,runtimeMode:before.mode,...(modern?{signs:readSignCollisionMemory(memory,before.dataSegment)}:{})};
  let player=before.player,camera=before.camera,done=before.done,carUpdated=false;
+ const bodyCaches=modern?readMs91BodyCaches(memory,before.dataSegment,fps):undefined;
+ if(bodyCaches)player={...player,driving:{...player.driving,car:{...player.driving.car,bodyPlaneCache:decodeMs91BodyCache(bodyCaches[0])}}};
  if(resources.caller){
   const caller=resources.caller,v=new DataView(memory.buffer,memory.byteOffset,memory.byteLength),d=before.dataSegment;
   player={...player,driving:{...player.driving,car:{...player.driving.car,
@@ -60,6 +66,10 @@ export function stepRecordedSinglePlayerRace(before:RecordedPlayerRace,resources
   if(idle.command!==null){const result=stepPlayerDriving(player,resources.tuning,resources.wheels,idle.command,track,clock.frame,...resources.navigation);player=result;effects=result.effects;carUpdated=true;}
  }
  memory.set(writePlayerRaceState(memory.subarray(before.dataSegment,before.dataSegment+65536),before.player,player,camera,done,carUpdated),before.dataSegment);
+ if(bodyCaches){
+  if(!player.driving.car.bodyPlaneCache)throw Error('Modern player lost its body cache during simulation');
+  memory=writeMs91BodyCaches(memory,before.dataSegment,fps,[encodeMs91BodyCache(player.driving.car.bodyPlaneCache),bodyCaches[1]]);
+ }
  const originalCar=before.player.driving.car;
  const contactCalled=carUpdated&&!(originalCar.grip.crash&&originalCar.engine.roadSpeed===0&&originalCar.engine.speed===0&&originalCar.suspension.rc1.every(n=>n===0));
  if(resources.caller&&contactCalled&&player.driving.car.contactWheelAngles){

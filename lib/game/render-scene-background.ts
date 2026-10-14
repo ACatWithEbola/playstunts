@@ -5,10 +5,19 @@ import {prepareOriginalLine} from './prepare-original-line.ts';
 import {rasterOriginalPolygon} from './raster-original-polygon.ts';
 import {originalBankedHorizon} from './banked-horizon.ts';
 import {renderOriginalHorizonBackground,type OriginalPanoramaImage} from './render-horizon-background.ts';
+import {ms91ForwardSkyRegion,ms91FullSkyRegion,ms91RolledSkyRegion} from './ms91-sky-region.ts';
+import type {Ms91Rectangle} from './ms91-rectangle-list.ts';
+export interface OriginalMs91BackgroundPolicy {
+ retainSkyRegion(rectangle:Ms91Rectangle):void;
+ forwardRegions?(clip:Ms91Rectangle,heading:number):readonly Ms91Rectangle[];
+ rolledPlan?(clip:Ms91Rectangle,base:number,delta:number):{clearSky:Ms91Rectangle[];clearGround:Ms91Rectangle[];panorama:Ms91Rectangle|null};
+ fullRedraw?:boolean;
+}
 export interface OriginalSceneBackgroundDrawing {
  fill(colour:number,start:number,end:number):void;
  panorama(rectangle:readonly number[],heading:number,horizon:number):void;
  polygon(points:readonly (readonly number[])[],clip:readonly number[],colour:number):void;
+ rolledHorizon?(base:number,delta:number):readonly number[]|null|void;
 }
 /** Original E09C..E77F full-redraw decisions, independent of pixel encoding. */
 export function drawOriginalSceneBackground(memory:Uint8Array,d:number,rectangle:readonly number[],direction:number,matrix:Matrix,roll:number,heading:number,cameraHeight:number,drawing:OriginalSceneBackgroundDrawing,width=320,address:(offset:number)=>number=n=>n){
@@ -42,7 +51,8 @@ export function drawOriginalSceneBackground(memory:Uint8Array,d:number,rectangle
    const r=new DataView(line.record.buffer,line.record.byteOffset,line.record.byteLength),x=r.getInt16(2,true),y0=r.getInt16(6,true),y1=r.getInt16(10,true);
    if(Math.abs(i16(y0-y1))<96&&(x===0||x===width-1)){
     const horizon=x===0?y0:y1,delta=i16((x===0?y1:y0)-horizon);
-    originalBankedHorizon(top,bottom,heading,horizon,delta,s(0x9ae8),(rect,_heading,h)=>panorama(rect,h),width);return 0;
+    const retainedClip=drawing.rolledHorizon?.(horizon,delta);
+    if(retainedClip!==null)originalBankedHorizon(retainedClip?.[2]??top,retainedClip?.[3]??bottom,heading,horizon,delta,s(0x9ae8),(rect,_heading,h)=>panorama(rect,h),width);return 0;
    }
   }
  }
@@ -57,10 +67,26 @@ export function drawOriginalSceneBackground(memory:Uint8Array,d:number,rectangle
 }
 
 /** Original MCGA indexed framebuffer adapter. */
-export function renderOriginalSceneBackground(target:Uint8Array,memory:Uint8Array,d:number,rectangle:readonly number[],direction:number,matrix:Matrix,roll:number,heading:number,cameraHeight:number,imageAt:(offset:number,segment:number)=>OriginalPanoramaImage,width=320){
- return drawOriginalSceneBackground(memory,d,rectangle,direction,matrix,roll,heading,cameraHeight,{
+export function renderOriginalSceneBackground(target:Uint8Array,memory:Uint8Array,d:number,rectangle:readonly number[],direction:number,matrix:Matrix,roll:number,heading:number,cameraHeight:number,imageAt:(offset:number,segment:number)=>OriginalPanoramaImage,width=320,policy?:OriginalMs91BackgroundPolicy){
+ const v=new DataView(memory.buffer,memory.byteOffset,memory.byteLength);
+ const clear=(region:Ms91Rectangle,colour:number)=>{for(let y=region[2];y<region[3];y++)target.fill(colour&255,y*width+region[0],y*width+region[1]);};
+ const result=drawOriginalSceneBackground(memory,d,rectangle,direction,matrix,roll,heading,cameraHeight,{
   fill(colour,start,end){for(let y=start;y<end;y++)target.fill(colour&255,y*width,(y+1)*width);},
-  panorama(rect,h,level){renderOriginalHorizonBackground(target,memory,d,rect,h,level,imageAt,width);},
+  panorama(rect,h,level){
+   if(roll===0&&policy)policy.retainSkyRegion(ms91ForwardSkyRegion(level,v.getUint16(d+0x9ae2,true),memory[d+0x134]));
+   const regions=roll===0&&policy?.forwardRegions?policy.forwardRegions(Array.from(rect) as Ms91Rectangle,h):[rect];
+   for(const region of regions)renderOriginalHorizonBackground(target,memory,d,region,h,level,imageAt,width);
+  },
   polygon(points,clip,colour){rasterOriginalPolygon(points,clip,colour,(x,y,count,c)=>target.fill(c,y*width+x,y*width+x+count));},
+  rolledHorizon(base,delta){
+   if(!policy)return;
+   policy.retainSkyRegion(ms91RolledSkyRegion(base,delta,v.getUint16(d+0x9ae2,true),Array.from(rectangle) as Ms91Rectangle,!!policy.fullRedraw));
+   const plan=policy.rolledPlan?.(Array.from(rectangle) as Ms91Rectangle,base,delta);if(!plan)return;
+   for(const region of plan.clearSky)clear(region,v.getUint16(d+0x9be2,true));
+   for(const region of plan.clearGround)clear(region,v.getUint16(d+0x909e,true));
+   return plan.panorama;
+  },
  },width);
+ if(result&&policy)policy.retainSkyRegion(ms91FullSkyRegion(Array.from(rectangle) as Ms91Rectangle));
+ return result;
 }

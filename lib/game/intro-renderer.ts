@@ -4,8 +4,9 @@ import {i16,vecTransform,type Vector} from '../physics/math.ts';
 import {selectOriginalView} from './select-original-view.ts';
 import {renderOriginalModelMemory} from './render-model-memory.ts';
 import {drainOriginalPrimitiveQueue,type OriginalRasterCall} from './drain-primitive-queue.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 /** Same original TITLE.P3S resources and descriptor layout used by F548/FA2E. */
-export function createOriginalIntroRenderer(baseline:Uint8Array,shapes:Record<string,{bytes:number[]}>,seed?:ReadonlyArray<number>){
+export function createOriginalIntroRenderer(baseline:Uint8Array,shapes:Record<string,{bytes:number[]}>,seed?:ReadonlyArray<number>,engine?:PhysicsEngineVersion){
  const memory=baseline.slice(),d=0x2d1a0,v=new DataView(memory.buffer),set=(p:number,n:number)=>v.setUint16(d+p,n,true);
  let address=0xa0000;
  for(const [name,descriptor] of [['logo',0x8982],['log2',0x89be],['brav',0x9304]] as const){
@@ -25,7 +26,7 @@ export function createOriginalIntroRenderer(baseline:Uint8Array,shapes:Record<st
   const submit=(position:Vector,descriptor:number,rotation:number)=>{
    [0,320,0,200].forEach((n,i)=>set(0xb100+i*2,n));
    [...position,descriptor,0xb100,0,0,rotation,1024].forEach((n,i)=>set(0xb000+i*2,n));memory[d+0xb012]=4;memory[d+0xb013]=0;
-   renderOriginalModelMemory(memory,d,0xb000,cache,highResolution?(index,points)=>presentation.set(index,points):undefined);
+   renderOriginalModelMemory(memory,d,0xb000,cache,highResolution?(index,points)=>presentation.set(index,points):undefined,undefined,undefined,false,engine);
   };
   submit([i16(1024-x),i16(-y),i16(1024-z)],logo?0x8982:0x89be,0);
   if(showCar)submit(car.position.map((n,i)=>i16((n>>6)-[x,y,z][i])) as Vector,0x9304,i16(-car.heading));
@@ -34,6 +35,6 @@ export function createOriginalIntroRenderer(baseline:Uint8Array,shapes:Record<st
    const px=i16(160+Math.trunc(p[0]*192/p[2])),py=i16(100-Math.trunc(p[1]*120/p[2])),color=v.getUint16(d+0x9ac,true);
    emit({address:0x2795a,args:[px,py,color]});let next=(color+1)&65535;if(next===v.getUint16(d+0x4e8c,true))next=1;set(0x9ac,next);
   }
-  drainOriginalPrimitiveQueue(memory,d,(call,index)=>{const points=presentation.get(index);emit(points&&points.length>=3?{...call,presentationPoints:points}:call);});
+  drainOriginalPrimitiveQueue(memory,d,(call,index)=>{if(engine==='ms-1991')call={...call,physicsEngine:engine};const points=presentation.get(index);emit(points&&points.length>=3?{...call,presentationPoints:points}:call);});
  }};
 }

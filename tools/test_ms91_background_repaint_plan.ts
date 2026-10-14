@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {buildMs91BackgroundRepaintPlan} from '../lib/game/ms91-background-repaint-plan.ts';
+import type {Ms91Rectangle} from '../lib/game/ms91-rectangle-list.ts';
+const empty:Ms91Rectangle=[9999,-1,9999,-1],old=Array.from({length:15},()=>[...empty] as Ms91Rectangle),working=structuredClone(old),clip:Ms91Rectangle=[0,320,0,120];
+old[5]=[0,320,50,65];working[5]=[...old[5]];
+assert.deepEqual(buildMs91BackgroundRepaintPlan(old,working,clip,10,10,false),[],'Unchanged sky and no old objects must draw nothing');
+assert.deepEqual(buildMs91BackgroundRepaintPlan(old,working,clip,10,11,false),[[0,320,50,65]]);
+old[3]=[20,40,70,90];working[3]=[60,80,70,90];
+assert.deepEqual(buildMs91BackgroundRepaintPlan(old,working,clip,10,10,false),[[20,40,70,90]],'Clear old object position, not its new position');
+assert.deepEqual(buildMs91BackgroundRepaintPlan(old,working,clip,10,10,true),[[0,320,0,120]]);
+const before=structuredClone({old,working});buildMs91BackgroundRepaintPlan(old,working,clip,10,11,false,4);assert.deepEqual({old,working},before);
+console.log('MS91 background region selection preserves unchanged sky, clears old objects and distinguishes the full-redraw/empty-list cases');

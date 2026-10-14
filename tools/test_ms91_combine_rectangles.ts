@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {combineMs91Rectangles} from '../lib/game/ms91-combine-rectangles.ts';
+import {prepareMs91PresentationStrip} from '../lib/game/ms91-presentation-strip.ts';
+const memory=new Uint8Array(65536),v=new DataView(memory.buffer);
+const put=(at:number,values:number[])=>values.forEach((value,index)=>v.setInt16(at+index*2,value,true));
+put(0x1000,[10,301,100,150]);put(0x1100,[-10,303,90,130]);
+v.setUint16(0x9ad0,4,true);v.setUint16(0xa1d8,65532,true);
+v.setUint16(0x93da,1,true);v.setUint16(0x9ae8,0,true);
+combineMs91Rectangles(memory,0,0x1000,0x1100,0x1000);
+assert.deepEqual([0,2,4,6].map(at=>v.getInt16(0x1000+at,true)),[-10,304,90,150]);
+v.setUint16(0x9690,1,true);v.setUint16(0x9a,0x1000,true);v.setUint16(0xaec6,80,true);v.setUint16(0xa1b6,160,true);
+prepareMs91PresentationStrip(memory,0,0xf000,(first,second,destination)=>combineMs91Rectangles(memory,0,first,second,destination));
+assert.deepEqual([0,2,4,6].map(at=>v.getInt16(0x1000+at,true)),[-10,320,80,160]);
+console.log('MS91 rectangle alignment uses explicit modern globals and supports aliased presentation-strip union');

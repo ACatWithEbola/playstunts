@@ -1,4 +1,5 @@
 import {readOriginalMaterialPatterns} from './original-material-pattern';
+import {enhancedViewProjection} from './enhanced-view-projection';
 import {createOriginalCanvasRaster} from './original-canvas-raster';
 import {createLiveGraphicsMotion} from './live-graphics-motion';
 import {upgradedSubmissionKey,readUpgradedShape} from './upgraded-submission';
@@ -149,7 +150,7 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
   wheelMotion[i]=createUpgradedCarWheelMotion(shape,model,sourceScale);
   model.scale.setScalar(400/sourceScale);world.add(model);return [model];
  });
- const motion=createLiveGraphicsMotion(),chaseCamera=createEnhancedChaseCamera({raw:track,objects:cameraTrackObjects as TrackObject[],planes:cameraCollisionPlanes as CollisionPlane[]});let fpsAt=performance.now(),fpsFrames=0;
+ const motion=createLiveGraphicsMotion(),chaseCamera=createEnhancedChaseCamera({raw:track,objects:cameraTrackObjects as TrackObject[],planes:cameraCollisionPlanes as CollisionPlane[],physicsEngine:runtime.session.physicsEngine});let fpsAt=performance.now(),fpsFrames=0;
  const crashEffects=createEnhancedCrashEffects({assets,memory:m,materials:sourceMaterials,carIds,paints:carPaints,world,scene});
  const clouds=new Map<string,THREE.Object3D>();
  const cloudTypesByDescriptor=new Map<number,EnhancedCloudType>();
@@ -184,6 +185,10 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
  const transporterBounds=new THREE.Box3();
  let appliedGraphicsRevision=-1,appliedOverlaySourceCamera='',appliedReplayPanelSignature=-1,orderedScene=false,worldVisibilityKey='',sceneryRevision=0,lastChaseLevel:EnhancedChaseCameraLevel=0,truckChanged=false,transporterBoundsKnown=false,lastSourceCamera='';
  return {
+  async prepare(){
+   if(renderer.getContext().isContextLost())throw Error('Graphics context lost');
+   await renderer.compileAsync(scene,camera);
+  },
   draw(canvas:HTMLCanvasElement){
    if(renderer.getContext().isContextLost())throw Error('Graphics context lost');
    const frame=runtime.graphicsFrame();if(!frame)return false;
@@ -228,8 +233,8 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    if(!chase)chaseCamera.reset();
    const sourceView=upgradedSourceCamera(shown.camera),position=chase?.position??sourceView.position,target=chase?.target??sourceView.target,displayUp=chase?.up??sourceView.up;
    camera.position.set(...position);camera.up.set(...displayUp);camera.lookAt(...target);
-   const [cx,cy,fx,fy]=frame.projection;
-   const chaseFy=chase?100/Math.tan(chase.fov*Math.PI/360):fy,chaseFx=chase?chaseFy*1.2:fx;
+   const [cx,cy,chaseFx,chaseFy]=enhancedViewProjection(frame.projection,chase?.fov);
+   const fy=frame.projection[3];
    camera.projectionMatrix.makePerspective(-cx/chaseFx,(320-cx)/chaseFx,cy/chaseFy,-(200-cy)/chaseFy,1,200000);
    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
    camera.aspect=4/3;camera.fov=chase?.fov??2*Math.atan(100/fy)*180/Math.PI;
@@ -330,6 +335,9 @@ export function createUpgradedRaceScene(assets:Assets,resources:Uint8Array,runti
    // The cylindrical enhanced artwork is level-projected and then rolled with
    // the source camera, so a bank no longer switches back to pixel artwork.
    const enhancedBackgroundDrawn=background.panoramaHorizon!==undefined&&(enhancedBackground?.draw(context,{width:canvas.width,height:canvas.height,heading:backgroundView.angles[2],horizon:background.panoramaHorizon,rotation:backgroundView.rotation,sky:paletteCss[background.sky],ground:paletteCss[background.ground]})??false);
+   // DOM diagnostics report the actual composition, not just the selected mode.
+   canvas.dataset.enhancedBackground=enhancedBackgroundDrawn?'panorama':'original-raster';
+   canvas.dataset.enhancedWorld=orderedScene&&!chase?'original-crash-raster':'webgl';
    if(!enhancedBackgroundDrawn){
     for(let i=0;i<64000;i++)skyPixels[i]=opaquePalette[background.pixels[i]];
     skyContext.putImageData(skyImage,0,0);

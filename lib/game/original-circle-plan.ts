@@ -1,8 +1,10 @@
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
+import {originalCircleHeight} from './original-circle-height.ts';
 export type OriginalCirclePlan={type:'none'}|{type:'point';point:number[];color:number}|{type:'ellipse';points:number[][];color:number}|{type:'spans';start:number;count:number;left:number[];right:number[];color:number};
 /** Original circle raster dispatch and small-circle table spans, 24EA8..25041. */
-export function originalCirclePlan(memory:Uint8Array,d:number,x:number,y:number,diameter:number,color:number,rectangle:readonly number[],before={left:Array(480).fill(0) as number[],right:Array(480).fill(0) as number[]}):OriginalCirclePlan{
+export function originalCirclePlan(memory:Uint8Array,d:number,x:number,y:number,diameter:number,color:number,rectangle:readonly number[],before={left:Array(480).fill(0) as number[],right:Array(480).fill(0) as number[]},engine?:PhysicsEngineVersion):OriginalCirclePlan{
  const v=new DataView(memory.buffer,memory.byteOffset,memory.byteLength),word=(o:number)=>v.getUint16(d+(o&65535),true),signed=(n:number)=>(n<<16)>>16;
- x=signed(x);y=signed(y);diameter&=65535;const quarter=diameter>>>2,height=signed(diameter-quarter+(quarter>>>1));
+ x=signed(x);y=signed(y);diameter&=65535;const height=originalCircleHeight(diameter,engine);
  if(height<=0)return {type:'none'};
  const half=height>>>1;if(!half)return {type:'point',point:[x,y],color};
  const larger=height-half,[left,right,top,bottom]=rectangle.map(signed),rightEdge=signed(right-1);let start=signed(y-half);

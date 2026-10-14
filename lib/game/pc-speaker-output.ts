@@ -1,7 +1,24 @@
 export interface OriginalPcSpeakerTick {writes:number[][];}
 /** PC15:05D5..0682 selects one of four logical notes for the single speaker.
  * Volumes gate voices; the retained phase alternates the two priority groups. */
-export function stepOriginalPcSpeakerOutput(driver:Uint8Array,port61:number):OriginalPcSpeakerTick {
+export function stepOriginalPcSpeakerOutput(driver:Uint8Array,port61:number,engine?:PhysicsEngineVersion):OriginalPcSpeakerTick {
+ if(engine==='ms-1991'){
+  driver[0x1c4]=driver[0x1a8];for(let i=6;i>=1;i--)driver[0x1c4+i]=driver[0x1bd+i]?driver[0x1a8+i]:0;
+  const writes:number[][]=[];
+  if(!driver[0x1c4]){
+   let selected=driver[0x1ca]?6:driver[0x1c9]?5:0;
+   if(!selected){
+    let first=driver[0x1c7],second=driver[0x1c8];
+    if(first||second){
+     if(driver[0x1cb]&2){first=driver[0x1c5];second=driver[0x1c6];selected=first||second?(first?1:2):(driver[0x1c7]?3:4);}
+     else selected=first?3:4;
+    }else selected=driver[0x1c5]?1:driver[0x1c6]?2:0;
+   }
+   if(selected){const at=0x1af+selected*2;writes.push([0x42,driver[at]],[0x42,driver[at+1]],[0x61,(port61|3)&255]);}
+   else writes.push([0x61,port61&254]);
+  }
+  driver[0x1cb]=(driver[0x1cb]+1)&255;return {writes};
+ }
  driver[0x1bc]=driver[0x1a8];for(let i=4;i>=1;i--)driver[0x1bc+i]=driver[0x1b7+i]?driver[0x1a8+i]:0;
  const writes:number[][]=[];
  if(!driver[0x1bc]){
@@ -28,7 +45,7 @@ function bendOriginalPcSpeakerPitch(driver:Uint8Array,note:number,frequency:numb
 }
 
 /** PC15:0419..052C updates a voice divisor from its patch, bend and envelopes. */
-export function updateOriginalPcSpeakerVoice(driver:Uint8Array,channel:number,voice:Uint8Array,timer:Uint8Array,instrument:Uint8Array){
+export function updateOriginalPcSpeakerVoice(driver:Uint8Array,channel:number,voice:Uint8Array,timer:Uint8Array,instrument:Uint8Array,engine?:PhysicsEngineVersion){
  if(!voice[1])return;
  const word=(bytes:Uint8Array,at:number)=>bytes[at]|bytes[at+1]<<8,put=(bytes:Uint8Array,at:number,value:number)=>{bytes[at]=value&255;bytes[at+1]=(value>>8)&255;};
  const note=(voice[3]+(instrument[0x35]===1?voice[0x22]:0))&255;driver[0x1a7]=note;
@@ -37,5 +54,6 @@ export function updateOriginalPcSpeakerVoice(driver:Uint8Array,channel:number,vo
  frequency=bendOriginalPcSpeakerPitch(driver,note,frequency,word(timer,0x26),instrument[0x12]);
  if(instrument[0x28]===2)frequency=(frequency+word(voice,0x1c))&65535;
  if(instrument[0x19]===2)frequency=(frequency+word(voice,0x14))&65535;
- put(driver,0x1ad+channel*2,frequency);put(voice,6,frequency);
+ put(driver,(engine==='ms-1991'?0x1af:0x1ad)+channel*2,frequency);put(voice,6,frequency);
 }
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';

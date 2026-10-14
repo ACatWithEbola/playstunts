@@ -6,8 +6,10 @@ import {createOriginalCarMenuModel} from './car-menu-model.ts';
 import {originalMenuSelectionFlash} from './menu-selection-flash.ts';
 import type {EngineTuning} from '../physics/engine.ts';
 import type {NativeMenuInput} from './native-dialog-runtime.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 export interface NativeMenuCar extends EngineTuning {id:string;rawSimulation:string}
 export interface NativeCarMenuHost {
+ physicsEngine?:PhysicsEngineVersion;
  captureModel?:Parameters<typeof createOriginalCarMenuModel>[3];
  pixels:Uint8Array;font:Uint8Array;smallFont:Uint8Array;baseline:Uint8Array;
  art:Record<string,ReadonlyArray<number>>;resources:Record<string,ReadonlyArray<number>>;descriptions:Record<string,ReadonlyArray<number>>;
@@ -33,7 +35,7 @@ export async function runNativeCarMenu(host:NativeCarMenuHost,display?:NativeCar
  const portrait=()=>{if(display){display.portrait();return;}const art=host.opponentArt;if(!art)return;const width=art[0]|art[1]<<8,height=art[2]|art[3]<<8;for(let y=0;y<height;y++)for(let x=0;x<width;x++){const c=art[16+y*width+x];if(c!==255)host.pixels[y*320+240+x]=c;}};
  const panel=()=>{const car=host.cars.find(c=>c.id===list.names[state.car])!;if(display){display.panel(car,state.transmission);return;}const simulation=Uint8Array.from(car.rawSimulation.match(/../g)!,b=>parseInt(b,16)),graph=originalCarAccelerationGraph(car,simulation);drawOriginalCarMenuPanel(host.pixels,host.font,host.smallFont,host.art,host.resources,host.descriptions[car.id],state.transmission,graph.points);};
  try{for(;;){
-  if(previousCar!==state.car){const car=host.cars.find(c=>c.id===list.names[state.car])!;buttons?.close();if(display){const model=await display.car(car.id);renderer={paintCount:model.paintCount,render:(_target,angle,paint)=>model.render(angle,paint)};}else renderer=createOriginalCarMenuModel(host.baseline,await host.bank(car.id),host.art.stop,host.captureModel);panel();if(display)buttons=display.captureButtons();else background=host.pixels.slice();previousCar=state.car;previousSelected=-1;state.renderPhase=3;state.ready=false;}
+  if(previousCar!==state.car){const car=host.cars.find(c=>c.id===list.names[state.car])!;buttons?.close();if(display){const model=await display.car(car.id);renderer={paintCount:model.paintCount,render:(_target,angle,paint)=>model.render(angle,paint)};}else renderer=createOriginalCarMenuModel(host.baseline,await host.bank(car.id),host.art.stop,host.captureModel,host.physicsEngine);panel();if(display)buttons=display.captureButtons();else background=host.pixels.slice();previousCar=state.car;previousSelected=-1;state.renderPhase=3;state.ready=false;}
   angle=(angle+delta)&65535;
   if(state.renderPhase===0||state.renderPhase===3){if((state.paint<<24>>24)>=renderer!.paintCount)state.paint=0;queuedAngle=angle;host.configuration[paintOffset]=state.paint;if(state.renderPhase===0)state.renderPhase=1;else{renderer!.render(host.pixels,queuedAngle,state.paint);portrait();state.renderPhase=0;state.ready=true;host.present(mode);mode=-2;}}
   else if(state.renderPhase===1){renderer!.render(host.pixels,queuedAngle,state.paint);portrait();state.renderPhase=0;state.ready=true;host.present(mode);mode=-2;}

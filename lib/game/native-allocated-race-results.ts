@@ -10,7 +10,7 @@ import {selectOriginalEvaluationWords} from './opponent-evaluation-selection.ts'
 import type {NativeRaceResultsHost,NativeRaceResultsState} from './native-race-results.ts';
 import type {NativeHighScorePreparationHost} from './native-high-score-preparation.ts';
 import type {NativeDemoData} from './native-demo-runtime.ts';
-export interface AllocatedResultsRuntime {trackAddress:number;session:{state:{memory:Uint8Array};originalMemory:{writeMemory(memory:Uint8Array):void}}}
+export interface AllocatedResultsRuntime {trackAddress:number;session:{physicsEngine?:import('../physics/engine-version.ts').PhysicsEngineVersion;framesPerSecond?:10|20;state:{memory:Uint8Array};originalMemory:{writeMemory(memory:Uint8Array):void}}}
 export interface AllocatedRaceResultsServices {
  progress(stage:number):void;
  readFile(name:string):Promise<Uint8Array|null>;
@@ -44,6 +44,10 @@ export async function runAllocatedRaceResults(data:NativeDemoData,runtime:Alloca
   get retainedRecord(){return Array.from(memory().subarray(d+bp-0xe6,d+bp-0xe6+52));},
   set retainedRecord(record:ReadonlyArray<number>){if(record.length!==52)throw Error('Original high-score local requires52 bytes');memory().set(record,d+bp-0xe6);},
  }};
+ if(runtime.session.physicsEngine==='ms-1991'){
+  state.panel.physicsEngine=runtime.session.physicsEngine;
+  state.panel.framesPerSecond=runtime.session.framesPerSecond??20;
+ }
  writeOriginalRaceResultTimeScratch(memory(),d,bp,state.panel);
  const scoreHost={memory,writeMemory,readFile:(at:number)=>services.readFile(string(at)),writeFile:(at:number,bytes:Uint8Array)=>services.writeFile(string(at),bytes),insertTrackDisk:services.insertTrackDisk};
  const files:NativeHighScorePreparationHost={readSavedTrack:async()=>{throw Error('Allocated score preparation owns the saved-track load');},readScores:async()=>{throw Error('Allocated score preparation owns the score read');},insertTrackDisk:services.insertTrackDisk,writeScores:async bytes=>(await services.writeFile(string(0x937a),bytes))===0};

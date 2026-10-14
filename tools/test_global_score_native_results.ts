@@ -12,6 +12,116 @@ import {verifyGlobalScore} from '../lib/server/verify-global-score.ts';
 import {GLOBAL_SCORE_RULES,sharedScoreFile,scoreString} from '../lib/game/global-score-format.ts';
 import {completedScoreProof,namedCompletedScore} from '../lib/game/completed-score-offer.ts';
 import type {NativeStoredFile} from '../lib/game/native-file-store.ts';
+import type {PhysicsEngineVersion} from '../lib/physics/engine-version.ts';
+import {writeMs91ResultTimeFields} from '../lib/game/race-result-time-scratch.ts';
+import {readFileSync} from 'node:fs';
+import {importVersionedReplay} from '../lib/game/versioned-replay-file.ts';
+import {createNativeReplayRaceSession} from '../lib/game/native-manual-race-session.ts';
+import {readRecordedTwoCarRace} from '../lib/game/recorded-two-car-race.ts';
+import {nativeFileDownload} from '../lib/game/native-file-download.ts';
+import {encodeSaveBackup,decodeSaveBackup} from '../lib/game/save-backup.ts';
+
+test('completed MS91 race routes allocated result metadata and retained time fields',{skip:!process.env.MS91_RESULT_REPLAY},async()=>{
+ const source=new Uint8Array(readFileSync(process.env.MS91_RESULT_REPLAY!));
+ const proof={replay:Array.from(importVersionedReplay(source,'ms-1991'))};
+ const runtime=await createNativeManualRaceRuntime({...fixtureData,physicsEngine:'ms-1991'}, {configuration:proof.replay.slice(0,24),track:proof.replay.slice(24,0x722),name:'GLOBAL',camera:0,graphics:2,soundEnabled:false},{resetMouse(){}});
+ runtime.session.skipIntroduction();
+ let capturedFrame=0;
+ for(const input of proof.replay.slice(0x722)){
+  if([0,128,1024].includes(capturedFrame)){
+   const before=runtime.session.state.memory.slice();
+   runtime.setMs91VideoManagement(capturedFrame!==128);
+   assert.deepEqual(runtime.session.state.memory,before,'Presentation switch cannot alter the captured race');
+   assert.equal(runtime.session.framesPerSecond,20);
+   runtime.renderCockpitWorld();
+  }
+  captureOriginalRaceInput(runtime.session.state.memory,0x2d1a0,input);
+  runtime.session.originalMemory.writeMemory(runtime.session.state.memory);
+  runtime.session.advanceCaptured({entryStackPointer:0xeee2,incomingSI:0});
+  capturedFrame++;
+ }
+ let presented=false;
+ let saved:Uint8Array|undefined;
+ await runtime.session.saveReplay(async bytes=>{saved=bytes.slice();return 0;});
+ assert.ok(saved);
+ assert.deepEqual(Array.from(saved.slice(0,22)),proof.replay.slice(0,22),'Saved configuration matches the fresh race configuration');
+ assert.deepEqual(Array.from(saved.slice(0x722)),proof.replay.slice(0x722,0x722+saved.length-0x722),'Saved input bank matches captured inputs');
+ const persisted=new Map<string,NativeStoredFile>();
+ const persistence={async all(){return structuredClone([...persisted.values()]);},async put(file:NativeStoredFile){persisted.set(file.key,structuredClone(file));}};
+ const files=await createNativeFileStore(new Map(),persistence);
+ await files.write('C:\\','SAVED','.RPL',saved,runtime.session.physicsEngine,runtime.session.framesPerSecond);
+ const beforeBackup=structuredClone([...persisted.values()]);
+ const backup=decodeSaveBackup(encodeSaveBackup(beforeBackup,'C:\\'));
+ assert.deepEqual(backup.files,beforeBackup,'Backup round trip retains actual completed replay bytes and engine metadata');
+ persisted.clear();
+ for(const file of backup.files)await persistence.put(file);
+ const reopened=await createNativeFileStore(new Map(),persistence);
+ const stored={key:nativeFileKey('C:\\','SAVED','.RPL'),bytes:await reopened.read('C:\\','SAVED','.RPL'),physicsEngine:reopened.physicsEngine('C:\\','SAVED','.RPL'),framesPerSecond:reopened.framesPerSecond('C:\\','SAVED','.RPL')};
+ assert.equal(stored.physicsEngine,'ms-1991');assert.equal(stored.framesPerSecond,20);
+ const savedBefore=saved.slice(),download=nativeFileDownload(stored);
+ assert.equal(new DataView(download.buffer).getUint16(22,true),20);
+ const imported=importVersionedReplay(download,'ms-1991');
+ assert.deepEqual(imported,savedBefore);assert.deepEqual(saved,savedBefore,'Download must not mutate canonical storage');
+ const reloaded=await createNativeReplayRaceSession({...fixtureData,physicsEngine:'ms-1990'}, {configuration:Array.from(imported.slice(0,24)),track:Array.from(imported.slice(24,0x722)),name:'GLOBAL',camera:0,graphics:2,soundEnabled:false},{bytes:imported,name:'SAVED',path:'C:\\',physicsEngine:stored.physicsEngine,framesPerSecond:stored.framesPerSecond},{resetMouse(){},async key(){return 0;}});
+ assert.equal(reloaded.session.physicsEngine,'ms-1991');
+ reloaded.session.seek(0);
+ reloaded.session.seek(reloaded.session.length);
+ assert.deepEqual(readRecordedTwoCarRace(reloaded.session.state.memory,0x2d1a0).player.driving.car,readRecordedTwoCarRace(runtime.session.state.memory,0x2d1a0).player.driving.car,'Saved newer-engine run reproduces the complete retained finished car state');
+ let privateBoard=sharedScoreFile([]),scoreWrites=0;
+ await runAllocatedRaceResults(fixtureData,runtime,{progress(){},async readFile(filename){if(/\.TRK$/i.test(filename))return Uint8Array.from(proof.replay.slice(24,0x722));if(/\.HIG$/i.test(filename))return privateBoard.slice();throw Error('Unexpected result file '+filename);},async writeFile(filename,bytes){assert.match(filename,/\.HIG$/i);privateBoard=bytes.slice();scoreWrites++;return 0;},async insertTrackDisk(){return 0;},async present(state,services){
+  presented=true;
+  assert.equal(state.panel.physicsEngine,'ms-1991');assert.equal(state.panel.framesPerSecond,20);
+  assert.ok(state.panel.playerTime>0,'Actual newer-engine race must finish');
+  const expected=runtime.session.state.memory.slice(),d=0x2d1a0,bp=0xeefe;
+  let ticks=state.panel.playerTime-state.panel.penaltyTime;
+  if(state.panel.penaltyTime)ticks=state.panel.penaltyTime;
+  if(state.panel.opponentSelected&&state.panel.opponentTime)ticks=state.panel.opponentTime;
+  writeMs91ResultTimeFields(expected,d,bp,ticks,20);
+  assert.deepEqual(runtime.session.state.memory,expected,'Allocated result caller already wrote the MS91 retained fields');
+  const eligibility=await services.prepareScores!(state);
+  assert.equal(eligibility.status,1);
+  assert.equal(eligibility.candidateTime,state.panel.playerTime);
+  await enterNativeHighScoreWithPresentation({drawTable(){},present(){},async editName(){return 'MS91 QA';},async save(bytes){assert.ok(await services.files.writeScores(bytes));}},state.scores,{time:eligibility.candidateTime,classification:0,carName:state.carName,opponentSelected:state.panel.opponentSelected,opponentCode:state.opponentCode,opponentCarCode:state.opponentCarCode},[],4);
+  return 2;
+ }});
+ assert.ok(presented);
+ assert.equal(scoreWrites,1);assert.equal(scoreString(privateBoard.slice(0,52),0,17),'MS91 QA');
+ const legacyBoard=new Uint8Array(364).fill(17);
+ await files.write('C:\\','RESULT','.HIG',legacyBoard);
+ const scoreClient=await createGlobalScoreClient({async all(){return [];},async put(){}},async()=>{throw Error('Private result backup must not contact public scores');});
+ const scoreFiles=createGlobalScoreFileStore(files,scoreClient,()=>undefined,()=>runtime.session.physicsEngine);
+ await scoreFiles.write('C:\\','RESULT','.HIG',privateBoard);
+ assert.deepEqual(await files.read('C:\\','RESULT','.HIG'),legacyBoard);
+ assert.deepEqual(await files.read('C:\\','RESULT','.M91'),privateBoard);
+ const resultBackup=decodeSaveBackup(encodeSaveBackup(await persistence.all(),'C:\\'));
+ const restoredFiles=await createNativeFileStore(new Map(),{async all(){return structuredClone(resultBackup.files);},async put(){throw Error('Read-only reopened backup should not write');}});
+ assert.deepEqual(await restoredFiles.read('C:\\','RESULT','.HIG'),legacyBoard);
+ assert.deepEqual(await restoredFiles.read('C:\\','RESULT','.M91'),privateBoard);
+ assert.deepEqual(await restoredFiles.read('C:\\','SAVED','.RPL'),savedBefore);
+ assert.equal(restoredFiles.physicsEngine('C:\\','RESULT','.M91'),'ms-1991');
+ assert.deepEqual(new Uint8Array(readFileSync(process.env.MS91_RESULT_REPLAY!)),source);
+});
+
+test('versioned private tables never overwrite legacy scores and survive reopen',async()=>{
+ const saved=new Map<string,NativeStoredFile>(),legacy=sharedScoreFile([Array.from({length:52},(_,i)=>i===50?100:0)]);
+ const persistence={async all(){return [...saved.values()];},async put(file:NativeStoredFile){saved.set(file.key,file);}};
+ const originals=new Map([[nativeFileKey('','TEST','.TRK'),async()=>new Uint8Array(0x6fa)],[nativeFileKey('','TEST','.HIG'),async()=>legacy.slice()]]);
+ const client=await createGlobalScoreClient({async all(){return [];},async put(){}},async()=>{throw Error('No public requests');});
+ let engine:PhysicsEngineVersion='ms-1991',local=await createNativeFileStore(originals,persistence);
+ let files=createGlobalScoreFileStore(local,client,()=>undefined,()=>engine);
+ assert.deepEqual(await files.read('','TEST','.HIG'),sharedScoreFile([]),'modern tables must not inherit old physics scores');
+ const modern=sharedScoreFile([Array.from({length:52},(_,i)=>i===50?90:0)]);
+ await files.write('','TEST','.HIG',modern);
+ assert.deepEqual(await local.read('','TEST','.HIG'),legacy);
+ assert.deepEqual(await local.read('','TEST','.M91'),modern);
+ assert.equal(saved.get(nativeFileKey('','TEST','.M91'))?.physicsEngine,'ms-1991');
+ engine='bb-1991';assert.deepEqual(await files.read('','TEST','.HIG'),sharedScoreFile([]));
+ engine='ms-1990';assert.deepEqual(await files.read('','TEST','.HIG'),legacy);
+ local=await createNativeFileStore(originals,persistence);files=createGlobalScoreFileStore(local,client,()=>undefined,()=>engine);
+ engine='ms-1991';assert.deepEqual(await files.read('','TEST','.HIG'),modern);
+ assert.deepEqual(await local.read('','TEST','.HIG'),legacy);
+ assert.equal(saved.has(nativeFileKey('','TEST','.HIG')),false,'legacy storage remains untouched');
+});
 
 test('local scores restore distinct slower runs under the same name without reading or writing the public board',async()=>{
  const proof=await finishedScoreFixture(),slower={...proof,record:[...proof.record]};slower.record[50]+=10;

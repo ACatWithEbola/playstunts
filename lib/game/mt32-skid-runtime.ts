@@ -11,7 +11,7 @@ export function updateOriginalMt32Skid<T extends CarEffectState&OriginalMt32Effe
   const [offset,segment,requested,priority,volume]=args;
   const resource=resources.find(r=>r.headerOffset===offset&&r.headerSegment===segment);
   if(!resource)throw Error('Missing original skid effect resource');
-  const started=startEffect({...resource,enabled,master,requested:requested===65535?-1:requested,priority,volume,timers:state.timers,lastNotes:state.lastNotes,markers:state.markers,busy:state.busy});
+  const started=startEffect({...resource,physicsEngine:before.effectEngine??before.physicsEngine,enabled,master,requested:requested===65535?-1:requested,priority,volume,timers:state.timers,lastNotes:state.lastNotes,markers:state.markers,busy:state.busy});
   state={...state,...started};return started.voice;
  },handle=>{
   const stopped=stopOriginalMt32Effect(state,handle,master);state={...state,...stopped};writes.push(...stopped.writes);

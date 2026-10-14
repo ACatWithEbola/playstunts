@@ -1,4 +1,5 @@
 import {dividedEntrySelection} from './divided-entry-selection.ts';
+import type {PhysicsEngineVersion} from './engine-version.ts';
 import {dividedRoadSelection} from './divided-road-selection.ts';
 import {largeCurvePaved} from './large-curve-surface.ts';
 import {slopeTerrain} from './slope-terrain.ts';
@@ -23,7 +24,7 @@ export interface TrackObject {id:number;rotation:number;surface:number;multiTile
  * The collision caller must also process any returned wall; plane selection
  * alone does not resolve the wall or the underside/crash branch.
  */
-export function trackPlaneContact(raw:number[],objects:TrackObject[],point:Vector,previous:Vector,mode=0,retainedOrigin:Vector=[0,0,0]){
+export function trackPlaneContact(raw:number[],objects:TrackObject[],point:Vector,previous:Vector,mode=0,retainedOrigin:Vector=[0,0,0],physicsEngine?:PhysicsEngineVersion){
  const world=point.map(n=>i16(n>>6)) as Vector;
  const old=previous.map(n=>i16(n>>6)) as Vector;
  const column=world[0]>>10,row=world[2]>>10;
@@ -55,7 +56,7 @@ export function trackPlaneContact(raw:number[],objects:TrackObject[],point:Vecto
   if(object.rotation===256)[x,z]=[i16(-z),x];else if(object.rotation===512)[x,z]=[i16(-x),i16(-z)];else if(object.rotation===768)[x,z]=[z,i16(-x)];
   return [x,i16(v[1]-ground.height),z];
  };
- const selection=![10,11,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,65,66,67,68,69,70].includes(object.physics)?flatSelection(object,local(world),mode):object.physics===10?dividedEntrySelection(local(world),local(old),object.surface):object.physics===11?dividedRoadSelection(local(world),local(old),object.surface):object.physics>=65&&object.physics<=70?scenerySelection(object.physics,local(world),local(old)):object.physics===34?barrierSelection(local(world),local(old),object.surface):object.physics===35?twistedPipeSelection(local(world),object.surface):object.physics===32||object.physics===33?spiralSelection(object.physics,local(world),object.surface):object.physics===30||object.physics===31?pipeSelection(object.physics,local(world),local(old),object.surface):object.physics===29?pipeEntrySelection(local(world),local(old),object.surface):object.physics===28?tunnelSelection(local(world),local(old),object.surface):object.physics===27?loopSelection(local(world),object.surface):elevatedTrackSelection(object.physics,local(world),local(old),object.surface);
+const selection=![10,11,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,65,66,67,68,69,70].includes(object.physics)?flatSelection(object,local(world),mode):object.physics===10?dividedEntrySelection(local(world),local(old),object.surface):object.physics===11?dividedRoadSelection(local(world),local(old),object.surface):object.physics>=65&&object.physics<=70?scenerySelection(object.physics,local(world),local(old)):object.physics===34?barrierSelection(local(world),local(old),object.surface):object.physics===35?twistedPipeSelection(local(world),object.surface,physicsEngine):object.physics===32||object.physics===33?spiralSelection(object.physics,local(world),object.surface):object.physics===30||object.physics===31?pipeSelection(object.physics,local(world),local(old),object.surface):object.physics===29?pipeEntrySelection(local(world),local(old),object.surface):object.physics===28?tunnelSelection(local(world),local(old),object.surface):object.physics===27?loopSelection(local(world),object.surface):elevatedTrackSelection(object.physics,local(world),local(old),object.surface);
  let rotation=object.rotation;
  if(terrain>=7){const slope=slopeTerrain(terrain,world[0]-(column*1024+512),world[2]-(row*1024+512),selection.planeGroup,ground.height);selection.planeGroup=slope.planeGroup;ground.height=slope.height;rotation=slope.rotation;}
  const orientation=((1024-rotation)&1023)>>8;

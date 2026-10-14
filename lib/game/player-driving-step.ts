@@ -5,7 +5,8 @@ export interface PlayerDrivingState {driving:DrivingState;navigation:PlayerNavig
 /** Player update composition. Shared camera, particle advance and audio follow both cars. */
 export function stepPlayerDriving(before:PlayerDrivingState,tuning:Parameters<typeof stepDrivingCar>[1],wheels:Parameters<typeof stepDrivingCar>[2],input:number,track:Parameters<typeof stepDrivingCar>[4],frame:number,...route:Parameters<typeof playerRaceNavigation> extends [unknown,unknown,...infer Rest]?Rest:never){
  const car=before.driving.car;
- const navigation={...before.navigation,progress:{...before.navigation.progress,penaltyDisplay:before.navigation.progress.penaltyDisplay?((before.navigation.progress.penaltyDisplay-1)&255):0}};
+ const {framesPerSecond:_previousRate,...previousNavigation}=before.navigation;
+ const navigation={...previousNavigation,...(track.framesPerSecond===10?{framesPerSecond:10 as const}:{}),progress:{...before.navigation.progress,penaltyDisplay:before.navigation.progress.penaltyDisplay?((before.navigation.progress.penaltyDisplay-1)&255):0}};
  // Original 9828 decrements the notice before the parked-crash early return.
  if(car.grip.crash&&car.engine.roadSpeed===0&&car.engine.speed===0&&car.suspension.rc1.every(n=>n===0)){
   return {driving:{...before.driving,car:{...car,grip:{...car.grip,soundFlags:0}}},navigation:{...navigation,guidance:{...navigation.guidance,warning:0}},effects:[],finish:false};

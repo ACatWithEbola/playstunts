@@ -130,6 +130,13 @@
 
 /* Keep the full navigation to one line; use a compact overlay when it no longer fits. */
 .stunts-navigation-shell{position:relative}.stunts-menu-toggle{display:none}
+.touch-driving-controls{display:none}
+.touch-setup-controls{display:none}
+@media(max-width:760px),(any-pointer:coarse){.touch-setup-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px}.touch-setup-controls>button{min-width:0;min-height:48px;padding:6px 2px;touch-action:manipulation;font:inherit}}
+@media(max-width:760px),(any-pointer:coarse){.touch-driving-controls{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-areas:"menu dashboard accelerate camera confirm" "gearUp left brake right gearDown";grid-auto-rows:64px;gap:8px;padding:12px 4px}.touch-driving-controls>button{min-width:0;min-height:48px;padding:8px 2px;touch-action:none;user-select:none;font-weight:700;overflow-wrap:anywhere}.touch-driving-controls>button[data-touch-action=dashboard]{grid-area:dashboard}.touch-driving-controls>button[data-touch-action=camera]{grid-area:camera}.touch-driving-controls>button[data-touch-action=menu]{grid-area:menu}.touch-driving-controls>button[data-touch-action=accelerate]{grid-area:accelerate}.touch-driving-controls>button[data-touch-action=confirm]{grid-area:confirm}.touch-driving-controls>button[data-touch-action=gearUp]{grid-area:gearUp}.touch-driving-controls>button[data-touch-action=left]{grid-area:left}.touch-driving-controls>button[data-touch-action=brake]{grid-area:brake}.touch-driving-controls>button[data-touch-action=right]{grid-area:right}.touch-driving-controls>button[data-touch-action=gearDown]{grid-area:gearDown}.touch-driving-controls>button[aria-pressed=true]{background:#35536a;color:var(--stunts-yellow)}}
+@media(max-width:360px){.touch-driving-controls{column-gap:4px}}
+@media(max-width:760px){.stunts-universe .stunts-play-station>#game-heading{padding-right:70px;white-space:normal;overflow-wrap:anywhere;line-height:1.35}}
+@media(max-width:480px){.stunts-universe .stunts-about .about-heading h2{font-size:clamp(18px,5.5vw,22px);overflow-wrap:anywhere}}
 @media(max-width:1250px){
  .stunts-menu-toggle{position:fixed;top:16px;right:16px;z-index:51;display:flex;align-items:center;justify-content:center;gap:12px;min-width:112px;height:48px;padding:0 15px;border:2px solid #467ca5;border-radius:2px;background:#0c141cf2;color:#f4f3e9;box-shadow:0 8px 24px #0009;font:800 14px/1 Archivo,Arial,sans-serif;letter-spacing:.08em}
  .stunts-menu-toggle:hover{background:#213746;border-color:var(--stunts-yellow)}
@@ -192,8 +199,21 @@
 .stunts-universe .stunts-manual-rail{padding-top:0}
 .stunts-manual-rail .recent-races-panel{background:#0b151e}
 .recent-race-result{flex-direction:column;align-items:flex-start;justify-content:flex-start}
+.recent-race-status{display:inline-block;max-width:100%;vertical-align:baseline}
+.recent-race-heading>strong{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.stunts-universe .stunts-manual-rail .recent-races-panel li p{margin:0}
+.stunts-universe .stunts-manual-rail .recent-race-result{margin-top:0}
+.stunts-universe .recent-races-panel li>div{display:grid;row-gap:4px}
+.stunts-universe .recent-races-panel li p{margin:0;column-gap:6px;row-gap:4px;line-height:1.4}
+.stunts-universe .recent-races-panel .recent-race-result{margin-top:0;gap:0}
+.stunts-universe .recent-races-panel li small,.stunts-universe .recent-race-result strong,.stunts-universe .recent-race-result time{line-height:1.4}
+.stunts-version-launch{flex-direction:column;gap:12px}.stunts-universe .stunts-version-launch .launcher-play{font-size:clamp(12px,1.5vw,20px);padding:12px 18px;min-height:48px}
+.recent-status-positive{color:#a1deb7}.recent-status-invalid{color:#ffaba4}
+.recent-race-heading{display:block}.recent-valid-badge{padding:4px 7px;border:1px solid;border-radius:4px;font-size:11px;font-weight:600;line-height:1.4;white-space:nowrap}.recent-valid{color:#a1deb7;border-color:#477c60;background:#153124}.recent-invalid{color:#ffaba4;border-color:#9d4943;background:#3a1c1b}
+.recent-races-panel li p{font-size:15px;line-height:1.5}.recent-races-panel li small{font-size:13px;line-height:1.6}.recent-race-result strong{font-size:16px}.recent-race-result time{font-size:12px;line-height:1.6}
 .stunts-universe .stunts-play-station>.launcher-roland{padding-bottom:8px}
 .stunts-manual-rail .recent-races-panel h3{font-style:normal;background:#142532}
+.scores-engine-badge{display:inline-block;margin:4px 0 4px 8px;padding:2px 5px;border:1px solid #35596b;border-radius:3px;color:#b9c6cf;font-size:10px;line-height:1.3;white-space:nowrap;vertical-align:middle}
 .stunts-launch-frame{display:inline-flex;width:max-content;max-width:90%;filter:drop-shadow(0 0 5px #fbf33340);animation:stunts-launch-pulse 2.6s ease-in-out infinite}
 .stunts-universe .stunts-game-idle .launcher-play{position:relative;isolation:isolate;display:inline-flex;align-items:center;justify-content:center;gap:0;min-height:64px;max-width:100%;padding:14px 28px;border:1px solid #52748b;border-radius:8px;background:#000;color:var(--stunts-yellow);box-shadow:none;font:900 normal clamp(16px,2vw,24px)/1.25 Archivo,Arial,sans-serif;letter-spacing:.06em;transform:none}
 .stunts-universe .stunts-game-idle .launcher-play .stunts-launch-label{font:inherit;color:inherit;white-space:nowrap}
@@ -225,7 +245,7 @@
 @media(max-width:1000px){.stunts-about{grid-template-columns:180px minmax(0,1fr);gap:20px}.stunts-about .stunts-history{grid-column:1/-1}.stunts-story-box{padding-right:12px}.stunts-story-box .stunts-box-viewer{--box-width:130px;height:210px}}
 @media(max-width:480px){.stunts-about{grid-template-columns:120px minmax(0,1fr);gap:16px}.stunts-story-box .stunts-box-viewer{--box-width:88px;height:155px}.stunts-about .about-heading h2{font-size:22px}}
 .stunts-universe .stunts-story-box .stunts-box-viewer,.stunts-universe .stunts-story-box .stunts-box-viewer:hover{border:0;background:transparent;padding:0;box-shadow:none}
-@media(min-width:1001px){.stunts-manual-rail .recent-races-panel{display:flex;flex-direction:column;min-height:var(--recent-races-height,0px);margin-bottom:0}.stunts-manual-rail .recent-races-panel ol{flex:1;display:flex;flex-direction:column;justify-content:space-between}.stunts-manual-rail .recent-races-panel footer{margin-top:auto}}
+@media(min-width:1001px){.stunts-manual-rail .recent-races-panel{display:flex;flex-direction:column;min-height:var(--recent-races-height,0px);margin-bottom:0}.stunts-manual-rail .recent-races-panel ol{flex:1;display:flex;flex-direction:column;justify-content:flex-start}.stunts-manual-rail .recent-races-panel footer{margin-top:auto}}
 @media(min-width:1001px){.stunts-universe .launcher-grid{align-items:stretch}.stunts-universe .stunts-manual-rail{display:flex;align-self:stretch}.stunts-manual-rail .recent-races-panel{flex:1;min-height:0}.stunts-universe .stunts-play-station{display:flex;flex-direction:column;padding-bottom:8px}.stunts-universe .stunts-play-station>.launcher-roland{margin-top:0;padding-top:16px}.stunts-universe .stunts-setup-column{align-self:stretch}.stunts-universe .stunts-shortcuts{flex:1}.stunts-manual-rail .recent-races-panel li{padding:9px 0}.stunts-manual-rail .recent-races-panel li p{margin-bottom:4px}.stunts-manual-rail .recent-race-result{margin-top:5px}.stunts-universe .stunts-shortcuts dl{gap:8px 14px}}
 .scores-record-driver>strong{display:inline-flex;align-items:center;justify-content:flex-end;gap:10px}
 .scores-car-records{padding:20px 24px;border-bottom:1px solid #365362}
@@ -256,10 +276,10 @@
 @keyframes leader-time-shimmer{0%,76%{background-position:100% 0}94%,100%{background-position:0% 0}}
 @keyframes leader-trophy-glow{0%,100%{filter:drop-shadow(0 0 1px #fbf33320)}50%{filter:drop-shadow(0 0 6px #fbf33380)}}
 @media(prefers-reduced-motion:reduce){.leader-trophy,.scores-winner>td:first-child>svg,.scores-winner>td:first-child .rank-trophy,.leader-time,.scores-winner .scores-time>strong{animation:none;filter:none}.leader-time,.scores-winner .scores-time>strong{background-image:none;color:#fbf333}}
-.stunts-navigation a.nav-highscores,.stunts-navigation a.nav-play.nav-highscores{background:#701c2b;color:#fff;box-shadow:none}
+.stunts-navigation a.nav-highscores,.stunts-navigation a.nav-play.nav-highscores{background:#0c141c;color:var(--stunts-yellow);box-shadow:none}
 .stunts-navigation a.nav-play{background:#0c141c;color:#fff}
 .stunts-navigation a.nav-play:hover{background:#233b4b}
-.stunts-navigation a.nav-highscores:hover,.stunts-navigation a.nav-play.nav-highscores:hover{background:#882638}
+.stunts-navigation a.nav-highscores:hover,.stunts-navigation a.nav-play.nav-highscores:hover{background:#233b4b;color:var(--stunts-yellow)}
 @media(min-width:761px) and (max-width:1250px){.stunts-universe .launcher-grid{grid-template-columns:minmax(0,1fr) 280px;gap:20px;align-items:start}.stunts-universe .stunts-play-station{grid-column:1;grid-row:1}.stunts-universe .stunts-setup-column{grid-column:2;grid-row:1;align-self:stretch}.stunts-universe .stunts-manual-rail{display:block;grid-column:1/-1;grid-row:2;align-self:auto}.stunts-manual-rail .recent-races-panel ol{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px}.stunts-manual-rail .recent-races-panel{min-height:0}.stunts-universe .stunts-shortcuts dl{grid-template-columns:max-content minmax(0,1fr);gap:8px 10px}.stunts-about{grid-template-columns:180px minmax(0,1fr)}.stunts-about .stunts-history{grid-column:1/-1}}
 @media(max-width:760px){.stunts-universe .stunts-manual-rail{grid-column:1;grid-row:3}.stunts-universe .stunts-shortcuts dl{grid-template-columns:max-content minmax(0,1fr)}.stunts-universe .launcher-grid{align-items:start}}
 .nav-highscores-label{display:inline-block;position:relative;animation:none}
@@ -274,6 +294,10 @@
 .replay-download-link,.scores-replay-dot.replay-download-link{color:#fcf420!important;text-transform:uppercase;font-weight:700;letter-spacing:.08em;text-decoration:none}.replay-download-link:hover{text-decoration:underline}
 .replay-compatibility-dialog{position:fixed;margin:0;width:min(360px,calc(100vw - 32px));padding:22px;border-radius:4px;box-shadow:0 12px 40px #0008;max-height:calc(100dvh - 32px)}.replay-compatibility-dialog h2{font-size:1.1rem;line-height:1.3;margin:0 0 12px}.replay-compatibility-dialog p{font-size:1rem;line-height:1.5;margin:0}.replay-compatibility-actions{display:flex;gap:12px;margin-top:22px}.replay-compatibility-actions button{margin:0;min-height:44px}
 @media(max-width:600px){.replay-compatibility-dialog{left:50%!important;top:50%!important;transform:translate(-50%,-50%);padding:20px}}
+.replay-track-conflict-dialog{left:50%;top:50%;transform:translate(-50%,-50%)}
+.replay-track-conflict-dialog p+p{margin-top:12px}
+.replay-track-conflict-dialog .replay-compatibility-actions{flex-wrap:wrap}
+.replay-track-conflict-dialog .replay-compatibility-actions button{flex:1 1 120px;min-width:0;overflow-wrap:anywhere}
 @media(max-width:760px){
  .stunts-universe .stunts-play-station{grid-column:1;grid-row:1;min-width:0}
  .stunts-universe .stunts-manual-rail{grid-column:1;grid-row:2;min-width:0}
@@ -291,6 +315,30 @@
  .launcher-roland .mt32-effects-viewport{margin:14px 0 8px}
 }
 .launcher-roland .mt32-sound-controls.mt32-external-controls{grid-template-columns:1fr 1fr 1.7fr 1.7fr;gap:20px;padding:16px 20px;align-items:end}
+@media(min-width:1251px){.stunts-universe .stunts-shortcuts{flex:0 0 auto}.stunts-universe .stunts-setup-column>.stunts-setup-station{margin-top:auto}.stunts-universe .stunts-play-station{padding-bottom:0}.stunts-play-station .launcher-roland{padding-bottom:0}.stunts-play-station .mt32-effects-viewport{margin-bottom:0}.stunts-manual-rail .recent-races-panel li{padding:4px 0}.stunts-manual-rail .recent-races-panel li p{margin-bottom:2px}.stunts-manual-rail .recent-races-panel li small,.stunts-manual-rail .recent-race-result time{line-height:1.4}.stunts-manual-rail .recent-race-result{margin-top:3px}}
+@media(min-width:1251px){.stunts-universe .stunts-manual-rail,.stunts-universe .stunts-setup-column{min-height:0}.stunts-universe .stunts-shortcuts{flex:1;min-height:min-content}.stunts-universe .stunts-setup-column{gap:20px}.stunts-universe .stunts-setup-column>.stunts-setup-station{margin-top:0;flex-shrink:0}.stunts-universe .stunts-shortcuts dl{font-size:17px;line-height:1.35;gap:6px 12px}}
+@media(min-width:1251px){.stunts-universe .stunts-shortcuts dl{font-size:18px;grid-template-columns:max-content minmax(0,1fr)}}
+/* Side panels must size from their contents, including translated labels.
+   Move recent races below the game before its narrow column forces overflow. */
+.stunts-universe .stunts-shortcuts{flex-shrink:0}
+.stunts-shortcuts dd{overflow-wrap:anywhere}
+@media(max-width:1300px){
+ .stunts-navigation{flex-wrap:wrap}
+ .stunts-navigation>.website-language{width:100%;min-width:0;border-top:1px solid #243745}
+ .stunts-navigation .website-language-dropdown{width:100%;min-width:0}
+ .stunts-navigation .website-language-dropdown summary{width:100%;justify-content:flex-start}
+ .stunts-navigation .website-language-options{position:static;width:100%;margin-top:0;box-shadow:none}
+}
+@media(min-width:761px) and (max-width:1250px){
+ .stunts-universe .launcher-grid{grid-template-columns:minmax(0,1fr) 280px;gap:20px;align-items:stretch}
+ .stunts-universe .stunts-play-station{grid-column:1;grid-row:1}
+ .stunts-universe .stunts-setup-column{grid-column:2;grid-row:1}
+ .stunts-universe .stunts-manual-rail{display:block;grid-column:1/-1;grid-row:2;align-self:auto}
+ .stunts-manual-rail .recent-races-panel{min-height:0;margin-bottom:0}
+ .stunts-manual-rail .recent-races-panel ol{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px}
+ .stunts-universe .stunts-shortcuts{flex:0 0 auto;min-height:min-content}
+ .stunts-universe .stunts-shortcuts dl{font-size:16px;grid-template-columns:max-content minmax(0,1fr);gap:8px 10px}
+}
 .launcher-roland .mt32-sound-control>span{min-height:0;font-size:11px;line-height:1.4}
 .launcher-roland .mt32-sound-control,.launcher-roland .mt32-sound-controls .mt32-power{gap:10px}
 .launcher-roland .mt32-sound-controls button.mt32-sound-button{min-height:40px;font-size:13px;padding:8px 12px}

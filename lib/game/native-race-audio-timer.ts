@@ -3,10 +3,10 @@ import {tickOriginalRaceTimer,type NativeRaceTimerHost} from './native-race-time
 import type {Vector} from '../physics/math.ts';
 /** Registered hardware/car callbacks precede the complete race callback.
  * The race callback alone owns queue consumption and input-clock advancement. */
-export function tickOriginalRaceAudioTimer(host:Omit<NativeRaceTimerHost,'audioSample'>,d:number,audio:{tick(stackMatches:boolean):number[][];update(handle:number,rpm:number,previous:Vector,current:Vector,interval:number):void}){
+export function tickOriginalRaceAudioTimer(host:Omit<NativeRaceTimerHost,'audioSample'>,d:number,audio:{tick(stackMatches:boolean):number[][];update(handle:number,rpm:number,previous:Vector,current:Vector,interval:number):void},framesPerSecond:10|20=20){
  const writes=audio.tick(host.stackMatches());
  tickOriginalRaceTimer({...host,audioSample(record,interval){
   for(const target of readOriginalRaceAudioTargets(host.memory(),d,record,interval))audio.update(target.handle,target.rpm,target.previous,target.current,target.interval);
- }},d);
+ }},d,framesPerSecond);
  return writes;
 }

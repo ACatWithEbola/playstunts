@@ -13,7 +13,7 @@ export function stepOpponentRouteNear<T extends {last:number}>(state:OpponentRou
  if(!opponentRouteDistance(midpoint,position).advance)return {state:{...state},lookup:null};
  return advanceOpponentRoute(state,path,lookup);
 }
-function advanceOpponentRoute<T extends {last:number}>(state:OpponentRouteState,path:ArrayLike<number>,lookup:(routeEntry:number,point:number)=>T){
+export function advanceOpponentRoute<T extends {last:number}>(state:OpponentRouteState,path:ArrayLike<number>,lookup:(routeEntry:number,point:number)=>T){
  const result=lookup(path[state.routeIndex],state.point&255);
  const point=(state.point+1)&255;
  const next=result.last&255?path[(state.routeIndex+1)&65535]:0;

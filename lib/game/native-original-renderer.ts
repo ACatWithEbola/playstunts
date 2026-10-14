@@ -11,6 +11,14 @@ import {readOriginalCarWheelSnapshot} from './car-wheel-snapshot.ts';
 import {writeAnalyzedTrackMemory} from './write-analyzed-track-memory.ts';
 import {renderOriginalWorld} from './render-original-world.ts';
 import type {RenderTileSlots} from './select-render-tiles.ts';
+import {resolvePhysicsEngine,type PhysicsEngineVersion} from '../physics/engine-version.ts';
+import {createMs91RepaintState} from './ms91-repaint-state.ts';
+import {buildMs91BackgroundRepaintPlan} from './ms91-background-repaint-plan.ts';
+import {buildMs91RolledBackgroundPlan} from './ms91-rolled-background-plan.ts';
+import type {Ms91Rectangle} from './ms91-rectangle-list.ts';
+import {createNativeMcgaCopyPresentation} from './native-mcga-copy-presentation.ts';
+import type {NativeRaceCopyPresentation} from './full-redraw-display-race-layers.ts';
+import {nativeRendererPolicy} from './native-renderer-policy.ts';
 /** Optional presentation camera: source world coordinates and original angle units.
  * The ordinary cockpit and source external-camera branches retain their defaults.
  */
@@ -18,7 +26,13 @@ export interface NativePresentationCamera {mode?:0|2;position:Vector;angles:Vect
 /** Independent rendering memory: drawing never writes into live simulation state.
  * Allocated resources retain the original primitive queue and use VGA memory
  * for pixels, outside the conventional resource heap. */
-export function createNativeOriginalRenderer(baseline:Uint8Array,raw:number[],analysis:Parameters<typeof writeAnalyzedTrackMemory>[3],options:{allocatedResources?:boolean;originalViewport?:boolean;originalCameras?:{objects:TrackObject[];planes:CollisionPlane[]}}={}){
+export function createNativeOriginalRenderer(baseline:Uint8Array,raw:number[],analysis:Parameters<typeof writeAnalyzedTrackMemory>[3],options:{allocatedResources?:boolean;originalViewport?:boolean;originalCameras?:{objects:TrackObject[];planes:CollisionPlane[]};physicsEngine?:PhysicsEngineVersion;experimentalMs91RegionFlags?:boolean;experimentalMs91SlowVideoManagement?:boolean;experimentalMs91PartialBackground?:boolean;experimentalMs91SelectiveCopy?:boolean}={}){
+ options={...options};
+ const physicsEngine=resolvePhysicsEngine(options.physicsEngine);
+ if(options.experimentalMs91RegionFlags&&physicsEngine!=='ms-1991')throw Error('MS91 descriptor tracking requires an MS91 race');
+ if(options.experimentalMs91SlowVideoManagement!==undefined&&!options.experimentalMs91RegionFlags)throw Error('MS91 video-management policy requires descriptor tracking');
+ if(options.experimentalMs91PartialBackground&&(!options.experimentalMs91RegionFlags||options.experimentalMs91SlowVideoManagement===false))throw Error('MS91 partial background requires active slow-video region tracking');
+ if(options.experimentalMs91SelectiveCopy&&(!options.allocatedResources||!options.experimentalMs91PartialBackground))throw Error('MCGA selective copy requires allocated resources and retained MS91 background');
  const d=0x2d1a0,cs=0x209e0,memory=options.allocatedResources?baseline.slice():writeAnalyzedTrackMemory(baseline,d,raw,analysis).memory,v=new DataView(memory.buffer);
  const s=(o:number)=>v.getInt16(d+o,true),l=(o:number)=>v.getInt32(d+o,true),b=(o:number)=>memory[d+o];
  let slots=Object.fromEntries(['skip','east','south','terrain','tile','detail'].map(k=>[k,Array(23).fill(0)])) as unknown as RenderTileSlots,opponentRow=0;
@@ -32,9 +46,20 @@ export function createNativeOriginalRenderer(baseline:Uint8Array,raw:number[],an
  }
  const defaultProjection=[s(0x4b88),s(0x4b8a),s(0x4b8c),s(0x4b8e)];
  const target=memory.subarray(framebuffer,framebuffer+64000);target.fill(0);
+ const repaint=createMs91RepaintState([0,320,0,200],[320,0,200,0]);
+ const readRegions=()=>Array.from({length:15},(_,index)=>Array.from({length:4},(_,i)=>v.getInt16(d+0x901a+index*8+i*2,true)) as Ms91Rectangle);
+ let forceFullRedraw=true,partialBackgroundPasses=0,rolledBackgroundPasses=0,copyPasses=0,selectiveCopyFrames=0,renderWindowSeeded=false;
  let view:{position:Vector;angles:Vector;rectangle:number[];projection:number[];submissions:number[][];calls:OriginalRasterCall[];fireballMask:Uint8Array;wheels?:Vector[][]}|undefined;
  const imageAt=(offset:number,segment:number)=>{const a=segment*16+offset,width=v.getUint16(a,true),height=v.getUint16(a+2,true);return {width,height,pixels:memory.subarray(a+16,a+16+width*height)};};
- return {get view(){return view;},render(live:Uint8Array,external?:{objects:TrackObject[];planes:CollisionPlane[];distance:number;azimuth:number;elevation:number},drawCall?:(call:OriginalRasterCall)=>void,presentation?:NativePresentationCamera,fractionalPolygons=false,layers?:(memory:Uint8Array,drawWorld:()=>void)=>void){
+ return {physicsEngine,setMs91VideoManagement(slow:boolean){
+  if(physicsEngine!=='ms-1991'||!options.allocatedResources)throw Error('Video-management changes require an allocated MS91 renderer');
+  Object.assign(options,nativeRendererPolicy(physicsEngine,slow));
+  // A retained region from the previous copy policy cannot seed the new one.
+  repaint.reset();renderWindowSeeded=false;forceFullRedraw=true;
+ },get experimentalCopyPasses(){return copyPasses;},get experimentalSelectiveCopyFrames(){return selectiveCopyFrames;},get experimentalPartialBackgroundPasses(){return partialBackgroundPasses;},get experimentalRolledBackgroundPasses(){return rolledBackgroundPasses;},get view(){return view;},render(live:Uint8Array,external?:{objects:TrackObject[];planes:CollisionPlane[];distance:number;azimuth:number;elevation:number},drawCall?:(call:OriginalRasterCall)=>void,presentation?:NativePresentationCamera,fractionalPolygons=false,layers?:(memory:Uint8Array,drawWorld:()=>void,copyPresentation?:NativeRaceCopyPresentation)=>void){
+  if(options.experimentalMs91PartialBackground&&presentation)throw Error('Retained MS91 background requires the native-width camera path');
+  const fullRedraw=forceFullRedraw||!!live[d+0x9ab6];
+  if(options.experimentalMs91PartialBackground)memory[d+0x9ab6]=Number(fullRedraw);
   memory[d+0x134]=live[d+0x134];
   memory.set(live.subarray(d+0x8ae6,d+0x8f16),d+0x8ae6);
   memory.set(live.subarray(d+0x8fba,d+0x8fbe),d+0x8fba);
@@ -56,20 +81,33 @@ export function createNativeOriginalRenderer(baseline:Uint8Array,raw:number[],an
   let camera=cockpitCamera;
   if(external){
    const car=world.map(n=>i16(n>>6)) as Vector;
-   const view=originalExternalCamera(car,rotation,raw,external.objects,external.planes,external.distance,external.azimuth,external.elevation,live[d+0xa3c2]);
+   const view=originalExternalCamera(car,rotation,raw,external.objects,external.planes,external.distance,external.azimuth,external.elevation,live[d+0xa3c2],physicsEngine);
    camera=view.position;angles=view.angles;
   }
-  if(originalCamera){const selected=selectOriginalRaceCamera(memory,d,raw,originalCamera.objects,originalCamera.planes);camera=selected.position;angles=selected.angles;}
+  if(originalCamera){const selected=selectOriginalRaceCamera(memory,d,raw,originalCamera.objects,originalCamera.planes,undefined,physicsEngine);camera=selected.position;angles=selected.angles;}
   if(presentation){camera=presentation.position;angles=presentation.angles;}
   const particles=Array.from({length:24},(_,i)=>({x:l(0x8ae6+i*4),y:l(0x8b46+i*4),z:l(0x8ba6+i*4),angleX:s(0x8db4+i*2),angleZ:s(0x8de4+i*2),heading:s(0x8e14+i*2),speed:s(0x8e44+i*2),verticalSpeed:s(0x8e74+i*2),style:b(0x8ee1+i),owner:b(0x8ef9+i)}));
   const paint=b(0x8b4+((s(0x8c26)||s(0xaa78))&15));
   const rectangle=originalViewport?[0,1,2,3].map(i=>new DataView(live.buffer,live.byteOffset,live.byteLength).getInt16(d+0x7fe6+i*2,true)):presentation?[0,presentation.width,0,200]:external?[0,320,0,200]:[0,320,9,130];
   view={position:[...camera],angles:[...angles],rectangle:[...rectangle],projection:[...projection],submissions:[],calls:[],fireballMask:new Uint8Array(64000)};
-  const drawWorld=()=>{resetOriginalWorldRegions(memory,d);const result=renderOriginalWorld(memory,d,cs,{angles,camera,rectangle,carTile:[(world[0]>>16)&255,(29-(world[2]>>16))&255],slots,paint,particles,opponentRetainedRow:opponentRow,visibility:{player:0,opponent:0},cache,recordPointer:0xb000},imageAt,drawCall,!presentation,fractionalPolygons,fractionalPolygons?call=>view!.calls.push(call):undefined);
+  let backgroundFullRedraw=false;
+  const backgroundPolicy=options.experimentalMs91PartialBackground?{
+   fullRedraw,
+   retainSkyRegion(region:Ms91Rectangle){region.forEach((word,i)=>v.setInt16(d+0x901a+5*8+i*2,word,true));},
+   forwardRegions(clip:Ms91Rectangle,heading:number){partialBackgroundPasses++;const previous=repaint.previous();return buildMs91BackgroundRepaintPlan(previous.regions,readRegions(),clip,previous.heading,heading,fullRedraw,1,-1,memory[d+0x134],previous.heading);},
+   rolledPlan(clip:Ms91Rectangle,base:number,delta:number){rolledBackgroundPasses++;const previous=repaint.previous();return buildMs91RolledBackgroundPlan(previous.regions,readRegions(),clip,base,delta,v.getUint16(d+0x9ae2,true),fullRedraw);},
+  }:undefined;
+  const drawWorld=()=>{resetOriginalWorldRegions(memory,d);const result=renderOriginalWorld(memory,d,cs,{physicsEngine,angles,camera,rectangle,carTile:[(world[0]>>16)&255,(29-(world[2]>>16))&255],slots,paint,particles,opponentRetainedRow:opponentRow,visibility:{player:0,opponent:0},cache,recordPointer:0xb000,ms91DescriptorRegionTracking:!!options.experimentalMs91RegionFlags,ms91SlowVideoManagement:options.experimentalMs91SlowVideoManagement,ms91BackgroundPolicy:backgroundPolicy},imageAt,drawCall,!presentation,fractionalPolygons,fractionalPolygons?call=>view!.calls.push(call):undefined);
+  backgroundFullRedraw=!!result.backgroundRequiresFullRedraw;
   view!.submissions=result.submissions;view!.fireballMask=result.fireballMask;
   if(fractionalPolygons)view!.wheels=([0,1] as const).map(owner=>readOriginalCarWheelSnapshot(memory,owner));
   slots=result.scene.slots;opponentRow=result.scene.cars.opponent.row;};
-  if(layers)layers(memory,drawWorld);else drawWorld();
+  const copyPresentation=options.experimentalMs91SelectiveCopy?createNativeMcgaCopyPresentation(memory,d,repaint,{fullRedraw,seed:!renderWindowSeeded,heading:angles[2],worldFullRedraw:()=>backgroundFullRedraw}):undefined;
+  try{
+   if(layers)layers(memory,drawWorld,copyPresentation);else{if(copyPresentation)throw Error('MCGA selective copy requires the complete native layer adapter');drawWorld();}
+   if(copyPresentation){if(!copyPresentation.presented)throw Error('MCGA layer adapter did not execute selective presentation');copyPasses+=copyPresentation.copies;if(!fullRedraw)selectiveCopyFrames++;renderWindowSeeded=true;forceFullRedraw=false;}
+   else if(backgroundPolicy){const current=readRegions(),clip=Array.from(rectangle) as Ms91Rectangle;if(backgroundFullRedraw){current[0]=[...clip];for(let i=1;i<15;i++)current[i]=[320,0,200,0];}repaint.prepare(current,clip,angles[2],{enabled:true,fullRedraw,pageFlipping:false,detail:memory[d+0x134]}).commit();forceFullRedraw=false;}
+  }catch(error){forceFullRedraw=true;throw error;}
   return target;
  }};
 }

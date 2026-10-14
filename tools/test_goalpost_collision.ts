@@ -12,6 +12,8 @@ import {roadsidePosts} from '../lib/physics/roadside-posts.ts';
 import {startHeading} from '../lib/physics/start-heading.ts';
 import type {TrackGeometry} from '../lib/physics/track-contact.ts';
 import {moveTrack} from '../lib/physics/track-step.ts';
+import {stepDrivingCar} from '../lib/game/driving-step.ts';
+import type {DrivingState} from '../lib/game/driving-step.ts';
 
 const d=0x200;
 function simulation(dimensions:Vector,radius:number){
@@ -92,4 +94,38 @@ await test('movement requests the ordinary crash, retains the pose, and is deter
 await test('all original start/finish tile variants retain their heading',()=>{
  const expected=new Map([[1,0],[134,0],[147,0],[135,512],[148,512],[179,512],[136,256],[149,256],[180,256],[137,768],[150,768],[181,768]]);
  for(const [tile,heading] of expected)assert.equal(startHeading(tile),heading);
+});
+
+await test('modern movement emits sign debris without a crash and leaves legacy playback isolated',async()=>{
+ const {state}=stateAt([7*1024+512,0,5*1024+512],[19,17,56],62);
+ const cells=Array(900).fill(255);cells[5*30+7]=0;
+ const signs={cells,positions:[[7*1024+512,0,5*1024+512] as Vector],broken:[0]};
+ const base:TrackGeometry={...flatTrack,mode:2,landmarks:{dimensions:[19,17,56],radius:62,hillHeight:450},signs};
+ const modern=moveTrack(state,wheels,{...base,physicsEngine:'ms-1991'},state.engine,state.grip,0);
+ assert.deepEqual(modern.signImpact,{index:0,owner:2,yaw:0,speed:0,afterCrashImpacts:0});
+ assert.equal(modern.grip.crash,0);assert.deepEqual(modern.crashEvents,[]);
+ assert.equal(signs.broken[0],0,'movement must not mutate its input marker array');
+ const repeat=moveTrack(state,wheels,{...base,physicsEngine:'ms-1991'},state.engine,state.grip,0);
+ assert.deepEqual(repeat,modern,'same checkpoint state reproduces the sign event');
+ assert.equal(moveTrack(state,wheels,{...base,physicsEngine:'ms-1991',signs:{...signs,broken:[1]}},state.engine,state.grip,0).signImpact,undefined);
+ assert.equal(moveTrack(state,wheels,{...base,physicsEngine:'ms-1990'},state.engine,state.grip,0).signImpact,undefined);
+ const before:DrivingState={car:state,race:{crash:0,speed:0,roadSpeed:0,yaw:0,abortFlag:0,timer:0,stats:Array(11).fill(0),savedStats:Array(11).fill(0),elapsed:0,evaluationCause:0,replay:true,audioEnabled:false,preserveStats:false,audioHandles:[0,1]},particles:{random:[1,2,3,4,5,6],active:0,particles:Array.from({length:24},()=>({x:0,y:0,z:0,angleX:0,angleZ:0,heading:0,speed:0,verticalSpeed:0,style:0,owner:0}))}};
+ // Moving directly is independently covered above; driving uses a zero-input
+ // tuning fixture to exercise the production debris consumer as well.
+ const {fixtureData}=await import('./global-score-fixture.ts');
+ const tuning=fixtureData.cars.find((car:{id:string})=>car.id==='PMIN');
+ assert.ok(tuning);
+ const driven=stepDrivingCar(before,tuning,wheels,0,{...base,physicsEngine:'ms-1991'},1);
+ assert.ok(driven.car.signImpact);assert.equal(driven.particles.active,1);
+ assert.equal(driven.particles.particles.filter(p=>p.speed!==0&&p.owner===2).length,8);
+ assert.equal(driven.car.grip.crash,0);
+ const post=roadsidePosts(7,24,0,0)[0],both=stateAt(post.position,[19,17,56],62);
+ const simultaneous=stepDrivingCar({...before,car:both.state},tuning,wheels,0,{...base,physicsEngine:'ms-1991',posts:both.track.posts,signs:{...signs,positions:[post.position]}},1);
+ assert.equal(simultaneous.car.grip.crash,1);
+ assert.equal(simultaneous.car.signImpact?.afterCrashImpacts,0,'Sign event precedes start-support crash');
+ assert.equal(simultaneous.particles.particles.filter(p=>p.speed!==0&&p.owner===2).length,8);
+ assert.equal(simultaneous.particles.particles.filter(p=>p.speed!==0&&p.owner===0).length,16,'Crash receives only the remaining particle slots');
+ const {generateParticles}=await import('../lib/game/particles.ts');
+ const expected=generateParticles(generateParticles(before.particles,2,0,0,'ms-1991'),0,0,0,'ms-1991');
+ assert.deepEqual(simultaneous.particles,expected,'Debris and RNG follow original caller order');
 });

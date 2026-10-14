@@ -15,7 +15,7 @@ export function* drawOriginalDisplayRasterCall(memory:Uint8Array,d:number,mode:'
  else if(call.address===0x246bc)yield* drawOriginalDisplaySolidPolygon(memory,d,mode,call.points!,a[1],scratch,a[0]);
  else if(call.address===0x21394)yield* drawOriginalDisplaySolidPolygon(memory,d,mode,call.points!,a[1],scratch,a[0],a[2]);
  else if(call.address===0x21d98){if(mode==='ega')yield* drawOriginalEgaDisplayLine(memory,d,a[0],a[1],a[2],a[3],a[4]);else drawOriginalPackedDisplayLine(memory,d,mode,a[0],a[1],a[2],a[3],a[4]);}
- else if(call.address===layout.circle)yield* drawOriginalDisplayCircle(memory,d,mode,a[0],a[1],a[2],a[3],scratch);
+ else if(call.address===layout.circle)yield* drawOriginalDisplayCircle(memory,d,mode,a[0],a[1],a[2],a[3],scratch,call.physicsEngine);
  else if(call.address===layout.wheel)yield* drawOriginalDisplayWheel(memory,d,mode,call.points!,a[0],a.slice(1),scratch);
  else if(call.address===layout.point){if(mode==='ega')yield* drawOriginalEgaPoint(memory,d,a[0],a[1],a[2]);else drawOriginalPackedDisplayPoint(memory,d,mode,a[0],a[1],a[2]);}
  else throw Error(`Unsupported ${mode} original raster entry ${call.address.toString(16)}`);

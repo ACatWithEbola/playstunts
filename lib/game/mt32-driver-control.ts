@@ -1,9 +1,10 @@
 export type OriginalMt32Control='note'|'release'|'volume'|'controller'|'bend'|'frequency'|'stop'|'instrument'|'update'|'silence'|'reset-controllers'|'noop';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 
 /** Supplied MT15 callbacks 03F8..0666. Produces the original MPU data bytes,
  * including unmasked high-bit values and channel quirks. MPU readiness and
  * Roland synthesis belong to separate layers; this is not browser MIDI I/O. */
-export function applyOriginalMt32DriverControl(kind:OriginalMt32Control,channel:number,voice:Uint8Array,patch:Uint8Array,value=0,extra=0){
+export function applyOriginalMt32DriverControl(kind:OriginalMt32Control,channel:number,voice:Uint8Array,patch:Uint8Array,value=0,extra=0,physicsEngine?:PhysicsEngineVersion){
  if(voice.length!==46||patch.length<100)throw Error('Incomplete MT15 voice or instrument');
  const writes:number[][]=[];
  const emit=(...bytes:number[])=>{for(const byte of bytes)writes.push([0x330,byte&255]);};
@@ -22,7 +23,11 @@ export function applyOriginalMt32DriverControl(kind:OriginalMt32Control,channel:
   case 'stop':emit(status(0xb0),123,0);break;
   case 'instrument':
    emit(status(0xc0),patch[68]);
-   emit(status(0xb0),100,0,status(0xb0),101,0,status(0xb0),6,patch[18]);
+   if(physicsEngine==='ms-1991'){
+    const part=channel&15,adjusted=part===10?part:(part-1)&255;
+    const address=((adjusted<<4)&255)|4,payload=[3,0,address,patch[18]];
+    emit(0xf0,0x41,0x10,0x16,0x12,...payload,(-payload.reduce((sum,n)=>sum+n,0))&127,0xf7);
+   }else emit(status(0xb0),100,0,status(0xb0),101,0,status(0xb0),6,patch[18]);
    if(patch[69])emit(status(0xb0),7,patch[69]);
    emit(status(0xb0),10,patch[70]);break;
   case 'update':

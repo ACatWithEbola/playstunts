@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {createScheduledAudioFrameMap} from '../lib/game/scheduled-audio-frame-map.ts';
+const map=createScheduledAudioFrameMap(32000);
+map.add({frameStart:0,frameEnd:512,start:1});
+map.add({frameStart:512,frameEnd:1024,start:1.1});
+assert.equal(map.time(256),1.008);assert.equal(map.time(512),1.1);
+assert.equal(map.time(1024),undefined,'Unsubmitted boundary has no audible time');
+map.add({frameStart:1536,frameEnd:2048,start:2});
+assert.equal(map.time(1200),undefined,'Discarded PCM must not be interpolated');
+assert.equal(map.time(1600),2.002);
+assert.throws(()=>map.add({frameStart:1600,frameEnd:2112,start:3}),/Overlapping/);
+map.discardBefore(1.016);assert.equal(map.time(0),undefined);assert.equal(map.time(512),1.1);
+map.clear();assert.equal(map.time(1600),undefined);
+map.add({frameStart:2560,frameEnd:3072,start:5});assert.equal(map.time(2560),5);
+assert.throws(()=>map.time(NaN),/Invalid/);assert.throws(()=>createScheduledAudioFrameMap(0),/Invalid/);
+const release=map.retain(2600);map.discardBefore(100);assert.equal(map.time(2600),5.00125,'Pending command retains original timestamp after playback elapsed');release();map.discardBefore(100);assert.equal(map.time(2600),undefined);
+const future=map.retain(4096);map.add({frameStart:4096,frameEnd:4608,start:101});map.discardBefore(200);assert.equal(map.time(4096),101);map.clear();assert.equal(map.time(4096),undefined);future();
+map.add({frameStart:6144,frameEnd:6656,start:201});const first=map.retain(6144),second=map.retain(6144);first();map.discardBefore(300);assert.equal(map.time(6144),201,'One consumer cannot release another reservation');second();map.discardBefore(300);assert.equal(map.time(6144),undefined);
+const stale=map.retain(8192);map.clear();const current=map.retain(8192);map.add({frameStart:8192,frameEnd:8704,start:301});stale();map.discardBefore(400);assert.equal(map.time(8192),301,'Stale reservation release cannot clear a new owner');current();map.discardBefore(400);assert.equal(map.time(8192),undefined);
+console.log('Submitted sample positions map to exact playback anchors; late, discarded, expired and resumed ranges are distinct');
+const expired=createScheduledAudioFrameMap(32000);
+expired.add({frameStart:0,frameEnd:512,start:1});expired.discardBefore(2);
+assert.throws(()=>expired.add({frameStart:256,frameEnd:768,start:3}),/Overlapping/,
+ 'Expired lookup entries cannot authorize duplicate sample submission');
+assert.throws(()=>expired.add({frameStart:512,frameEnd:1024,start:0.5}),/Overlapping/,
+ 'Expired lookup entries cannot authorize backward playback time');
+expired.add({frameStart:512,frameEnd:1024,start:3});
+assert.equal(expired.time(512),3,'Rejected ranges do not mutate submission state');
+expired.clear();expired.add({frameStart:0,frameEnd:512,start:0});
+assert.equal(expired.time(0),0,'Explicit lifetime reset permits a new frame/time origin');

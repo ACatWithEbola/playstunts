@@ -24,6 +24,8 @@ function initializedTimers(bank:Uint8Array,header:number){
  const timers=resetAudio(empty).timers;
  const instrumentCount=bank[header+6],trackCount=bank[header+7+instrumentCount*4];
  if(trackCount>7)throw Error('Unsupported original music track count');
+ // Retained seed callback-address metadata. Native dispatch owns sequencing;
+ // these addresses are not proof of original executable callback installation.
  const driverCallbacks=[0x00a4,0x044a,0x0874,0x0cc1,0x0e41,0x125f,0x1679];
  for(let owner=0;owner<trackCount;owner++){
   const timer=timers[owner],entry=header+8+instrumentCount*4+owner*5;
@@ -68,8 +70,10 @@ for(const device of devices){
   if(driver)Object.assign(seed,{driver:Array.from(driver),port61:0});
   if(device.name==='MT'){
    // TITL deliberately references the absent STRT patch. The original then
-   // reads a null far pointer; preserve only the bytes its MT15 callbacks use,
-   // instead of capturing unrelated interrupt-vector memory as asset data.
+   // reads a null far pointer. Retain existing callback fields rather than
+   // unrelated interrupt-vector memory. These hardcoded values are not proven
+   // by the available zero-filled low-memory executable snapshots; a real DOS
+   // title-start capture remains required to establish their provenance.
    const nullInstrument=Array(100).fill(0);for(const [at,value] of [[18,112],[21,255],[25,16],[40,85],[53,18],[67,240],[68,224],[69,16]])nullInstrument[at]=value;
    Object.assign(seed,{nullInstrument,systemVolume:[16,0,22,0]});
   }

@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync} from 'node:fs';
+import {encodeVersionedReplay} from '../lib/game/versioned-replay-file.ts';
+const [track,reference,output]=process.argv.slice(2);assert.ok(track&&reference&&output);
+const raw=readFileSync(track),source=readFileSync(reference);
+assert.equal(raw.length,1802);
+const probe=new Uint8Array(0x722+400);probe.set(source.subarray(0,22));
+probe[6]=0;probe.set(raw,24);new DataView(probe.buffer).setUint16(22,400,true);probe.fill(1,0x722);
+writeFileSync(output,encodeVersionedReplay(probe,'ms-1991',20),{flag:'wx'});
+assert.deepEqual(readFileSync(reference),source);
+console.log('Created isolated400-frame acceleration probe; not a completed race or publishable score');

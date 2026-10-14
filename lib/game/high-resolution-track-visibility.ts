@@ -8,10 +8,11 @@ import {prepareOriginalView} from './prepare-original-view.ts';
 import {originalRoadModelSubmissions} from './road-model-submissions.ts';
 import {renderOriginalModelMemory} from './render-model-memory.ts';
 import {resetOriginalPrimitiveQueue} from './drain-primitive-queue.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 /** Original visibility decisions for unchanged high-resolution road meshes.
  * This owns one scratch memory image and never touches simulation memory.
  */
-export function createHighResolutionTrackVisibility(resources:Uint8Array){
+export function createHighResolutionTrackVisibility(resources:Uint8Array,engine?:PhysicsEngineVersion){
  const memory=resources.slice(),d=0x2d1a0,v=new DataView(memory.buffer),recordPointer=0xb300;
  v.setUint16(d+0x558c,0,true);v.setUint16(d+0x558e,0x8000,true);
  const cache={vectors:Array.from({length:256},()=>[0,0,0] as Vector),points:Array.from({length:256},()=>[0,0]),flags:Array(256).fill(0)};
@@ -20,7 +21,7 @@ export function createHighResolutionTrackVisibility(resources:Uint8Array){
  const project=(record:readonly number[],visible:boolean[],display?:{matrix:Matrix4;near:number})=>{
   visible.fill(false);resetOriginalPrimitiveQueue(memory,d);memory.set(record,d+recordPointer);
   if(display){
-   const prepared=prepareOriginalModelProjection(memory,d,recordPointer,cache),m=prepared.metadata,key=record[6]|record[7]<<8;
+   const prepared=prepareOriginalModelProjection(memory,d,recordPointer,cache,undefined,engine),m=prepared.metadata,key=record[6]|record[7]<<8;
    let data=shapes.get(key);
    if(!data){
     const address=(far:number[],off=0)=>((far[1]*16+((far[0]+off)&65535))&0xfffff);
@@ -34,7 +35,7 @@ export function createHighResolutionTrackVisibility(resources:Uint8Array){
    }
    continuousModelVisibility(data.shape,data.include,data.exclude,prepared.transform.includeMask,prepared.transform.excludeMask,display.matrix,display.near,visible);return;
   }
-  renderOriginalModelMemory(memory,d,recordPointer,cache,undefined,(index,value)=>{visible[index]=value;});
+  renderOriginalModelMemory(memory,d,recordPointer,cache,undefined,(index,value)=>{visible[index]=value;},undefined,false,engine);
  };
  return {
   begin(frame:{position:Vector;target:Vector;up:Vector},aspect:number,fov:number,rasterHeight=200){

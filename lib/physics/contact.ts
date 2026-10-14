@@ -5,8 +5,9 @@
 import { i16,vecTransform,type Vector } from './math.ts';
 import { rotateZXY } from './rotation.ts';
 import { stepSuspension } from './suspension.ts';
+import {LEGACY_PHYSICS,type PhysicsEngineVersion} from './engine-version.ts';
 export interface WheelSuspension {rc1:number[];rc2:number[];rc4:number[];rc5:number[]}
-export function horizontalContact(proposed:Vector[],before:WheelSuspension,rotation:Vector,planes:{height:number;surface:number}[],fps:10|20=20,movement?:{origins:Vector[];alongPlane:Vector[]}){
+export function horizontalContact(proposed:Vector[],before:WheelSuspension,rotation:Vector,planes:{height:number;surface:number}[],fps:10|20=20,movement?:{origins:Vector[];alongPlane:Vector[]},physicsEngine:PhysicsEngineVersion=LEGACY_PHYSICS){
  const suspension={rc1:[...before.rc1],rc2:[...before.rc2],rc4:[...before.rc4],rc5:[...before.rc5]};
  const orientation=rotateZXY(-rotation[2],-rotation[1],-rotation[0]);
  const surfaces:number[]=[];
@@ -32,7 +33,7 @@ export function horizontalContact(proposed:Vector[],before:WheelSuspension,rotat
   if(distance<=0)suspension.rc1[index]=0;
   // car_whlWorldCrds1 is saved before suspension raises the wheel centres.
   wheelPositions.push(p.map(n=>i16(n>>6)) as Vector);
-  const result=stepSuspension({rc2:suspension.rc2[index],rc4:suspension.rc4[index],rc5:suspension.rc5[index]},distance);
+  const result=stepSuspension({rc2:suspension.rc2[index],rc4:suspension.rc4[index],rc5:suspension.rc5[index]},distance,physicsEngine);
   suspension.rc2[index]=result.rc2;suspension.rc4[index]=result.rc4;suspension.rc5[index]=result.rc5;
   const height=i16(result.height+384);
   const offset=rotation[1]||rotation[2]?vecTransform([0,height,0],orientation):[0,height,0];

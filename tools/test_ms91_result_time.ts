@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {originalRaceResultLines} from '../lib/game/race-result-lines.ts';
+const resources=Object.fromEntries(['eelt','econ','ednf','eppt','eowt','eolt'].map(key=>[key,[...key].map(c=>c.charCodeAt(0)).concat(0)]));
+const state={playerTime:650,opponentTime:700,penaltyTime:50,opponentSelected:1,flags:1};
+const old=originalRaceResultLines(state,resources);
+assert.deepEqual(old,originalRaceResultLines({...state,physicsEngine:'ms-1990',framesPerSecond:20},resources));
+assert.deepEqual(old,originalRaceResultLines({...state,physicsEngine:'ms-1991',framesPerSecond:20},resources));
+const slow=originalRaceResultLines({...state,physicsEngine:'ms-1991',framesPerSecond:10},resources);
+assert.deepEqual(slow.lines.map(line=>line.text),['eelt 1:00.00','eppt 0:05.00','eolt 1:10.00']);
+assert.equal(slow.outcome,old.outcome);
+assert.deepEqual(state,{playerTime:650,opponentTime:700,penaltyTime:50,opponentSelected:1,flags:1});
+console.log('MS91 result text uses recorded cadence; legacy/default20 lines and outcome unchanged');

@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {runBrowserAllocatedRaceLoop} from '../lib/game/browser-allocated-race-loop.ts';
+let renders=0,presents=0,pumps=0;
+const runtime={session:{state:{memory:new Uint8Array(0x50000)}},renderCockpitWorld(){renders++;}};
+const cancelledBeforeEntry=new AbortController();cancelledBeforeEntry.abort();
+await assert.rejects(runBrowserAllocatedRaceLoop(runtime as never,{} as never,{async prepareWorld(){assert.fail('Cancelled entry must not allocate an enhanced scene');},presentWorld(){assert.fail('Cancelled entry must not present');}} as never,{} as never,{signal:cancelledBeforeEntry.signal,showWaiting(){},async loadReplay(){}}),{name:'AbortError'});
+assert.equal(renders,0,'Already cancelled race must not render or begin graphics preparation');
+const controller=new AbortController();let ready!:()=>void,entered!:()=>void;
+const pending=new Promise<void>(resolve=>{ready=resolve;}),preparing=new Promise<void>(resolve=>{entered=resolve;});
+const running=runBrowserAllocatedRaceLoop(runtime as never,{} as never,{async prepareWorld(){entered();await pending;},presentWorld(){presents++;},async nextFrame(){pumps++;}} as never,{} as never,{signal:controller.signal,showWaiting(){},async loadReplay(){}});
+const rejected=assert.rejects(running,{name:'AbortError'});
+await preparing;assert.equal(renders,1);assert.equal(pumps,0,'No first driving pump before scene preparation resolves');
+controller.abort();ready();await rejected;assert.equal(pumps,0);assert.equal(renders,1,'Preparation must not rerun the original first render');
+const failure=new Error('stop after original presentation');
+await assert.rejects(runBrowserAllocatedRaceLoop(runtime as never,{} as never,{presentWorld(){presents++;},async nextFrame(){throw failure;}} as never,{} as never,{signal:new AbortController().signal,showWaiting(){},async loadReplay(){}}),error=>error===failure);
+assert.equal(renders,2);assert.equal(presents,1,'Host without preparation retains original presentation path');
+console.log('First original frame renders once; enhanced preparation precedes the first driving pump; cancellation prevents input/physics work; original hosts retain immediate presentation');

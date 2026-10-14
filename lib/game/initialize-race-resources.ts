@@ -14,7 +14,8 @@ import {initializeOriginalRaceSprites} from './load-race-sprites.ts';
 import {loadNativeRaceHorizon} from './load-race-horizon.ts';
 import {loadNativeSceneShapes,originalAvailableResourceBytes} from './load-scene-shapes.ts';
 import {allocateOriginalSpriteWindow} from './allocate-sprite-window.ts';
-export interface NativeRaceResourceHost extends NativeResourceFileHost {progress(stage:number):void;prepareOpponent?(framePointer:number):void|Promise<void>}
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
+export interface NativeRaceResourceHost extends NativeResourceFileHost {physicsEngine?:PhysicsEngineVersion;progress(stage:number):void;prepareOpponent?(framePointer:number):void|Promise<void>}
 /** Original1543E resource startup. The caller supplies valid allocator/graphics,
  * track and resistance-table storage; no stripped startup snapshot is assumed. */
 export async function initializeNativeRaceResources(host:NativeRaceResourceHost,d:number,framePointer:number,display?:{mode:'cga'|'tandy'|'ega';drawing:OriginalCockpitDisplayDrawingHost}){

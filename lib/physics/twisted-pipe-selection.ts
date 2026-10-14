@@ -1,13 +1,14 @@
 import type {Vector} from './math.ts';
 import type {ElevatedSelection} from './elevated-track.ts';
+import {uses1991Physics,type PhysicsEngineVersion} from './engine-version.ts';
 // Original DS:2e5c and DS:2e74, indexed by cross-section segment.
 const lower=[0,-94,-187,-280,-373,-466,-559,-652,-745,-838,-931,-1024];
 const upper=[0,1024,931,838,745,652,559,466,373,280,187,94];
 /** Original physics 35 at 0x1170c..0x11880. */
-export function twistedPipeSelection(point:Vector,roadSurface:number):ElevatedSelection&{special:boolean}{
+export function twistedPipeSelection(point:Vector,roadSurface:number,physicsEngine?:PhysicsEngineVersion):ElevatedSelection&{special:boolean}{
  const [x,y,z]=point;
  const out={planeGroup:0,surface:4,wall:-1,wallRotation:0,wallLower:-1000,wallUpper:-12,underside:true,special:false};
- if(Math.abs(x)>=130||y>=265)return out;
+ if(Math.abs(x)>=(uses1991Physics(physicsEngine)?150:130)||y>=265)return out;
  out.surface=roadSurface;
  const high=y>151;
  let section:number;

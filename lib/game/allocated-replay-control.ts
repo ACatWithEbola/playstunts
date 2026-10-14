@@ -3,7 +3,7 @@ import {selectOriginalReplayControl} from './replay-control-selection.ts';
 import {drawOriginalReplayBarMemory} from './replay-bar-memory-raster.ts';
 /** Original replay modes0/1/2/4 over the actual loaded banks. Display caches
  * remain in the renderer; selection and input state remain in the live race. */
-export function createAllocatedReplayControl(live:()=>Uint8Array,rendering:()=>Uint8Array,d:number){
+export function createAllocatedReplayControl(live:()=>Uint8Array,rendering:()=>Uint8Array,d:number,metadata:{physicsEngine?:import('../physics/engine-version.ts').PhysicsEngineVersion;framesPerSecond?:10|20}={}){
  return (mode:number,first:number,current:number)=>{
   const m=live();
   if(mode===0){initializeOriginalReplayResources(m,d);return;}
@@ -12,6 +12,6 @@ export function createAllocatedReplayControl(live:()=>Uint8Array,rendering:()=>U
   if(mode!==1)throw Error('Replay input polling belongs to the race controller');
   const target=rendering();
   for(const [at,length] of [[0x12f,1],[0x31e9,1],[0x897c,1],[0x8fd8,2],[0xa034,2],[0x54c8,92],[0x5524,9]])target.set(m.subarray(d+at,d+at+length),d+at);
-  drawOriginalReplayBarMemory(target,d,first,current);m[d+0x31e9]=target[d+0x31e9];
+  drawOriginalReplayBarMemory(target,d,first,current,0x209e0,metadata);m[d+0x31e9]=target[d+0x31e9];
  };
 }

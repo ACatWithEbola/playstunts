@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';import {readFileSync,readdirSync} from 'node:fs';
-import {backupLeaderboard,purgeLeaderboard,PURGE_TABLES,RESET_ARCHIVE_ID} from '../lib/server/leaderboard-reset.ts';
+import {backupLeaderboard,purgeLeaderboard,PURGE_TABLES,RESET_ARCHIVE_ID,RESET_TABLES} from '../lib/server/leaderboard-reset.ts';
 import {GLOBAL_SCORE_RULES,GLOBAL_SCORE_DATABASE,validateScoreSubmission} from '../lib/game/global-score-format.ts';
 function fixture(){
  const sql=new DatabaseSync(':memory:');for(const f of readdirSync(new URL('../drizzle/',import.meta.url)).filter(f=>/^\d+.*\.sql$/.test(f)).sort())sql.exec(readFileSync(new URL('../drizzle/'+f,import.meta.url),'utf8'));
@@ -8,14 +8,48 @@ function fixture(){
 }
 test('reset keeps a complete private backup, purges score data and preserves every track',async()=>{
  const {sql,db}=fixture();await assert.rejects(()=>purgeLeaderboard(db,10,'missing'),/Backup required/);
- const archive=await backupLeaderboard(db,10);const tables=JSON.parse(archive!.payload).tables;assert.equal(Object.keys(tables).length,8);assert.equal(tables.shared_replays[0].replay,'[1,2,3]');
+ const archive=await backupLeaderboard(db,10);const tables=JSON.parse(archive!.payload).tables;assert.equal(Object.keys(tables).length,9);assert.equal(tables.shared_replays[0].replay,'[1,2,3]');
  assert.deepEqual(await purgeLeaderboard(db,11,'nonce'),{purged:true});for(const t of PURGE_TABLES)assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM '+t).get()!.n,0);
  assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM shared_tracks').get()!.n,1);assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM score_tracks').get()!.n,1);assert.equal(sql.prepare('SELECT payload FROM leaderboard_reset_backups WHERE id=?').get(RESET_ARCHIVE_ID)!.payload,archive!.payload);
  sql.exec("INSERT INTO global_scores VALUES ('new','new','track','PMIN',101,'[]',12,'name:new','full_route')");assert.deepEqual(await purgeLeaderboard(db,13,'another'),{alreadyPurged:true});assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM global_scores').get()!.n,1);sql.close();
 });
+for(const change of ["INSERT INTO race_engines VALUES ('score','ms-1991')","UPDATE shared_replays SET assessment_reason='changed' WHERE id='score'"]){
+ test('metadata changes prevent purge: '+change,async()=>{
+  const {sql,db}=fixture();const archive=await backupLeaderboard(db,10);sql.exec(change);
+  assert.equal((await backupLeaderboard(db,11))!.payload,archive!.payload);
+  await assert.rejects(()=>purgeLeaderboard(db,12,'metadata'),/Database changed/);
+  for(const table of PURGE_TABLES)assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM '+table).get()!.n,1);
+  assert.equal(sql.prepare('SELECT purged_at FROM leaderboard_reset_backups').get()!.purged_at,0);sql.close();
+ });
+}
 test('data changing after backup prevents deletion of unarchived submissions',async()=>{
  const {sql,db}=fixture();await backupLeaderboard(db,10);sql.exec("INSERT INTO accepted_scores VALUES ('new','old',11)");await assert.rejects(()=>purgeLeaderboard(db,12,'nonce'),/Database changed/);assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM global_scores').get()!.n,1);assert.equal(sql.prepare('SELECT purged_at FROM leaderboard_reset_backups').get()!.purged_at,0);sql.close();
 });
 test('old queued submissions cannot enter the new generation and cached boards are isolated',()=>{
  assert.notEqual(GLOBAL_SCORE_DATABASE,'stunts-global-highscores');assert.notEqual(GLOBAL_SCORE_RULES,'ms-dec1990-global-1');assert.throws(()=>validateScoreSubmission({rules:'ms-dec1990-global-1',record:Array(52).fill(0),replay:Array(1900).fill(0),continued:false,flags:1}),/Invalid score/);
+});
+test('reset archive retains engine identities and assessment reasons',async()=>{
+ const {sql,db}=fixture();sql.prepare('INSERT INTO race_engines VALUES (?,?)').run('score','ms-1991');sql.prepare('UPDATE shared_replays SET assessment_reason=? WHERE id=?').run('fixture-only-reason','score');
+ const archive=await backupLeaderboard(db,10),tables=JSON.parse(archive!.payload).tables;
+ assert.deepEqual(tables.race_engines,[{id:'score',physics_engine:'ms-1991'}]);
+ assert.equal(tables.shared_replays[0].assessment_reason,'fixture-only-reason');sql.close();
+});
+test('snapshot whitelist covers every current data table and column except its own receipt',()=>{
+ const {sql}=fixture();const tables=sql.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name!='leaderboard_reset_backups' ORDER BY name").all().map(row=>row.name);
+ assert.deepEqual(Object.keys(RESET_TABLES).sort(),tables);
+ for(const [table,columns] of Object.entries(RESET_TABLES))assert.deepEqual([...columns].sort(),sql.prepare('PRAGMA table_info('+table+')').all().map(row=>row.name).sort(),table);
+ sql.close();
+});
+test('older incomplete archive remains immutable and blocks an unperformed reset',async()=>{
+ const {sql,db}=fixture();const archive=await backupLeaderboard(db,10);const old=JSON.parse(archive!.payload);delete old.tables.race_engines;for(const replay of old.tables.shared_replays)delete replay.assessment_reason;
+ const payload=JSON.stringify(old);sql.prepare('UPDATE leaderboard_reset_backups SET payload=?').run(payload);
+ assert.equal((await backupLeaderboard(db,11))!.payload,payload);
+ await assert.rejects(()=>purgeLeaderboard(db,12,'old'),/Database changed/);
+ for(const table of PURGE_TABLES)assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM '+table).get()!.n,1);
+ assert.equal(sql.prepare('SELECT purged_at FROM leaderboard_reset_backups').get()!.purged_at,0);sql.close();
+});
+test('engine sidecars survive the existing authorized purge scope',async()=>{
+ const {sql,db}=fixture();sql.prepare('INSERT INTO race_engines VALUES (?,?)').run('score','ms-1991');
+ await backupLeaderboard(db,10);await purgeLeaderboard(db,11,'fixture');
+ assert.deepEqual({...sql.prepare('SELECT * FROM race_engines').get()},{id:'score',physics_engine:'ms-1991'});sql.close();
 });

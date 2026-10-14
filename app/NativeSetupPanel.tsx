@@ -4,6 +4,7 @@ import Image from 'next/image';
 import {useEffect,useRef,useState} from 'react';
 import {playBrowserSetupBell} from '@/lib/game/browser-setup-bell';
 import {runBrowserNativeSetup} from '@/lib/game/browser-native-setup';
+import {pressBrowserSetupControl} from '@/lib/game/browser-setup-input';
 
 /** Public settings surface; the original installer remains in its work route. */
 export default function NativeSetupPanel({onClosed}:{onClosed?:()=>void|Promise<void>}){
@@ -29,5 +30,6 @@ export default function NativeSetupPanel({onClosed}:{onClosed?:()=>void|Promise<
    {!running&&<WebsiteImage onError={()=>setPreviewMissing(true)} className="setup-menu-preview" src="/site/setup-menu.png" alt="Stunts Setup menu: display, sound and exit" width={720} height={400} unoptimized style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"contain",objectPosition:"center"}}/>}
   </div>
   {error&&<p role="alert" className="error">{<WebsiteText text={error}/>}</p>}
+  {running&&<div className="touch-setup-controls"><WebsiteElement as="button" aria-label="Previous option" disabled={status==='Loading Setup…'} onClick={()=>{if(canvas.current)pressBrowserSetupControl(canvas.current,'ArrowUp');}}>↑</WebsiteElement><WebsiteElement as="button" aria-label="Next option" disabled={status==='Loading Setup…'} onClick={()=>{if(canvas.current)pressBrowserSetupControl(canvas.current,'ArrowDown');}}>↓</WebsiteElement><button disabled={status==='Loading Setup…'} onClick={()=>{if(canvas.current)pressBrowserSetupControl(canvas.current,'Enter');}}><WebsiteText text="Enter"/></button><button disabled={status==='Loading Setup…'} onClick={()=>{if(canvas.current)pressBrowserSetupControl(canvas.current,'Escape');}}><WebsiteText text="Cancel"/></button></div>}
  </WebsiteElement>;
 }

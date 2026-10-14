@@ -7,7 +7,13 @@ export type OriginalDialogSessionReply={key:number;hover:number}|undefined;
  * saves/restores the background and supplies original input/hit-test results.
  * Timing and button-release waits yield so the native host remains responsive.
  */
-export function* originalDialogSession(content:OriginalDialogContent,mode:number,selected=0,disabled?:ReadonlyArray<number>,shortcuts?:readonly [number,number]):Generator<OriginalDialogSessionEffect,number,OriginalDialogSessionReply>{
+export function* originalDialogSession(content:OriginalDialogContent,mode:number,selected=0,disabled?:ReadonlyArray<number>,shortcuts?:readonly [number,number],physicsEngine?:import('../physics/engine-version.ts').PhysicsEngineVersion):Generator<OriginalDialogSessionEffect,number,OriginalDialogSessionReply>{
+ // MS91 726..760 advances a disabled initial choice, wrapping to zero.
+ if(mode===2&&physicsEngine==='ms-1991'&&disabled){
+  const before=selected,count=content.choices.length;
+  for(let n=0;n<count&&disabled[selected];n++)selected=(selected+1)%count;
+  if(disabled[selected])selected=before; // malformed all-disabled safety bound
+ }
  yield {type:'draw',selected:mode===2?selected:-1};
  if(mode===0)return 0;
  if(mode===3)return content.fields.length;
@@ -19,7 +25,7 @@ export function* originalDialogSession(content:OriginalDialogContent,mode:number
  // the same bytes rather than user-facing translated labels.
  for(;;){
   const input=yield {type:'input'};if(!input)continue;
-  const result=originalDialogInput({count:content.choices.length,selected,hover:input.hover,key:input.key,disabled,shortcuts});
+  const result=originalDialogInput({count:content.choices.length,selected,hover:input.hover,key:input.key,disabled,shortcuts,physicsEngine});
   if(result.done){yield {type:'release'};return result.selected;}
   if(result.selected!==selected){selected=result.selected;yield {type:'draw',selected};}
  }

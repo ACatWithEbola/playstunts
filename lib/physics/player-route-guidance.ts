@@ -2,14 +2,15 @@ import {playerWaypoint,type PlayerWaypointState} from './player-waypoint.ts';
 import {playerPostMove} from './player-post-move.ts';
 import {trackRoutePoint,type TrackRoute} from './track-route-point.ts';
 import type {Vector} from './math.ts';
+import type {PhysicsEngineVersion} from './engine-version.ts';
 // wheelAngle is the older helper name for DS:8cd6: the route-point alternate flag, not steering.
 export interface PlayerGuidanceState extends PlayerWaypointState {angle:number;wheelAngle:number;laps:number;targetFirst?:Vector;targetSecond?:Vector}
 /** Original player_op 99de..9e3c, including the fork's direct finish-check branch. */
-export function playerRouteGuidance(before:PlayerGuidanceState,raw:number[],route:TrackRoute&{primary:number[];secondary:number[]},records:Parameters<typeof trackRoutePoint>[4],vectors:Parameters<typeof trackRoutePoint>[5],objects:Parameters<typeof trackRoutePoint>[6],start:{x:number;z:number;angle:number}){
+export function playerRouteGuidance(before:PlayerGuidanceState,raw:number[],route:TrackRoute&{primary:number[];secondary:number[]},records:Parameters<typeof trackRoutePoint>[4],vectors:Parameters<typeof trackRoutePoint>[5],objects:Parameters<typeof trackRoutePoint>[6],start:{x:number;z:number;angle:number;physicsEngine?:PhysicsEngineVersion}){
  let targetAlternate=before.wheelAngle,targetFirst=before.targetFirst,targetSecond=before.targetSecond;
  const details=()=>before.targetFirst&&before.targetSecond?{targetFirst,targetSecond}:{};
  const waypoint=playerWaypoint(before,route.primary,route.secondary,(entry,point)=>{
-  const result=trackRoutePoint(raw,route,entry,point,records,vectors,objects);
+  const result=trackRoutePoint(raw,route,entry,point,records,vectors,objects,start.physicsEngine);
   targetAlternate=result.alternate;targetFirst=result.first as Vector;targetSecond=result.second as Vector;
   return {position:result.midpoint as Vector,end:result.last};
  });

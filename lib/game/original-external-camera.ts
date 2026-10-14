@@ -5,13 +5,14 @@ import {rotateZXY} from '../physics/rotation.ts';
 import {i16,vecTransform,type Vector} from '../physics/math.ts';
 import type {TrackObject} from '../physics/track.ts';
 import type {CollisionPlane} from '../physics/plane.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 
 /** One camera authority for native replay rendering and modern presentation.
  * Position, terrain correction and view angles follow BFC4..C16E. The display
  * frame only reflects world Z for the browser's coordinate convention.
  */
-export function originalExternalCamera(car:Vector,rotation:Vector,raw:number[],objects:TrackObject[],planes:CollisionPlane[],distance:number,azimuth:number,elevation:number,mode=0){
- const position=originalExternalCameraClearance(originalOrbitCameraPlacement(car,rotation,distance,azimuth,elevation),raw,objects,planes,mode);
+export function originalExternalCamera(car:Vector,rotation:Vector,raw:number[],objects:TrackObject[],planes:CollisionPlane[],distance:number,azimuth:number,elevation:number,mode=0,physicsEngine?:PhysicsEngineVersion){
+ const position=originalExternalCameraClearance(originalOrbitCameraPlacement(car,rotation,distance,azimuth,elevation),raw,objects,planes,mode,physicsEngine);
  const view=originalExternalCameraAngles(car,position),angles=[0,view.pitch,view.heading] as Vector;
  const inverse=rotateZXY(0,i16(-view.pitch),i16(-view.heading));
  const forward=vecTransform([0,0,16384],inverse),up=vecTransform([0,16384,0],inverse);

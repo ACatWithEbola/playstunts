@@ -8,20 +8,27 @@ import {audioTimerSampleOffsets} from './audio-sample-clock.ts';
 import {audioBufferBatch} from './audio-buffer-batch.ts';
 import {fadeOriginalMusic} from './fade-original-music.ts';
 import {cancelAndHoldAudioParam} from './audio-param-automation.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
+import {versionedAd15Resource} from './versioned-ad15-resource.ts';
+import {initializeMs91AdlibRegisterCache,versionedAdlibRegisterWrites} from './versioned-adlib-register-writes.ts';
 /** Bounded streaming of the reconstructed original score, without recording or MIDI conversion. */
-export async function createNativeMusic(context:AudioContext){
+export async function createNativeMusic(context:AudioContext,driverGeneration?:PhysicsEngineVersion,onBuffer?:(e:{score:NativeMusicScore;frames:number;nonzeroSamples:number;peak:number})=>void){
  const seeds=await Promise.all(nativeMusicScores.map(async name=>{const r=await fetch('/game/music-'+name+'-seed.json');if(!r.ok)throw Error('Original score failed to load');return await r.json() as OriginalMusicSeed;}));
  const chip=await createOriginalOplChip(context),output=createOplOutput(chip),gain=context.createGain();gain.gain.value=.6;gain.connect(context.destination);
+ let retainedDriver=versionedAd15Resource(driverGeneration);
+ if(retainedDriver)for(const [register,value] of initializeMs91AdlibRegisterCache(retainedDriver))output.write(register,value);
 
  let runtime:ReturnType<typeof createControlledOriginalMusic>|undefined,phase=0,next=0,closed=false,timer:ReturnType<typeof setInterval>|undefined;
  let musicEnabled=true,soundEnabled=true,paused=false,generation=0;
+ let currentScore:NativeMusicScore='titl';
  const sources=new Set<AudioBufferSourceNode>();
  const release=(source:AudioBufferSourceNode)=>{source.onended=null;sources.delete(source);try{source.stop();}catch{}source.disconnect();source.buffer=null;};
- const stop=()=>{generation++;clearInterval(timer);for(const s of sources)release(s);runtime=undefined;next=0;};
+ const stop=()=>{generation++;clearInterval(timer);for(const s of sources)release(s);if(runtime&&retainedDriver)retainedDriver=runtime.runtime.driverSnapshot()!;runtime=undefined;next=0;};
  const pump=()=>{if(closed||!runtime||context.state!=='running')return;next=audioBufferBatch(next,context.currentTime,512/context.sampleRate,start=>{
   const samples=new Int16Array(1024),clock=audioTimerSampleOffsets(phase,512,context.sampleRate);phase=clock.phase;let position=0;
   const generate=(end:number)=>{if(end>position){output.generate(end-position);samples.set(output.getBuffer().subarray(0,(end-position)*2),position*2);position=end;}};
   for(const offset of clock.offsets){generate(offset);for(const [reg,value] of runtime!.tick())output.write(reg,value);}generate(512);
+  if(onBuffer){let nonzeroSamples=0,peak=0;for(const value of samples){if(value!==0)nonzeroSamples++;peak=Math.max(peak,Math.abs(value));}onBuffer({score:currentScore,frames:512,nonzeroSamples,peak});}
   const buffer=context.createBuffer(2,512,context.sampleRate);for(let c=0;c<2;c++){const dst=buffer.getChannelData(c);for(let i=0;i<512;i++)dst[i]=samples[i*2+c]/32768;}
   const source=context.createBufferSource();source.buffer=buffer;source.connect(gain);sources.add(source);source.onended=()=>release(source);source.start(start);
  });};
@@ -31,7 +38,7 @@ export async function createNativeMusic(context:AudioContext){
   return operation==='toggle-music'?Number(musicEnabled):operation==='toggle-sound'?Number(soundEnabled):0;
  };
  const setOutputMuted=(muted:boolean,at=context.currentTime,fade=0)=>{if(closed)return;const parameter=gain.gain;cancelAndHoldAudioParam(parameter,at);if(fade>0)parameter.linearRampToValueAtTime(muted?0:.6,at+fade);else parameter.setValueAtTime(muted?0:.6,at);};
- return {control,setOutputMuted,fadeTicks:128,get settings(){return {musicEnabled,soundEnabled,paused};},play(name:NativeMusicScore){if(closed||!musicEnabled)return;const restorePaused=paused,restoreSound=soundEnabled;stop();const seed=seeds[nativeMusicScores.indexOf(name)];runtime=createControlledOriginalMusic(seed);phase=0;for(const [reg,value] of seed.initialWrites)output.write(reg,value);if(!restoreSound)control('toggle-sound');if(restorePaused)control('pause-audio');pump();timer=setInterval(pump,25);},
+ return {control,setOutputMuted,fadeTicks:128,get settings(){return {musicEnabled,soundEnabled,paused};},play(name:NativeMusicScore){if(closed||!musicEnabled)return;currentScore=name;const restorePaused=paused,restoreSound=soundEnabled;stop();const seed=seeds[nativeMusicScores.indexOf(name)];const initial=versionedAdlibRegisterWrites(retainedDriver??new Uint8Array(),seed.initialWrites,driverGeneration);runtime=createControlledOriginalMusic(seed,retainedDriver?{driverGeneration:driverGeneration!,driver:retainedDriver}:undefined);phase=0;for(const [reg,value] of initial)output.write(reg,value);if(!restoreSound)control('toggle-sound');if(restorePaused)control('pause-audio');pump();timer=setInterval(pump,25);},
   async fadeOut(waitTicks:(ticks:number)=>Promise<void>){
    if(closed)return;const owner=++generation,active=()=>!closed&&owner===generation;const memory=new Uint8Array(65536);memory[0x9f62]=127;let delay=0;
    await fadeOriginalMusic({memory:()=>memory,musicVolume(value){if(active()&&runtime)for(let owner=0;owner<runtime.runtime.state.tracks;owner++)for(const [reg,n] of runtime.runtime.control({type:'volume',owner,value}))output.write(reg,n);},alternateCommand(){throw Error('Unexpected alternate music driver');},beginDelay(ticks){delay=ticks;},finishDelay:()=>active()?waitTicks(delay):Promise.resolve(),stopMusic(){if(active())stop();}},0,2);

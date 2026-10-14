@@ -1,15 +1,16 @@
 import {trackPlaneContact,type TrackObject} from '../physics/track.ts';
 import {planeDistance,type CollisionPlane} from '../physics/plane.ts';
 import {i16,vecTransform,type Vector} from '../physics/math.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 /** Original C092..C118. Uses the same original collision selection as driving. */
-export function originalExternalCameraClearance(camera:Vector,raw:number[],objects:TrackObject[],planes:CollisionPlane[],mode=0):Vector{
+export function originalExternalCameraClearance(camera:Vector,raw:number[],objects:TrackObject[],planes:CollisionPlane[],mode=0,physicsEngine?:PhysicsEngineVersion):Vector{
  const x=i16(camera[0]),z=i16(camera[2]);
  if(x<0||x>=30720||z<0||z>=30720){
   const ground=((x^z)>>8)&1;
   return [x,Math.max(i16(camera[1]),ground+12),z];
  }
  const point=camera.map(n=>i16(n)*64) as Vector;
- const contact=trackPlaneContact(raw,objects,point,point,mode);
+ const contact=trackPlaneContact(raw,objects,point,point,mode,undefined,physicsEngine);
  const result=[i16(camera[0]),Math.max(i16(camera[1]),contact.tileOrigin[1]),i16(camera[2])] as Vector;
  if(contact.underside){
   const plane=planes[contact.planeId];

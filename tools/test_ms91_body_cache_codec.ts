@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {decodeMs91BodyCache,encodeMs91BodyCache,initialMs91BodyCaches} from '../lib/game/ms91-body-cache-memory.ts';
+import type {Vector} from '../lib/physics/math.ts';
+const points:Vector[]=[[-32768,32767,-1],[0,1,2],[91,-92,93],[16384,-16384,0]];
+const bytes=encodeMs91BodyCache(points),container=Buffer.alloc(31,0xaa);
+container.set(bytes,3);
+assert.deepEqual(decodeMs91BodyCache(container.subarray(3,27)),points);
+assert.throws(()=>decodeMs91BodyCache(new Uint8Array(23)));
+assert.throws(()=>encodeMs91BodyCache(points.slice(1)));
+const memory=new Uint8Array(0x100000),d=0x2d1a0,v=new DataView(memory.buffer);
+const positions:Vector[]=[[640,-65,2097151],[-2097152,127,-1]];
+positions.forEach((position,car)=>position.forEach((value,axis)=>v.setInt32(d+[0x8c38,0x8cf0][car]+12+axis*4,value,true)));
+const before=memory.slice(),caches=initialMs91BodyCaches(memory,d);
+caches.forEach((cache,car)=>assert.deepEqual(decodeMs91BodyCache(cache),Array.from({length:4},()=>positions[car].map(value=>value>>6))));
+assert.deepEqual(memory,before);
+caches[0].fill(0);assert.deepEqual(memory,before);
+console.log('MS91 body-cache signed codec, sliced Buffer and previous-position initialization pass');

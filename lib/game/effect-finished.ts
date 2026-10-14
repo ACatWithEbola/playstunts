@@ -5,6 +5,6 @@ export function effectFinished(timers:Uint8Array[],handle:number,enabled:number)
  handle=handle<<16>>16;
  if(enabled===0||handle<16||handle>23)return true;
  const record=timers[handle];
- if(!record||record.length!==72)throw Error('Invalid original effect timer');
+ if(!record||(record.length!==72&&record.length!==76))throw Error('Invalid original effect timer');
  return new DataView(record.buffer,record.byteOffset,record.byteLength).getUint32(0,true)===0;
 }

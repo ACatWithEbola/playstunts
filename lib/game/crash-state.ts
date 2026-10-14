@@ -10,7 +10,7 @@ export interface CrashRaceState {
   preserveStats:boolean; audioHandles:number[];
 }
 export type CrashEffect = {type:'particles';car:0|1;yaw:number;mode:0} | {type:'audio';handle:number};
-export function updateCrashState(before:CrashRaceState,cause:1|2|3|4|5,car:0|1) {
+export function updateCrashState(before:CrashRaceState,cause:1|2|3|4|5,car:0|1,framesPerSecond:10|20=20) {
   const state={...before,stats:[...before.stats],savedStats:[...before.savedStats]};
   const effects:CrashEffect[]=[];
   if(state.crash) return {state,effects};
@@ -21,11 +21,11 @@ export function updateCrashState(before:CrashRaceState,cause:1|2|3|4|5,car:0|1) 
     state.crash=cause;
     if(cause===1) effects.push({type:'particles',car,yaw:state.yaw,mode:0});
     else stop=true;
-    if(car===0){state.stats[8]=state.roadSpeed;state.timer=80;}
+    if(car===0){state.stats[8]=state.roadSpeed;state.timer=4*framesPerSecond;}
     if(!state.replay && state.audioEnabled) effects.push({type:'audio',handle:state.audioHandles[car]});
   } else if(cause===3){
     state.crash=3;
-    if(car===0){state.stats[3]=(state.stats[2]+state.stats[7]+state.elapsed)&65535;state.timer=20;}
+    if(car===0){state.stats[3]=(state.stats[2]+state.stats[7]+state.elapsed)&65535;state.timer=framesPerSecond;}
     else state.stats[4]=(state.stats[2]+state.elapsed)&65535;
   }
   if(stop){state.speed=0;state.roadSpeed=0;}

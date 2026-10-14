@@ -10,6 +10,8 @@ export interface LoadedEffectResource {
  sequenceOffset:number;sequenceSegment:number;sequence:Uint8Array;
 }
 export interface EffectRuntimeState {
+ driverGeneration?:import('../physics/engine-version.ts').PhysicsEngineVersion;
+ effectEngine?:import('../physics/engine-version.ts').PhysicsEngineVersion;
  timers:Uint8Array[];voices:Uint8Array[];lastNotes:Uint8Array;
  velocities:number[];driverSegment:number;
 }
@@ -26,7 +28,9 @@ export function stepEffectRuntime(before:EffectRuntimeState,resources:LoadedEffe
   return resource.instrument;
  };
  if(before.voices.some(v=>v[1]&&v[0]<16))throw Error('Music-owned voice timing is not reconstructed');
- const tick=stepAdlibVoiceTimer(before,instrumentAt);
+ // Common game lifecycle follows its engine even when an independently
+ // selected sound driver is retained for compatibility.
+ const tick=stepAdlibVoiceTimer(before,instrumentAt,before.effectEngine??before.driverGeneration);
  let {voices,timers,lastNotes}=tick;let velocities=before.velocities.slice();
  const writes=tick.writes.slice();
  for(let owner=16;owner<23;owner++){
@@ -77,5 +81,5 @@ export function stepEffectRuntime(before:EffectRuntimeState,resources:LoadedEffe
   if(sequence.offset===null)v.setUint32(0,0,true);
   else {v.setUint16(0,resource.sequenceOffset+sequence.offset,true);v.setUint16(2,segment,true);}
  }
- return {timers,voices,lastNotes,velocities,driverSegment:before.driverSegment,writes};
+ return {timers,voices,lastNotes,velocities,driverSegment:before.driverSegment,writes,...(before.driverGeneration?{driverGeneration:before.driverGeneration}:{}),...(before.effectEngine?{effectEngine:before.effectEngine}:{})};
 }

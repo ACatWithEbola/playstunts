@@ -5,6 +5,6 @@ export function playerRaceNavigation(race:CrashRaceState,...args:Parameters<type
  const navigation=advancePlayerNavigation(...args);
  let next={...race,stats:[...race.stats]};
  next.stats[7]=navigation.state.progress.totalPenalty;
- if(navigation.finish)next=updateCrashState(next,3,0).state;
+ if(navigation.finish)next=updateCrashState(next,3,0,args[0].framesPerSecond??20).state;
  return {race:next,navigation:{...navigation.state,guidance:{...navigation.state.guidance,crash:next.crash}},finish:navigation.finish};
 }

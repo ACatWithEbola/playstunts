@@ -9,6 +9,7 @@ import {initializeOriginalSetupMenus} from '../lib/game/initialize-setup-menus.t
 import {loadOriginalSetupConfiguration, saveOriginalSetupConfiguration} from '../lib/game/native-setup-configuration.ts';
 import {createNativeSetupStorage} from '../lib/game/native-setup-storage.ts';
 import {nativeFileKey, type NativeStoredFile} from '../lib/game/native-file-store.ts';
+import {selectBrowserFutureRaceEngine} from '../lib/game/browser-future-race-engine.ts';
 
 const resource = JSON.parse(readFileSync(new URL('../public/game/setup-initial-data.json', import.meta.url), 'utf8'));
 const initial = Buffer.from(resource.data, 'hex');
@@ -41,6 +42,18 @@ await test('fresh browser SETUP selects Sound Blaster without ROMs and MT-32 wit
   assert.equal((await readOriginalSetupSelection(initial, null, 3)).sound, 2);
 });
 
+await test('all display/sound selections survive original Setup serialization and reload', async()=>{
+ for(const video of [0,1,2,3,4])for(const sound of [0,1,2,3,4,5]){
+  const configuration=Buffer.from(`rem ${video} ${sound} -1 -1 -1 -1\r\n`);
+  const memory=createOriginalSetupMemory(initial);initializeOriginalSetupMenus(memory);
+  await loadOriginalSetupConfiguration(memory,{open:()=>3,read:()=>({result:configuration.length,bytes:configuration}),close:()=>0,detectVideo:()=>4,error(){assert.fail('Unexpected original Setup read error');}});
+  let written:Uint8Array|undefined;
+  const saved=await saveOriginalSetupConfiguration(memory,{create:()=>3,write:(_handle,bytes)=>{written=Uint8Array.from(bytes);return bytes.length;},close:()=>0,error(){assert.fail('Unexpected original Setup save error');}});
+  assert.deepEqual(Uint8Array.from(saved),written,'Returned configuration must equal the bytes actually written');
+  assert.deepEqual(await readOriginalSetupSelection(initial,saved),await readOriginalSetupSelection(initial,configuration));
+ }
+});
+
 await test('Setup storage uses the detected seed only when a user has no saved SETUP.DAT', async () => {
  for(const mt32Installed of [false,true])for (const savedSound of [undefined, 0, 1, 2, 3, 4, 5]) {
     const bytes = savedSound === undefined ? undefined : Buffer.from(`rem 2 ${savedSound} -1 -1 -1 -1\r\n`);
@@ -60,7 +73,7 @@ await test('Setup storage uses the detected seed only when a user has no saved S
 });
 
 await test('browser launch falls back only from unavailable MT-32 and retains saved settings', async () => {
-  const names = ['indexedDB', 'localStorage', 'fetch'] as const;
+  const names = ['indexedDB', 'localStorage', 'fetch', 'window'] as const;
   const descriptors = names.map(name => Object.getOwnPropertyDescriptor(globalThis, name));
   let directory = 'C:\\', files: NativeStoredFile[] = [], closed = 0;
   // Minimal asynchronous browser read boundary; every write is rejected.
@@ -86,9 +99,11 @@ await test('browser launch falls back only from unavailable MT-32 and retains sa
     return {ok: true, json: async () => resource};
   }});
   try {
-   for(const installed of [false,true])for (const path of ['C:\\', 'C:\\STUNTS\\']) for (const sound of [undefined, 0, 1, 2, 3, 4, 5]) {
+   for(const engine of ['ms-1990','ms-1991'] as const)for(const installed of [false,true])for (const path of ['C:\\', 'C:\\STUNTS\\']) for (const sound of [undefined, 0, 1, 2, 3, 4, 5]) for(const video of [0,1,2,3,4]) {
+      Object.defineProperty(globalThis,'window',{configurable:true,value:{location:{hostname:'localhost',search:'?play-engine='+engine}}});
+      assert.equal(selectBrowserFutureRaceEngine(),engine);
       directory = path;
-      files = sound === undefined ? [] : [{key: nativeFileKey(path, 'SETUP', '.DAT'), bytes: Buffer.from(`rem 2 ${sound} -1 -1 -1 -1\r\n`)}];
+      files = sound === undefined ? [] : [{key: nativeFileKey(path, 'SETUP', '.DAT'), bytes: Buffer.from(`rem ${video} ${sound} -1 -1 -1 -1\r\n`)}];
       const before = structuredClone(files);
       let probes=0;
       const loaded = await loadBrowserSetupSelection(new AbortController().signal,async()=>{probes++;return installed;});
@@ -96,12 +111,16 @@ await test('browser launch falls back only from unavailable MT-32 and retains sa
       const configured=sound??(installed?5:4),effective=configured===5&&!installed?4:configured;
       assert.equal(loaded.configuredSelection.sound,configured);
       assert.equal(loaded.selection.sound,effective);
-      assert.equal(loaded.selection.video, sound === undefined ? 4 : 2);
+      assert.equal(loaded.selection.video, sound === undefined ? 4 : video);
+      assert.equal(loaded.configuredSelection.video, sound === undefined ? 4 : video);
       assert.equal(loaded.mt32Fallback,!installed&&(sound===undefined||sound===5));
       assert.equal(probes,sound===undefined||sound===5?1:0,'Only clean or selected MT-32 sound may probe the ROMs');
       assert.deepEqual(structuredClone(files), before);
+      const reloaded=await loadBrowserSetupSelection(new AbortController().signal,async()=>installed);
+      assert.deepEqual(reloaded,loaded,'A fresh launch must retain the same configured and effective Setup choices');
+      assert.deepEqual(structuredClone(files),before,'Reload must leave saved bytes unchanged');
     }
-    assert.equal(closed, 28, 'every launch closes its read connection');
+    assert.equal(closed, 560, 'every launch and reload across all display choices closes its read connection');
   } finally {
     names.forEach((name, index) => {
       if (descriptors[index]) Object.defineProperty(globalThis, name, descriptors[index]!);

@@ -3,12 +3,12 @@ import {updateCrashState} from './crash-state.ts';
 import {generateParticles} from './particles.ts';
 /** Original B3B2 with live shared race memory and real particle generation.
  * Audio requests are returned for the active native driver to execute. */
-export function crashOriginalRaceMemory(memory:Uint8Array,d:number,cause:1|2|3|4|5,selected:0|1){
+export function crashOriginalRaceMemory(memory:Uint8Array,d:number,cause:1|2|3|4|5,selected:0|1,framesPerSecond:10|20=20,physicsEngine?:import('../physics/engine-version.ts').PhysicsEngineVersion){
  const view=new DataView(memory.buffer,memory.byteOffset,memory.byteLength),word=(at:number)=>view.getUint16(d+at,true),base=0x8c38+selected*0xb8;
  const decoded=readPlayerDrivingState(memory.subarray(d,d+65536)),before={...decoded.driving.race,crash:memory[d+base+0xb1],speed:word(base+0x2a),roadSpeed:word(base+0x2c),yaw:word(base+0x18)};
- const result=updateCrashState(before,cause,selected),state=result.state;
+ const result=updateCrashState(before,cause,selected,framesPerSecond),state=result.state;
  let particles=decoded.driving.particles;
- for(const effect of result.effects)if(effect.type==='particles')particles=generateParticles(particles,effect.car,effect.yaw,effect.mode);
+ for(const effect of result.effects)if(effect.type==='particles')particles=generateParticles(particles,effect.car,effect.yaw,effect.mode,physicsEngine);
  const set=(at:number,value:number)=>view.setUint16(d+at,value,true);
  memory[d+base+0xb1]=state.crash;set(base+0x2a,state.speed);set(base+0x2c,state.roadSpeed);
  set(0x8c1e,state.abortFlag);set(0x8c20,state.timer);memory[d+0x8eac]=state.evaluationCause;

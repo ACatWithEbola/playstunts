@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {fixtureData} from './global-score-fixture.ts';
+import {createNativeManualRaceSession} from '../lib/game/native-manual-race-session.ts';
+import {moveTrack} from '../lib/physics/track-step.ts';
+const replay=new Uint8Array(readFileSync('public/game/replays/CTKFIN.RPL'));
+const race=await createNativeManualRaceSession({...fixtureData,physicsEngine:'ms-1991'},{configuration:Array.from(replay.subarray(0,24)),track:Array.from(replay.subarray(24,0x722)),name:'CACHEQA',camera:0,graphics:2,soundEnabled:false},{resetMouse(){}});
+race.session.skipIntroduction();race.session.tick(0);
+const car=race.session.state.player.driving.car;
+assert.equal(car.bodyPlaneCache?.length,4,'Active native caller supplies all four points');
+const before=race.session.state.memory.slice();
+const missing={...car,bodyPlaneCache:undefined};
+assert.throws(()=>moveTrack(missing,[],{raw:[],objects:[],planes:[],walls:[],physicsEngine:'ms-1991'},car.engine,car.grip,car.engine.roadSpeed),/retained body-plane cache/);
+assert.deepEqual(race.session.state.memory,before,'Invalid direct caller cannot change live memory');
+console.log('Native modern caller supplies cache; incomplete direct caller rejects before geometry and preserves source memory');

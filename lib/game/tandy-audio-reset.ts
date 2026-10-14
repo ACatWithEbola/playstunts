@@ -12,9 +12,9 @@ export function resetOriginalTandyAudio<T extends OriginalTandyEffectState&{mark
   lastNotes[owner]=0;markers[owner]=0;
  }
  for(let index=0;index<voices.length;index++){
-  const stopped=stopOriginalTandyChannel(driver,driverSegment,index,port61);writes.push(...stopped.writes);bios.push(...stopped.bios);for(const [port,value] of stopped.writes)if(port===0x61)port61=value;
+  const stopped=stopOriginalTandyChannel(driver,driverSegment,index,port61,before.driverGeneration);writes.push(...stopped.writes);bios.push(...stopped.bios);for(const [port,value] of stopped.writes)if(port===0x61)port61=value;
   const v=voices[index];v[0]=255;v[1]=0;v[2]=0;v[44]=255;new DataView(v.buffer).setUint32(16,0,true);
  }
- const silent=silenceOriginalTandy(driver,driverSegment,port61);writes.push(...silent.writes);bios.push(...silent.bios);
+ const silent=silenceOriginalTandy(driver,driverSegment,port61,before.driverGeneration);writes.push(...silent.writes);bios.push(...silent.bios);
  return {...before,driver,timers,voices,lastNotes,markers,paused:0,writes,bios};
 }

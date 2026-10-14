@@ -15,6 +15,29 @@ import {prepareRaceTrack} from '../lib/game/prepare-race-track.ts';
 import {routeEvidenceGates} from '../lib/server/route-evidence-gates.ts';
 const graph={primary:[1,2,3,4,5,6,7,0],alternate:Array(8).fill(65535),columns:[0,0,0,1,2,2,2,1],rows:[0,1,2,2,2,1,0,0],footprints:Array(8).fill(0)};
 const position=(node:number)=>[(graph.columns[node]+.5)*65536,0,(29-graph.rows[node]+.5)*65536],road=[1,1,1,1],grass=[4,4,4,4];
+test('corkscrew evidence corridor follows recorded engine width without changing legacy',()=>{
+ const tile=fixtureData.objects.findIndex((object:{physics:number;rotation:number})=>object.physics===35&&object.rotation===0);assert.ok(tile>=0);
+ const track=new Array(1802).fill(0),before=track.slice();
+ const prepared={route:{tiles:[tile],directions:[0],columns:[10],routeRows:[10]}} as ReturnType<typeof prepareRaceTrack>;
+ for(const physicsEngine of ['ms-1990','ms-1991','bb-1991'] as const){
+  const gates=routeEvidenceGates(track,prepared,{...fixtureData,physicsEngine})[0];assert.ok(gates.length>1);
+  assert.ok(gates.every(gate=>gate.lateralTolerance===(physicsEngine==='ms-1990'?130:150)),physicsEngine+' must use its collision-selector corridor');
+  const axis=gates[0].longitudinalAxis!,cross=axis===0?2:0;
+  const direction=Math.sign(gates.at(-1)!.position[axis]-gates[0].position[axis]);
+  const pathGraph={primary:[1,0],alternate:[65535,65535],columns:[10,10],rows:[10,11],footprints:[0,0]};
+  const certify=(offset:number)=>{
+   const start=gates[0].position.slice();start[axis]-=direction*256;start[cross]+=offset;
+   const witness=createFullRouteWitness(pathGraph,[[{position:start,radius:64}],gates]);
+   witness.observe(start.map(value=>value*64),road);
+   for(const gate of gates)witness.observe(gate.position.map((value,index)=>(value+(index===cross?offset:0))*64),road);
+   return witness.result(true);
+  };
+  assert.equal(certify(0),true);
+  assert.equal(certify(140),physicsEngine!=='ms-1990','Full route evidence must respect the recorded corkscrew corridor');
+  assert.equal(certify(160),false,'A wider unsupported bypass must remain unconfirmed in every edition');
+ }
+ assert.deepEqual(track,before);
+});
 function excursion(to:number,options:{air?:boolean;short?:boolean;partial?:boolean}={}){
  const check=createShortcutAssessment(graph);check.observe(position(0),road);
  const start=position(0),end=position(to),frames=options.short?2:12;

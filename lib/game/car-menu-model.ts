@@ -4,9 +4,10 @@ import {renderOriginalModelMemory} from './render-model-memory.ts';
 import {drainOriginalPrimitiveQueue,type OriginalRasterCall} from './drain-primitive-queue.ts';
 import {rasterOriginalDrawCall} from './raster-original-draw-call.ts';
 import type {Vector} from '../physics/math.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 /** Original menu camera: 24129(35,16,320,100) and atan(-840,2880).
  * Geometry remains the supplied car0 resource, with original materials/raster. */
-export function createOriginalCarMenuModel(baseline:Uint8Array,bank:Uint8Array,background:ReadonlyArray<number>,capture?:(memory:Uint8Array,background:Uint8Array,calls:OriginalRasterCall[])=>void){
+export function createOriginalCarMenuModel(baseline:Uint8Array,bank:Uint8Array,background:ReadonlyArray<number>,capture?:(memory:Uint8Array,background:Uint8Array,calls:OriginalRasterCall[])=>void,engine?:PhysicsEngineVersion){
  const memory=baseline.slice(),d=0x2d1a0,c=0x209e0,v=new DataView(memory.buffer),set=(o:number,n:number)=>v.setUint16(d+o,n,true),bankView=new DataView(bank.buffer,bank.byteOffset,bank.byteLength),count=bankView.getUint16(4,true);
  let index=-1;for(let i=0;i<count;i++)if(String.fromCharCode(...bank.subarray(6+i*4,10+i*4))==='car0'){index=i;break;}
  if(index<0)throw Error('Missing original car0 model');
@@ -19,9 +20,9 @@ export function createOriginalCarMenuModel(baseline:Uint8Array,bank:Uint8Array,b
  return {paintCount:shape[2],render(target:Uint8Array,angle:number,paint:number){
   memory.set(target,0x90000);selectOriginalView(memory,d,[0,-46,0],[0,320,0,95],0);
   [9999,-1,9999,-1].forEach((n,i)=>set(0xb100+i*2,n));[0,-840,2880,0x7f16,0xb100,0,0,angle,30000].forEach((n,i)=>set(0xb000+i*2,n));memory[d+0xb012]=0;memory[d+0xb013]=paint;
-  const projected=new Map<number,number[][]>();renderOriginalModelMemory(memory,d,0xb000,cache,capture?(index,points)=>projected.set(index,points):undefined);const count=v.getUint16(d+0x8938,true),word=(o:number)=>background[o]|background[o+1]<<8;
+  const projected=new Map<number,number[][]>();renderOriginalModelMemory(memory,d,0xb000,cache,capture?(index,points)=>projected.set(index,points):undefined,undefined,undefined,false,engine);const count=v.getUint16(d+0x8938,true),word=(o:number)=>background[o]|background[o+1]<<8;
   for(let y=0;y<word(2);y++)for(let x=0;x<word(0);x++)memory[0x90000+(((word(10)+y)*320+word(8)+x)&65535)]=background[16+y*word(0)+x];
   const backdrop=capture?memory.slice(0x90000,0xa0000):undefined,calls:OriginalRasterCall[]=[];
-  drainOriginalPrimitiveQueue(memory,d,(call,index,counter)=>{if(capture)calls.push({...call,presentationPoints:projected.get(index)});return rasterOriginalDrawCall(memory,d,c,call,{index,counter});});if(capture)capture(memory,backdrop!,calls);target.set(memory.subarray(0x90000,0xa0000));return count;
+  drainOriginalPrimitiveQueue(memory,d,(call,index,counter)=>{if(engine==='ms-1991')call={...call,physicsEngine:engine};if(capture)calls.push({...call,presentationPoints:projected.get(index)});return rasterOriginalDrawCall(memory,d,c,call,{index,counter});});if(capture)capture(memory,backdrop!,calls);target.set(memory.subarray(0x90000,0xa0000));return count;
  }};
 }

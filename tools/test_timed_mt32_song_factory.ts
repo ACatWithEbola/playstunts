@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createTimedMt32SongFactory} from '../lib/game/timed-mt32-song-factory.ts';
+import type {OriginalMt32MusicSeed} from '../lib/game/mt32-music-runtime.ts';
+import type {NativeMusicScore} from '../lib/game/native-music-score.ts';
+import {PC_PIT_INPUT_HZ} from '../lib/game/timer-interrupt.ts';
+const names=['titl','slct','vict','over'] as const;
+const seeds=Object.fromEntries(names.map(name=>[name,JSON.parse(readFileSync(`public/game/mt32-music-${name}-seed.json`,'utf8'))])) as Record<NativeMusicScore,OriginalMt32MusicSeed>;
+const patch=readFileSync('public/game/original-resources/MT32.PLB'),before=JSON.stringify(seeds),patchBefore=Buffer.from(patch);
+for(const generation of ['ms-1990','ms-1991'] as const){
+ const writes:number[][]=[];let closed=0;
+ const device={sampleRate:32000,active:()=>false,write(batch:number[][]){writes.push(...batch);},render(frames:number){return new Float32Array(frames*2);},close(){closed++;}};
+ const profile={cpuHz:4772728,pollCycles:20,resetClocks:Math.ceil(.014*PC_PIT_INPUT_HZ),initialPort61:0,interrupts(){},yieldTask:async()=>{}};
+ const factory=createTimedMt32SongFactory(device,seeds,patch,generation,profile);
+ profile.cpuHz=NaN;profile.pollCycles=NaN;profile.resetClocks=NaN;profile.initialPort61=NaN;
+ profile.interrupts=()=>{assert.fail('Later caller callback must not replace retained clock profile');};
+ profile.yieldTask=async()=>{assert.fail('Later caller yield callback must not replace retained cleanup profile');};
+ await assert.rejects(factory('titl',()=>true),{name:'AbortError'});assert.equal(writes.length,0);
+ const title=await factory('titl',()=>false);
+ await assert.rejects(factory('slct',()=>false),/already has a song owner/);
+ assert.equal((await title.score.render(512)).length,1024);title.score.close();await title.release();
+ const releasedWrites=writes.length;await title.release();assert.equal(writes.length,releasedWrites,'Release is idempotent');
+ const menu=await factory('slct',()=>false);await menu.score.render(512);menu.score.close();await menu.release();
+ assert.equal(closed,0,'Factory must not close caller synthesizer');
+ let cleanupFails=false;
+ const cleanupError=new Error('Synthesizer cleanup failed');
+ const brokenDevice={...device,active:()=>cleanupFails,render(frames:number){if(cleanupFails)throw cleanupError;return new Float32Array(frames*2);}};
+ const brokenFactory=createTimedMt32SongFactory(brokenDevice,seeds,patch,generation,{cpuHz:4772728,pollCycles:20,resetClocks:Math.ceil(.014*PC_PIT_INPUT_HZ),initialPort61:0,interrupts(){},yieldTask:async()=>{}});
+ const brokenSong=await brokenFactory('slct',()=>false);brokenSong.score.close();cleanupFails=true;
+ await assert.rejects(brokenSong.release(),error=>error===cleanupError);
+ cleanupFails=false;
+ await assert.rejects(brokenFactory('titl',()=>false),error=>error===cleanupError);
+}
+assert.equal(JSON.stringify(seeds),before);assert.deepEqual(patch,patchBefore);
+console.log('Both versioned timed song factories initialize/render/release, reject overlap/cancellation and post-cleanup-failure reuse, retain input resources and leave synthesizer lifetime external; synthetic PCM only');

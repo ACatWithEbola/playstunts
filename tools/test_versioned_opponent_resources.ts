@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {join} from 'node:path';
+import {loadVleResource} from '../lib/game/load-vle-resource.ts';
+import {soundResourceOffset} from '../lib/game/sound-resource.ts';
+import {versionedOpponentSpeeds} from '../lib/game/versioned-opponent-speeds.ts';
+import {versionedOpponentResource,opponentCacheName} from '../lib/game/versioned-opponent-resource.ts';
+const root=process.argv[2];
+if(!root)throw Error('Pass the original distributions directory; missing resources must not silently skip');
+for(let opponent=1;opponent<=6;opponent++){
+ const paths=['ms90','ms91'].map(version=>join(root,version,'OPP'+opponent+'.PRE'));
+ const originals=paths.map(path=>new Uint8Array(readFileSync(path))),before=originals.map(bytes=>bytes.slice());
+ assert.equal(versionedOpponentResource('OPP'+opponent+'.PRE','ms-1990'),undefined);
+ const packed=versionedOpponentResource(opponentCacheName(opponent,'ms-1991')+'.PRE','ms-1991');assert.ok(packed);
+ assert.deepEqual(packed,originals[1],'Embedded packed bytes and their trailing decompression layout match the original');
+ packed[0]^=255;assert.deepEqual(versionedOpponentResource('OPP'+opponent+'.PRE','ms-1991'),originals[1],'Resource reads return isolated copies');
+ assert.notEqual(opponentCacheName(opponent,'ms-1990'),opponentCacheName(opponent,'ms-1991'));
+ const unpacked=originals.map(bytes=>loadVleResource(new Uint8Array(65536),0x1000,bytes).resource);
+ const offsets=unpacked.map(bytes=>soundResourceOffset(bytes,Uint8Array.from([115,112,101,100])));
+ assert.ok(offsets.every(offset=>offset!==null));
+ const old=unpacked[0].slice(offsets[0]!,offsets[0]!+16),modern=versionedOpponentSpeeds(old,opponent,'ms-1991');
+ assert.equal(versionedOpponentSpeeds(old,opponent),old);
+ assert.equal(versionedOpponentSpeeds(old,opponent,'ms-1990'),old);
+ assert.equal(versionedOpponentSpeeds(modern,opponent,'ms-1991'),modern);
+ assert.deepEqual(versionedOpponentSpeeds(modern,opponent,'ms-1990'),old,'Cached modern profiles restore legacy values on engine switch');
+ assert.deepEqual(modern,unpacked[1].slice(offsets[1]!,offsets[1]!+16));
+ const adapted=unpacked[0].slice();adapted.set(modern,offsets[0]!);
+ assert.deepEqual(adapted,unpacked[1],'All unpacked bytes outside the verified profile changes must match for opponent '+opponent);
+ assert.deepEqual(old,unpacked[0].slice(offsets[0]!,offsets[0]!+16));
+ paths.forEach((path,index)=>assert.deepEqual(new Uint8Array(readFileSync(path)),before[index]));
+}
+assert.throws(()=>versionedOpponentSpeeds(new Uint8Array(16),1,'ms-1991'),/Unexpected original/);
+assert.throws(()=>versionedOpponentSpeeds(new Uint8Array(16),7,'ms-1991'),/Unsupported versioned/);
+console.log('All six original MS91 opponent resources match copy-only speed adaptation byte-for-byte; source resources and legacy profiles unchanged');

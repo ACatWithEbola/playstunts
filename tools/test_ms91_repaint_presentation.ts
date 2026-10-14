@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {createMs91RepaintState} from '../lib/game/ms91-repaint-state.ts';
+import {presentMs91Repaint,type Ms91RepaintPresentationHost} from '../lib/game/ms91-repaint-presentation.ts';
+import type {Ms91Rectangle} from '../lib/game/ms91-rectangle-list.ts';
+const full:Ms91Rectangle=[0,320,0,200],empty:Ms91Rectangle=[320,0,200,0],state=createMs91RepaintState(full,empty),regions=Array.from({length:15},()=>[...empty] as Ms91Rectangle);
+regions[5]=[0,30,0,20];const options={enabled:true,fullRedraw:false,pageFlipping:false,detail:0};
+const events:string[]=[],host:Ms91RepaintPresentationHost={selectScreen(){events.push('screen');},bounds(...r){events.push('bounds:'+r.join(','));},beginCopy(){events.push('begin');},copyRenderWindow(){events.push('copy');},endCopy(){events.push('end');}};
+const failed=state.prepare(regions,full,1,options);assert.throws(()=>presentMs91Repaint(failed,{...host,copyRenderWindow(){throw Error('driver failure');}}),/driver failure/);assert.equal(events.at(-1),'end');assert.equal(state.prepare(regions,full,1,options).flags[5],3);
+events.length=0;presentMs91Repaint(state.prepare(regions,full,1,options),host);assert.deepEqual(events,['screen','begin','bounds:0,320,0,200','copy','end']);assert.equal(state.prepare(regions,full,1,options).flags[5],0);
+events.length=0;presentMs91Repaint(state.prepare(regions,full,1,options),host);assert.deepEqual(events,['screen','bounds:0,320,0,200','begin','copy','end']);
+events.length=0;presentMs91Repaint(state.prepare(regions,full,2,{...options,pageFlipping:true}),host);assert.deepEqual(events,[]);assert.equal(state.prepare(regions,full,2,options).flags[5],3);
+console.log('MS91 presentation bridge: driver ordering, cleanup, failure cache retention and no-copy page flipping passed');

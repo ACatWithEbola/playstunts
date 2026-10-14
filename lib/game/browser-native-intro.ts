@@ -23,8 +23,8 @@ export async function runBrowserNativeIntro(canvas:HTMLCanvasElement,mode:Native
  if(!tuning||!raw)throw Error('Original intro Countach or track is missing');
  const simulation=Uint8Array.from(tuning.rawSimulation.match(/../g)!,hex=>parseInt(hex,16)),drivingData:IntroDrivingData={...data,tuning,simulation,raw};
  initializeOriginalCarSimulation(startup,d,simulation,true);
- initializeOriginalIntroScene(startup,d,(entry,point)=>{const target=trackOpponentRoutePoint(raw,originalIntroRoute,entry,point,data.records,data.points,data.objects,data.indices,startup.subarray(d+0x9362,d+0x9362+511));return {...target,midpoint:target.midpoint as Vector,first:target.first as Vector,second:target.second as Vector};});
- const driving=createOriginalIntroDriving(startup.subarray(d,d+65536),drivingData),display=await prepareNativeDisplayIntroResources(mode,await loadBrowserNativeInitialDisplayData(mode,hercules),data.catalog,seed),{owner}=display;
+ initializeOriginalIntroScene(startup,d,(entry,point)=>{const target=trackOpponentRoutePoint(raw,originalIntroRoute,entry,point,data.records,data.points,data.objects,data.indices,startup.subarray(d+0x9362,d+0x9362+511),data.physicsEngine);return {...target,midpoint:target.midpoint as Vector,first:target.first as Vector,second:target.second as Vector};});
+ const driving=createOriginalIntroDriving(startup.subarray(d,d+65536),drivingData),display=await prepareNativeDisplayIntroResources(mode,await loadBrowserNativeInitialDisplayData(mode,hercules),data.catalog,seed,data.physicsEngine),{owner}=display;
  aborted();const input=createBrowserMenuInput(canvas,{onPoll:aborted}),surface=document.createElement('canvas');surface.width=320;surface.height=200;
  const raster=surface.getContext('2d')!,context=canvas.getContext('2d')!,image=raster.createImageData(320,200),palette=nativeRaceDisplayPalette(mode,owner.memory(),owner.d);
  const closeInput=()=>input.close();signal.addEventListener('abort',closeInput,{once:true});

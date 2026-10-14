@@ -1,6 +1,7 @@
 import {boundedRequestText} from '@/lib/server/bounded-request-body';
 import {env} from 'cloudflare:workers';
 import {scoreHash} from '@/lib/game/global-score-format';
+import {validateTrackEncoding} from '@/lib/game/upload-validation';
 import {validateSharedTrack} from '@/lib/server/shared-track-validation';
 import {globalScoreData} from '@/lib/server/global-score-data';
 import {withdrawnCommunityTracks,communityTrackWithdrawn} from '@/lib/server/withdrawn-community-tracks';
@@ -11,7 +12,16 @@ export async function GET(request:Request){
  if(hash&&communityTrackWithdrawn(hash))return reply({error:'Track not found'},404);
  try{
   const db=bindings().DB;
-  if(hash){if(!/^[a-f0-9]{64}$/.test(hash))return reply({error:'Invalid track'},400);const row=await db.prepare('SELECT name,bytes FROM shared_tracks WHERE hash=?').bind(hash).first<{name:string;bytes:string}>();if(!row)return reply({error:'Track not found'},404);return new Response(Uint8Array.from(JSON.parse(row.bytes)),{headers:{'Content-Type':'application/octet-stream','Content-Disposition':'attachment; filename="'+row.name+'.TRK"','Cache-Control':'public, max-age=31536000, immutable','X-Content-Type-Options':'nosniff'}});}
+  if(hash){
+   if(!/^[a-f0-9]{64}$/.test(hash))return reply({error:'Invalid track'},400);
+   const row=await db.prepare('SELECT name,bytes FROM shared_tracks WHERE hash=?').bind(hash).first<{name:string;bytes:string}>();
+   if(!row)return reply({error:'Track not found'},404);
+   const retained:unknown=JSON.parse(row.bytes);
+   if(!/^[A-Z0-9_-]{1,8}$/.test(row.name)||!Array.isArray(retained)||retained.length!==1802||retained.some(value=>!Number.isInteger(value)||value<0||value>255))throw Error('Invalid stored track bytes or name');
+   const bytes=Uint8Array.from(retained);validateTrackEncoding(bytes);
+   if(await scoreHash(bytes)!==hash)throw Error('Stored track identity mismatch');
+   return new Response(bytes,{headers:{'Content-Type':'application/octet-stream','Content-Disposition':'attachment; filename="'+row.name+'.TRK"','Cache-Control':'public, max-age=31536000, immutable','X-Content-Type-Options':'nosniff'}});
+  }
   let timestamp=Number.MAX_SAFE_INTEGER,lastHash='';if(before){const parts=before.split(':');if(parts.length!==2||!/^\d{1,16}$/.test(parts[0])||!/^[a-f0-9]{64}$/.test(parts[1]))return reply({error:'Invalid page'},400);timestamp=Number(parts[0]);lastHash=parts[1];}
   const rows=await db.prepare('SELECT hash,name,created_at FROM shared_tracks WHERE hash NOT IN ('+withdrawnCommunityTracks.map(()=>'?').join(',')+') AND (created_at < ? OR (created_at = ? AND hash > ?)) ORDER BY created_at DESC,hash LIMIT 21').bind(...withdrawnCommunityTracks,timestamp,timestamp,lastHash).all<{hash:string;name:string;created_at:number}>();
   const tracks=rows.results.slice(0,20),last=tracks.at(-1);return reply({tracks,next:rows.results.length>20&&last?last.created_at+':'+last.hash:null});

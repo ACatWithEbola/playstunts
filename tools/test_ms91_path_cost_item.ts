@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {fixtureData} from './global-score-fixture.ts';
+import {loadVleResource} from '../lib/game/load-vle-resource.ts';
+import {prepareOpponentPathMemory} from '../lib/game/prepare-opponent-path-memory.ts';
+import {soundResourceOffset} from '../lib/game/sound-resource.ts';
+const packed=await fixtureData.catalog.read('OPP1.PRE');assert.ok(packed);
+const d=0x2d1a0,at=0x60000,loaded=loadVleResource(fixtureData.base,at,packed),memory=loaded.memory;
+memory[d+0x8fc8]=1;
+const pathOffset=soundResourceOffset(loaded.resource,Uint8Array.from([112,97,116,104]));assert.ok(pathOffset!==null);
+assert.equal(loaded.resource[pathOffset+6],0);assert.equal(loaded.resource[pathOffset+9],0);
+const before=memory.slice(),route={primary:[1,0,0],secondary:[2,65535,65535],tiles:[0,9,6]};
+const old=prepareOpponentPathMemory(memory,d,at,loaded.resource.length,route);
+const modern=prepareOpponentPathMemory(memory,d,at,loaded.resource.length,route,'mcga','ms-1991');
+assert.deepEqual(old.path,[0,2,0,0,1],'Historical legacy selection remains unchanged');
+assert.deepEqual(modern.path,[0,2,0,0,1],'Original routing indexes sped and adjacent retained bytes, despite the separate path item');
+assert.equal(old.memory[d+0x9362+9],80);assert.equal(modern.memory[d+0x9362+9],90);
+assert.deepEqual(memory,before);
+console.log('Opponent routing preserves original sped/adjacent-memory cost semantics; the path-item alternative is not silently substituted');

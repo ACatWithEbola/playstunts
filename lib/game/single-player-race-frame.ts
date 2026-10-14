@@ -7,6 +7,6 @@ import type {Vector} from '../physics/math.ts';
 export function stepSinglePlayerRaceFrame(before:{player:PlayerDrivingState;camera:RaceCameraState},trackside:Vector[],...args:Parameters<typeof stepPlayerDriving> extends [unknown,...infer Rest]?Rest:never){
  const player=stepPlayerDriving(before.player,...args),g=player.navigation.guidance;
  const camera=raceCameraStep(before.camera.position,{position:player.driving.car.pose.position,target:g.target,angle:g.angle,routeIndex:g.routeIndex,field9e:g.wheelAngle,crash:player.driving.car.grip.crash},args[4],trackside,before.camera.selected,!!(player.navigation.progress.status||player.navigation.progress.confirmations));
- const particles=player.driving.particles.active?advanceParticles(player.driving.particles,player.driving.car.pose.position[1]):player.driving.particles;
+ const particles=player.driving.particles.active?advanceParticles(player.driving.particles,player.driving.car.pose.position[1],args[3].framesPerSecond??20):player.driving.particles;
  return {player:{...player,driving:{...player.driving,particles}},camera};
 }

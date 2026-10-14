@@ -9,11 +9,13 @@ export async function executeCooperativeReadyMt32Program(program:OriginalMt32Mpu
  let step=program.next(),count=0,writes:number[][]=[];
  const flush=()=>{if(writes.length){host.write(writes);writes=[];}};
  const check=()=>{if(host.cancelled())throw new DOMException('Roland startup cancelled','AbortError');};
+ try{
  check();
  while(!step.done){
-  const op=step.value;if(op.kind==='write')writes.push([op.port,op.value]);
+  const op=step.value;if(op.kind==='read'&&op.port===0x42)throw Error('Roland PIT countdown requires a timed host');if(op.kind==='write')writes.push([op.port,op.value]);
   step=program.next(op.kind==='read'&&op.port===0x330?0xfe:0);
   if(++count===quantum){flush();count=0;await yieldTask();check();}
  }
  check();flush();return step.value;
+ }finally{program.return(0);}
 }

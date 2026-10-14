@@ -5,14 +5,15 @@
  */
 import { i16,u16 } from './math.ts';
 import {opponentEngineForce} from './opponent-engine-force.ts';
+import {scaleSteeringWord,LEGACY_PHYSICS,type PhysicsEngineVersion} from './engine-version.ts';
 export interface EngineState {speed:number;roadSpeed:number;lastSpeed:number;speedDiff:number;rpm:number;lastRPM:number;gear:number;ratio:number;ratioHigh:number;gravity:number;rearContact:number;allContact:number;automatic:number;shifting:number;shiftTimer:number;limiter:number;knobX:number;knobY:number;targetX:number;targetY:number;accelerating:number;braking:number}
 export interface EngineTuning {gears:number;mass:number;braking:number;idleRPM:number;downshiftRPM:number;upshiftRPM:number;maxRPM:number;gearRatios:number[];gearKnobPoints:number[][];idleTorque:number;torqueCurve:number[];aeroResistance:number}
 export function rpmFromSpeed(rpm:number,speed:number,ratio:number,shifting:number,idle:number){return Math.max(shifting?u16(rpm):Math.floor(u16(speed)*u16(ratio)/65536),u16(idle))}
 /** Original 0xa419-0xa42a uses unsigned long division, truncates to a
  * signed word, then divides by two toward zero. Negative force must retain
  * this wraparound behavior; ordinary signed division changes loop motion. */
-export function engineForceDelta(force:number,mass:number){return i16(Math.trunc(i16(Math.floor((Math.imul(i16(force),25)>>>0)/(mass&65535)))/2));}
-export function stepEngine(before:EngineState,t:EngineTuning,input:number,fps:10|20=20,opponentSpeedByte?:number,onContactScratch?:(words:[number,number])=>void):EngineState{
+export function engineForceDelta(force:number,mass:number,physicsEngine:PhysicsEngineVersion=LEGACY_PHYSICS){return i16(scaleSteeringWord(i16(Math.floor((Math.imul(i16(force),25)>>>0)/(mass&65535))),1,physicsEngine));}
+export function stepEngine(before:EngineState,t:EngineTuning,input:number,fps:10|20=20,opponentSpeedByte?:number,onContactScratch?:(words:[number,number])=>void,physicsEngine:PhysicsEngineVersion=LEGACY_PHYSICS):EngineState{
  const s={...before};const knobStep=fps===20?6:12;s.limiter=(s.limiter? s.limiter-1:0)&255;s.speedDiff=i16(s.roadSpeed-s.lastSpeed);s.lastSpeed=s.roadSpeed;s.lastRPM=s.rpm;
  let shift=0;
  if(!s.automatic&&!s.shifting){if(input&16)shift=1;else if(input&32)shift=-1}
@@ -27,7 +28,7 @@ export function stepEngine(before:EngineState,t:EngineTuning,input:number,fps:10
  else {s.braking=0;s.accelerating=1;
   if(s.shifting){s.limiter=0;s.rpm=i16(s.rpm-(fps===10?80:40))}
   else if(!s.rearContact){if(s.rpm<t.maxRPM&&speed<64000)delta=i16(delta+768)}
-  else {let torque=(s.gear<=1&&s.rpm<2600)?t.idleTorque:t.torqueCurve[s.rpm>>>7];if(torque===undefined)throw Error('RPM outside original torque table');if(s.limiter&&s.rpm<5000)torque=(t.idleTorque+torque)>>1;delta=i16(delta+((s.ratioHigh*torque&65535)>>>4));delta=engineForceDelta(delta,t.mass);if(opponentSpeedByte!==undefined)delta=opponentEngineForce(delta,opponentSpeedByte);if(delta>296)s.limiter=5}
+  else {let torque=(s.gear<=1&&s.rpm<2600)?t.idleTorque:t.torqueCurve[s.rpm>>>7];if(torque===undefined)throw Error('RPM outside original torque table');if(s.limiter&&s.rpm<5000)torque=(t.idleTorque+torque)>>1;delta=i16(delta+((s.ratioHigh*torque&65535)>>>4));delta=engineForceDelta(delta,t.mass,physicsEngine);if(opponentSpeedByte!==undefined)delta=opponentEngineForce(delta,opponentSpeedByte);if(delta>296)s.limiter=5}
  }
  if(fps===10)delta=i16(delta*2);
  if(delta<0&&-delta>speed)speed=0;else {const high=speed>=32768;speed=u16(speed+delta);if(delta>=0&&high&&(speed<32768||speed>62720))speed=62720}

@@ -6,6 +6,7 @@ export interface OriginalTandyDacTransfer {
  divisor:number;
  volume:number;
 }
+export type TandySegmentCountProfile='exact-length'|'sl2-a3a79791';
 
 /** Tandy 1000 TL technical reference, PSSJ specification p10: seven output
  * levels separated by approximately 3dB; zero mutes. This ideal gain curve
@@ -24,9 +25,15 @@ export function originalTandyDacGain(volume:number){
  * Reads are physical and live: BIOS hides DMA's 64KiB boundary from callers.
  * A silent AX8300/CX1 request follows the same busy rule as audible playback.
  * It is not a stop command. */
-export function createOriginalTandyDacTransfer(readByte:(physicalAddress:number)=>number){
+export function createOriginalTandyDacTransfer(readByte:(physicalAddress:number)=>number,options:{pauseAt64KiB?:boolean;segmentCountProfile?:TandySegmentCountProfile}={}){
+ const pauseAt64KiB=options.pauseAt64KiB===true;
+ const countProfile=options.segmentCountProfile??'exact-length';
+ if(!['exact-length','sl2-a3a79791'].includes(countProfile)||countProfile==='sl2-a3a79791'&&!pauseAt64KiB)throw Error('Unsupported Tandy segment count profile');
  let transfer:OriginalTandyDacTransfer|null=null;
+ let segmentPaused=false;
  return {
+  get segmentPaused(){return segmentPaused;},
+  resumeSegment(){if(!segmentPaused||!transfer)throw Error('No pending Tandy DMA segment restart');segmentPaused=false;},
   snapshot():OriginalTandyDacTransfer|null{return transfer?{...transfer}:null;},
   status(){return {ax:0x00c4,carry:transfer!==null};},
   play(request:OriginalTandyBiosSound){
@@ -43,12 +50,17 @@ export function createOriginalTandyDacTransfer(readByte:(physicalAddress:number)
   /** One externally timed DMA byte. Completion becomes a pending BIOS INT15
    * AX91FB event; calling this method does not execute the driver's handler. */
   transferByte(){
-   if(!transfer)return null;
+   if(!transfer||segmentPaused)return null;
    const value=readByte(transfer.address);
    if(!Number.isInteger(value)||value<0||value>255)throw new RangeError('Invalid Tandy DMA sample byte');
-   const result={address:transfer.address,value,volume:transfer.volume,completion:transfer.remaining===1?0x91fb:null};
+   const segmentBoundary=pauseAt64KiB&&((transfer.address+1)&0xffff)===0&&transfer.remaining>1;
+   const result={address:transfer.address,value,volume:transfer.volume,completion:transfer.remaining===1?0x91fb:null,...(segmentBoundary?{segmentBoundary:true as const}:{})};
    transfer.address=(transfer.address+1)&0xfffff;
+   // Hashed SL/2 BIOS subtracts DMA count rather than count+1 at restart.
+   // Explicit firmware profile only; normative/default byte length unchanged.
+   if(segmentBoundary&&countProfile==='sl2-a3a79791')transfer.remaining++;
    if(--transfer.remaining===0)transfer=null;
+   segmentPaused=segmentBoundary;
    return result;
   },
   /** C6/C7 modify the running channel's frequency and amplitude. Scheduling

@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {releaseProgress} from './release_progress.mjs';
+const fixture=Array.from({length:103},(_,i)=>`${i+1}. [${i<68?'x':' '}] Requirement ${i+1}`).join('\n');
+const report=releaseProgress(fixture);
+assert.equal(report.verified,68);assert.equal(report.remaining,35);assert.equal(report.percentCompleted,66);
+assert.deepEqual(report.openItems.map(item=>item.id),Array.from({length:35},(_,i)=>i+69));
+assert.throws(()=>releaseProgress(fixture.replace('103. [ ] Requirement 103','')),/exactly/);
+assert.throws(()=>releaseProgress(fixture.replace('103.','102.')),/exactly/);
+assert.equal(releaseProgress(fixture.replaceAll('[ ]','[x]')).percentCompleted,100);
+assert.equal(releaseProgress(fixture.replaceAll('[x]','[ ]')).percentCompleted,0);
+console.log('Release progress derives counts/percentage/open items from complete ordered103-item checklist and rejects scope drift');

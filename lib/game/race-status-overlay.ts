@@ -3,11 +3,11 @@ import {copyOriginalResourceString} from './initialize-car-resource.ts';
 import {drawOriginalShadowText} from './shadow-text-memory.ts';
 import {combineOriginalRectangles} from './combine-rectangles.ts';
 import {drawOriginalRawBitmap} from './cockpit-bitmap-raster.ts';
-import {originalGameTime} from './game-time-format.ts';
-export interface OriginalRaceStatusDrawingHost {shadowText(text:number,x:number,y:number,colour:number,shadow:number):number;indexedSprite(pointer:{offset:number;segment:number},position:{x:number;y:number}):void;}
+import {versionedGameTime} from './game-time-format.ts';
+export interface OriginalRaceStatusDrawingHost {physicsEngine?:import('../physics/engine-version.ts').PhysicsEngineVersion;framesPerSecond?:10|20;shadowText(text:number,x:number,y:number,colour:number,shadow:number):number;indexedSprite(pointer:{offset:number;segment:number},position:{x:number;y:number}):void;}
 /** Original ED58..F15A status messages, route arrows and replay indicator.
  * Text remains in the original localized resource bank and shared buffer. */
-export function drawOriginalRaceStatus(m:Uint8Array,d:number,bp:number,display?:OriginalRaceStatusDrawingHost,address:(mcga:number)=>number=n=>n){
+export function drawOriginalRaceStatus(m:Uint8Array,d:number,bp:number,display?:OriginalRaceStatusDrawingHost,address:(mcga:number)=>number=n=>n,metadata:Pick<OriginalRaceStatusDrawingHost,'physicsEngine'|'framesPerSecond'>=display??{}){
  const v=new DataView(m.buffer,m.byteOffset,m.byteLength),u=(n:number)=>n&65535,s=(n:number)=>n<<16>>16,word=(base:number,at:number)=>v.getUint16(base+u(at),true),set=(at:number,n:number)=>v.setUint16(d+u(at),u(n),true);
  for(let at=0;at<8;at+=2)set(address(0xa78e)+at,word(d,0x3312+at));
  const localized=(name:number)=>{
@@ -35,7 +35,7 @@ export function drawOriginalRaceStatus(m:Uint8Array,d:number,bp:number,display?:
   m[d+address(0xa9f4)]=0;
   const secondary=m[d+address(0x8f14)];if(secondary===1){sprite(address(0xa3d8),68,113,0x940);localized(0x928);}else if(secondary===2){sprite(address(0xa3dc),228,113,0x948);localized(0x92c);}
   if(m[d+address(0xa9f4)])merge(text(116));
-  if(m[d+address(0x8fbd)]){localized(0x930);const at=length(),time=originalGameTime(word(d,address(0xa7da)),false);for(let i=0;i<=time.length;i++)m[d+u(address(0xa9f4)+at+i)]=i===time.length?0:time.charCodeAt(i);merge(text(102));}
+  if(m[d+address(0x8fbd)]){localized(0x930);const at=length(),time=versionedGameTime(word(d,address(0xa7da)),false,metadata.physicsEngine,metadata.framesPerSecond);for(let i=0;i<=time.length;i++)m[d+u(address(0xa9f4)+at+i)]=i===time.length?0:time.charCodeAt(i);merge(text(102));}
  }else if(m[d+address(0xa3c2)]===2&&word(d,address(0x8c26))%20<10){localized(0x934);merge(text(15,u(312-length()*8)));}
  return address(0xa78e);
 }

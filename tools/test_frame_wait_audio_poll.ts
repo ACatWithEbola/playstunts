@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {pollAudioDuringFrameWait} from '../lib/game/frame-wait-audio-poll.ts';
+let finishFrame!:()=>void,finishPoll!:()=>void,polls=0,active=0,maximum=0,returned=false;
+const frame=new Promise<void>(resolve=>{finishFrame=resolve;});
+const running=pollAudioDuringFrameWait(frame,async()=>{polls++;active++;maximum=Math.max(maximum,active);await new Promise<void>(resolve=>{finishPoll=resolve;});active--;},()=>true,1).then(()=>{returned=true;});
+while(!finishPoll)await new Promise(resolve=>setTimeout(resolve,1));
+finishFrame();await Promise.resolve();assert.equal(returned,false,'Frame completion cannot release memory while audio poll is pending');
+finishPoll();await running;assert.equal(polls,1);assert.equal(maximum,1);assert.equal(active,0);
+let disabledPolls=0;const disabledFrame=new Promise<void>(resolve=>setTimeout(resolve,8));
+const disabledReport=await pollAudioDuringFrameWait(disabledFrame,()=>{disabledPolls++;},()=>false,1);assert.equal(disabledPolls,0);assert.equal(disabledReport.interimPolls,0);assert.ok(Number.isSafeInteger(disabledReport.suppressedPolls));
+let allowed=true,hidePolls=0,endHidden!:()=>void;
+const hiddenFrame=new Promise<void>(resolve=>{endHidden=resolve;});
+const hiddenReport=await pollAudioDuringFrameWait(hiddenFrame,()=>{hidePolls++;allowed=false;setTimeout(endHidden,5);},()=>allowed,1);
+assert.equal(hidePolls,1,'Visibility/owner policy changes suppress later interim polls within the same wait');
+assert.equal(hiddenReport.interimPolls,hidePolls);
+await assert.rejects(pollAudioDuringFrameWait(Promise.reject(new DOMException('closed','AbortError')),()=>assert.fail('Cancelled frame must not poll'),()=>true,1),{name:'AbortError'});
+await assert.rejects(pollAudioDuringFrameWait(new Promise(()=>{}),()=>{throw Error('audio failed');},()=>true,1),/audio failed/);
+console.log('Frame-wait audio polls serialize, drain before memory handover, respect disabled/background policy and propagate cancellation/failure');

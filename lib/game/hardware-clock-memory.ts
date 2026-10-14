@@ -9,3 +9,15 @@ export function advanceOriginalHardwareClock(memory:Uint8Array,d:number){
  if(callbacks)v.setUint32(d+0x407a,(v.getUint32(d+0x407a,true)+1)>>>0,true);
  return callbacks;
 }
+/** Original guarded IRQ path still updates counters and nesting high-water mark. */
+export function advanceOriginalNestedHardwareClock(memory:Uint8Array,d:number){
+ const callbacks=advanceOriginalHardwareClock(memory,d);
+ if(!callbacks){memory[d+0x408e]=0;new DataView(memory.buffer,memory.byteOffset,memory.byteLength).setUint16(d+0x408c,0,true);}
+ if(callbacks&&memory[d+0x408e]){
+  const view=new DataView(memory.buffer,memory.byteOffset,memory.byteLength);
+  const nested=(view.getUint16(d+0x408c,true)+1)&65535;
+  view.setUint16(d+0x408c,nested,true);
+  if(view.getInt16(d+0x408a,true)<(nested<<16>>16))view.setUint16(d+0x408a,nested,true);
+ }
+ return callbacks;
+}

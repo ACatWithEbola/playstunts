@@ -11,4 +11,4 @@ export function originalRaceCompletion(done:number,mode:number,evaluationCause:n
 /** Original14083..140a1: normal racing waits for an unfinished opponent. */
 export function originalRaceNeedsOpponentWait(mode:number,opponentSelected:number,opponentStatus:number){return (mode&255)===0&&(opponentSelected&255)!==0&&(opponentStatus&255)===0;}
 /** Original14143..1415b. The time comparison is equality, not a bound. */
-export function originalOpponentWaitContinues(key:number,opponentStatus:number,frame:number,timeAdjustment:number){return (key&65535)!==27&&(opponentStatus&255)===0&&((frame+timeAdjustment)&65535)!==30000;}
+export function originalOpponentWaitContinues(key:number,opponentStatus:number,frame:number,timeAdjustment:number,framesPerSecond:10|20=20){return (key&65535)!==27&&(opponentStatus&255)===0&&((frame+timeAdjustment)&65535)!==1500*framesPerSecond;}

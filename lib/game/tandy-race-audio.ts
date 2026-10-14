@@ -34,9 +34,9 @@ export function createOriginalTandyRaceAudio(before:OriginalTandyRaceState,resou
  };
  return {
   setEnabled(value:boolean,savedVolumes:Uint8Array){
-   const next=setOriginalTandyEffectsEnabled({...state,enabled:enabled?1:0,savedVolumes},value);
+   const next=setOriginalTandyEffectsEnabled({...state,enabled:enabled?1:0,savedVolumes},value,port61);
    const {writes,savedVolumes:restored,enabled:nextEnabled,...audio}=next;
-   state={...state,...audio};enabled=nextEnabled===1;return {writes,savedVolumes:restored,enabled:nextEnabled};
+   state={...state,...audio};enabled=nextEnabled===1;return {writes:output(writes),savedVolumes:restored,enabled:nextEnabled};
   },
   start(handle:number){const car=carAt(handle);return apply(handle,startOriginalTandyEngine({...state,car},instrumentAt(car),driverSegment,port61));},
   impacts(handle:number,flags:number,active:boolean){return apply(handle,impactAudioRuntime({...state,car:carAt(handle)},flags,active,resources,enabled,master));},

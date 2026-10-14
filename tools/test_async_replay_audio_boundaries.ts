@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {handleNativeRecordingFull} from '../lib/game/native-recording-full.ts';
+import {runNativeReplayControls} from '../lib/game/native-replay-controls.ts';
+let pauseReady:()=>void=()=>{},pauseRelease:()=>void=()=>{},resumeReady:()=>void=()=>{},resumeRelease:()=>void=()=>{};
+const paused=new Promise<void>(resolve=>{pauseReady=resolve;}),resuming=new Promise<void>(resolve=>{resumeReady=resolve;}),calls:string[]=[];
+const state={pending:1,done:0};
+const prompt=handleNativeRecordingFull({suspendInput(){calls.push('suspend');},async pauseAudio(){pauseReady();await new Promise<void>(resolve=>{pauseRelease=resolve;});},async dialog(){calls.push('dialog');return 0;},async resumeAudio(){resumeReady();await new Promise<void>(resolve=>{resumeRelease=resolve;});},resetCounter(){calls.push('counter');},resumeInput(){calls.push('resume-input');},raceEvent(){assert.fail('Continue is not a replay event');}},state);
+await paused;assert.deepEqual(calls,['suspend']);pauseRelease();await resuming;assert.deepEqual(calls,['suspend','dialog']);assert.equal(state.pending,1);resumeRelease();await prompt;
+assert.deepEqual(calls,['suspend','dialog','counter','resume-input']);assert.equal(state.pending,0);
+const d=0x2d1a0,memory=new Uint8Array(0x100000);memory[d+0xaae6]=1;memory[d+0x3212]=6;memory[d+0x31e9]=5;
+let pauseEntered:()=>void=()=>{},finishPause:()=>void=()=>{},seekEntered:()=>void=()=>{},finishSeek:()=>void=()=>{};
+const pauseReached=new Promise<void>(resolve=>{pauseEntered=resolve;}),seekReached=new Promise<void>(resolve=>{seekEntered=resolve;}),events:string[]=[];
+const restart=runNativeReplayControls({memory:()=>memory,async read(){return 32;},ctrlHeld:()=>false,raceCommand:()=>0,control(mode,start){events.push(`control:${mode}:${start}`);},async pauseAudio(){pauseEntered();await new Promise<void>(resolve=>{finishPause=resolve;});},presentWorld(){},async scrub(){},async menu(){},async seekStart(){seekEntered();await new Promise<void>(resolve=>{finishSeek=resolve;});events.push('seek-complete');},async waitTicks(ticks){assert.equal(ticks,50);events.push('wait');}},d);
+await pauseReached;assert.ok(!events.includes('control:2:5'),'Restart control must await pause delivery');finishPause();await seekReached;assert.ok(!events.includes('wait'),'Restart delay must await seek/reconstruction audio');finishSeek();await restart;
+assert.ok(events.indexOf('seek-complete')<events.indexOf('wait'));assert.ok(events.includes('control:2:4'));
+console.log('Recording warning waits for pause/resume; replay restart waits for pause and seek before timing/redraw; immediate hosts remain supported');

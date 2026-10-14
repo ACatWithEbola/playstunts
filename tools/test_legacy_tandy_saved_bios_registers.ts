@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {runOriginalTandyVoiceUpdate} from '../lib/game/tandy-voice-update.ts';
+const driver=new Uint8Array(2993),view=new DataView(driver.buffer),voice=new Uint8Array(46);
+driver[0x516]=driver[0x510]=15;driver[0x3f+255]=225;driver[0x13f+225]=14;driver[0x504]=2;
+for(const [offset,value] of [[0x506,0x132],[0x508,0x3000],[0x50a,4]])view.setUint16(offset,value,true);
+voice[1]=1;voice[3]=60;new DataView(voice.buffer).setUint16(4,123,true);
+const program=runOriginalTandyVoiceUpdate(driver,0x2000,0,voice,new Uint8Array(72),new Uint8Array(96),0,0,'ms-1990',true);
+const first=program.next();assert.equal(first.done,false);assert.deepEqual(first.value.bios,[{ax:0x8300,es:0x2000,bx:0x50f,cx:1,dx:1}]);
+const mutated=driver.slice(),changed=new DataView(mutated.buffer);for(const [offset,value] of [[0x506,0x333],[0x508,0x4000],[0x50a,17],[0x50c,7]])changed.setUint16(offset,value,true);mutated[0x50e]=0;
+const second=program.next(mutated);assert.equal(second.done,false);
+assert.deepEqual(second.value.bios,[{ax:0x8307,es:0x3000,bx:0x132,cx:4,dx:123}]);
+assert.equal(view.getUint16(0x506,true),0x333);assert.equal(driver[0x50e],0,'Live ISR state stays mutated while saved register request remains original');
+assert.equal(program.next().done,true);
+console.log('Legacy voice-update preserves pre-BIOS playback registers despite descriptor mutation during silent call, matching original eight-instruction restore trace');

@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {buildMs91RepaintPlan} from '../lib/game/ms91-repaint-plan.ts';
+import type {Ms91Rectangle} from '../lib/game/ms91-rectangle-list.ts';
+const current:Ms91Rectangle[]=[[0,20,0,20],[40,60,10,30]],retained:Ms91Rectangle[]=[[10,30,10,30],[50,70,20,40]],clip:Ms91Rectangle=[0,320,0,200];
+const before=structuredClone({current,retained,clip});
+assert.deepEqual(buildMs91RepaintPlan([3,0],current,retained,clip).rectangles,[[0,30,0,30]]);
+assert.deepEqual(buildMs91RepaintPlan([1,2],current,retained,clip).presentation,[[0,20,0,20],[50,70,20,40]]);
+assert.deepEqual(buildMs91RepaintPlan([0,0],current,retained,[10,100,5,80]).presentation,[[0,320,5,80]]);
+assert.deepEqual(buildMs91RepaintPlan([1],[[0,0,0,20]],[[0,20,0,20]],clip).rectangles,[]);
+assert.deepEqual({current,retained,clip},before);
+assert.throws(()=>buildMs91RepaintPlan([1],[],[],clip),/equal lengths/);
+console.log('MS91 repaint composition: flags, old/new union, clipping, empty-list full-width fallback and input preservation passed');

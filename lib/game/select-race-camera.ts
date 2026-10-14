@@ -5,8 +5,9 @@ import {originalExternalCameraClearance} from './external-camera-clearance.ts';
 import {originalExternalCameraAngles} from './external-camera-angles.ts';
 import type {TrackObject} from '../physics/track.ts';
 import type {CollisionPlane} from '../physics/plane.ts';
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 /** Original BEEC..C25B camera selection for the focused car. */
-export function selectOriginalRaceCamera(memory:Uint8Array,d:number,raw:number[],objects:TrackObject[],planes:CollisionPlane[],address:(mcga:number)=>number=n=>n){
+export function selectOriginalRaceCamera(memory:Uint8Array,d:number,raw:number[],objects:TrackObject[],planes:CollisionPlane[],address:(mcga:number)=>number=n=>n,physicsEngine?:PhysicsEngineVersion){
  const v=new DataView(memory.buffer,memory.byteOffset,memory.byteLength),s=(at:number)=>v.getInt16(d+at,true),w=(at:number)=>v.getUint16(d+at,true),focus=memory[d+address(0xa9f0)],car=focus?address(0x8cf0):address(0x8c38);
  const position=[0,1,2].map(i=>i16(v.getInt32(d+car+i*4,true)>>6)) as Vector;
  const rotation=[0,1,2].map(i=>s(car+24+i*2)) as Vector,mode=memory[d+0x12f];
@@ -21,7 +22,7 @@ export function selectOriginalRaceCamera(memory:Uint8Array,d:number,raw:number[]
   const index=memory[d+address(0x8ead)+(focus<<24>>24)]<<24>>24,offset=(w(address(0x8ff6))+index*6)&65535,segment=w(address(0x8ff8)),at=segment*16+offset;
   camera=[v.getInt16(at,true),i16(v.getInt16(at+2,true)+s(address(0x9334))+90),v.getInt16(at+4,true)];
  }else throw Error('Original camera mode requires retained caller locals: '+mode);
- camera=originalExternalCameraClearance(camera,raw,objects,planes,memory[d+address(0xa3c2)]);
+ camera=originalExternalCameraClearance(camera,raw,objects,planes,memory[d+address(0xa3c2)],physicsEngine);
  const angles=originalExternalCameraAngles(position,camera);
  return {position:camera,angles:[0,angles.pitch,angles.heading] as Vector};
 }

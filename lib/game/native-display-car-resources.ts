@@ -22,10 +22,10 @@ export async function prepareNativeDisplayCarResources(mode:'cga'|'tandy'|'ega',
    const picture=find(portraitBank,'opp'+opponent),palette=find(portraitBank,(mode==='cga'?'!cg':'!eg')+opponent);viewWidth=240;
    return ()=>{const m=owner.memory(),start={cga:0x5344,tandy:0x547c,ega:0x53f2}[mode],size=mode==='ega'?512:1024,saved=m.slice(d+start,d+start+size);loadOriginalDisplayColourTables(m,d,mode,(palette.offset+16)&65535,palette.segment);owner.drawing.indexedSprite(picture,{x:240,y:0});m.set(saved,d+start);};
   },
-  async car(id:string){
+  async car(id:string,engine?:import('../physics/engine-version.ts').PhysicsEngineVersion){
    if(!/^[A-Z0-9]{4}$/.test(id))throw Error('Original car identifier requires four characters');release();owner.memory().set(Array.from('st'+id.toLowerCase()+'\0',c=>c.charCodeAt(0)),d+0xe900);model=await loadCompleteNativeShapeResource(files,d,0xe900,0xee52);
    const shape=find(model,'car0');initializeOriginalModelDescriptor(owner.memory(),d,shape,0xcb00);
-   const renderer=createOriginalCarModelDisplay(owner.memory,d,mode,owner.drawing,{descriptor:0xcb00,record:0xc900,region:0xca00,background,rasterScratch:{leftOffset:0xd000,rightOffset:0xd400},viewWidth});
+   const renderer=createOriginalCarModelDisplay(owner.memory,d,mode,owner.drawing,{physicsEngine:engine,descriptor:0xcb00,record:0xc900,region:0xca00,background,rasterScratch:{leftOffset:0xd000,rightOffset:0xd400},viewWidth});
    return {paintCount:owner.memory()[shape.segment*16+shape.offset+2],render:renderer.render};
   }
  };

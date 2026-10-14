@@ -10,6 +10,7 @@ export interface NativeTrackMenuHost extends NativeDialogHost {
  panoramas:ReadonlyArray<{resources:Record<string,ReadonlyArray<number>>}>;
  track:NativeMenuTrack;configuration:number[];counter():number;
  readScores(name:string,path:string):Promise<ReadonlyArray<number>|null>;
+ scoreTimeMetadata?():Parameters<typeof drawOriginalTrackMenuOverlay>[6];
  loadTrack(selection:{path:string;name:string}):Promise<number[]>;
  editTrack(track:NativeMenuTrack):Promise<void>;
  captureOverviewBackdrop?:(pixels:Uint8Array,layout:{horizon:number;height:number})=>void;
@@ -30,8 +31,8 @@ export async function runNativeTrackMenu(host:NativeTrackMenuHost,editImmediatel
    retained?.close();
    if(display){const scores=await host.readScores(host.track.name,host.track.path);await display.draw(host.track,scores?.slice(0,52)??null);retained=display.capture();}
    else {const landscape=host.track.raw[900],panorama=host.panoramas[landscape&7];if(!panorama)throw Error('Missing original landscape '+landscape);
-   installOriginalMenuPanorama(host.baseline,0x2d1a0,landscape,panorama.resources);drawOriginalTrackOverview(host.pixels,host.baseline,host.track.raw,host.groundModels,host.captureOverviewBackdrop);
-   const scores=await host.readScores(host.track.name,host.track.path);drawOriginalTrackMenuOverlay(host.pixels,host.font,host.smallFont,host.resources,host.track.name,scores?.slice(0,52)??null);}
+   installOriginalMenuPanorama(host.baseline,0x2d1a0,landscape,panorama.resources);drawOriginalTrackOverview(host.pixels,host.baseline,host.track.raw,host.groundModels,host.captureOverviewBackdrop,host.scoreTimeMetadata?.()?.physicsEngine??host.physicsEngine);
+   const scores=await host.readScores(host.track.name,host.track.path);drawOriginalTrackMenuOverlay(host.pixels,host.font,host.smallFont,host.resources,host.track.name,scores?.slice(0,52)??null,host.scoreTimeMetadata?.());}
    background=host.pixels.slice();selected=0;previous=-1;rebuild=false;
   }
   if(previous!==selected){if(retained)retained.restore();else host.pixels.set(background);host.present();previous=selected;phase=0;color=0;idle=0;time=host.counter();}

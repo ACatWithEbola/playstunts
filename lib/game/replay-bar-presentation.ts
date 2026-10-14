@@ -1,5 +1,7 @@
-import {originalGameTime} from './game-time-format.ts';
+import {versionedGameTime} from './game-time-format.ts';
 export interface OriginalReplayBarHost {
+ physicsEngine?:import('../physics/engine-version.ts').PhysicsEngineVersion;
+ framesPerSecond?:10|20;
  sprite(offset:number,segment:number):void;
  time(text:string,x:number,y:number):void;
  fill(x:number,y:number,width:number,height:number,color:number):void;
@@ -10,14 +12,15 @@ export interface OriginalReplayBarHost {
 export function presentOriginalReplayBar(m:Uint8Array,d:number,start:number,current:number,host:OriginalReplayBarHost,address:(mcga:number)=>number=n=>n){
  const v=new DataView(m.buffer,m.byteOffset,m.byteLength),at=(o:number)=>d+(o&65535),b=(o:number)=>m[at(o)],sb=(o:number)=>b(o)<<24>>24,w=(o:number)=>v.getUint16(at(o),true),sw=(o:number)=>v.getInt16(at(o),true),put=(o:number,n:number)=>{m[at(o)]=n&255;},word=(o:number,n:number)=>v.setUint16(at(o),n,true),s16=(n:number)=>n<<16>>16;
  const screen=sb(address(0x897c)),sprite=(o:number)=>host.sprite(w(o),w(o+2));
+ const time=(ticks:number)=>versionedGameTime(ticks,true,host.physicsEngine,host.framesPerSecond);
  if(!b(address(0x8ff2)+screen)){
   put(address(0x8ff2)+screen,1);put(address(0x552e)+screen,255);put(address(0x54c2)+screen,255);
   for(let i=0;i<9;i++)put(address(0x5534)+2*i+screen,0);
   sprite(address(0x54c8));word(address(0x54c4)+2*screen,65535);word(address(0x5530)+2*screen,65535);
-  host.time(originalGameTime(w(address(0x8fd8))+w(address(0xa034))),216,187);
+  host.time(time(w(address(0x8fd8))+w(address(0xa034))),216,187);
  }
  const clock=(current+w(address(0xa034)))&65535;
- if(w(address(0x54c4)+2*screen)!==clock){word(address(0x54c4)+2*screen,clock);host.time(originalGameTime(clock),152,187);}
+ if(w(address(0x54c4)+2*screen)!==clock){word(address(0x54c4)+2*screen,clock);host.time(time(clock),152,187);}
  if(b(address(0x552e)+screen)!==b(0x12f)){
   put(address(0x552e)+screen,b(0x12f));word(address(0x5530)+2*screen,65535);sprite(address(0x54cc)+4*sb(0x12f));
   const limit=sb(0x3212+sb(0x12f));if(limit<sb(0x31e9))put(0x31e9,limit);

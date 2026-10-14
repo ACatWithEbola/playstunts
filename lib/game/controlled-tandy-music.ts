@@ -1,9 +1,10 @@
+import type {PhysicsEngineVersion} from '../physics/engine-version.ts';
 import type {OriginalTandyBiosSound} from './tandy-voice-update.ts';
 import {createOriginalTandyMusicRuntime,type OriginalTandyMusicSeed} from './tandy-music-runtime.ts';
 import {originalMenuAudioControl,type OriginalMenuAudioState} from './menu-audio-control.ts';
 /** Original menu control operations applied to the running Tandy score. */
-export function createControlledOriginalTandyMusic(seed:OriginalTandyMusicSeed){
- const runtime=createOriginalTandyMusicRuntime(seed);
+export function createControlledOriginalTandyMusic(seed:OriginalTandyMusicSeed,driverGeneration?:PhysicsEngineVersion){
+ const runtime=createOriginalTandyMusicRuntime(seed,driverGeneration);
  let state:OriginalMenuAudioState={paused:0,guard:0,musicEnabled:1,soundEnabled:1,alternate:0,alternateVolume:100,trackCount:runtime.state.tracks,volumes:runtime.timers.map(t=>t[40]),pausedVolumes:Array.from({length:24},()=>0),soundVolumes:Array.from({length:24},()=>0)};
  return {
   runtime,get state(){return {...state,volumes:runtime.timers.map(t=>t[40])};},

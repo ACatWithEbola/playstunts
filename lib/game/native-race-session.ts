@@ -25,21 +25,31 @@ import {enterManualRace} from './manual-race-entry.ts';
 import {seekRecordedTwoCarRace} from './seek-recorded-two-car-race.ts';
 import {readOriginalRouteSamples} from './read-route-samples-memory.ts';
 import {prepareRaceTrack} from './prepare-race-track.ts';
+import {versionedRouteTables} from './versioned-route-tables.ts';
 import {analyzeRoute} from '../physics/route-analysis.ts';
 import {writeAnalyzedTrackMemory} from './write-analyzed-track-memory.ts';
 import {loadCachedVleBank} from './load-cached-vle-bank.ts';
 import {prepareOpponentPathMemory} from './prepare-opponent-path-memory.ts';
+import {opponentCacheName,versionedOpponentResource} from './versioned-opponent-resource.ts';
 import {freeResource} from './free-resource.ts';
 import {initializeRaceSession} from './initialize-race-session.ts';
+import {growReplayCheckpoints} from './grow-replay-checkpoints.ts';
+import {initialMs91BodyCaches,writeMs91BodyCaches} from './ms91-body-cache-memory.ts';
 import {readRecordedTwoCarRace,stepRecordedTwoCarRace} from './recorded-two-car-race.ts';
 import {playerRouteMemory,recordedPlayerRouteStackFrame} from '../physics/player-route-memory.ts';
 import {trackRoutePoint,trackOpponentRoutePoint} from '../physics/track-route-point.ts';
 import type {RecordedRaceResources} from './recorded-single-player-race.ts';
 import type {TrackGeometry} from '../physics/track-contact.ts';
 import type {Vector} from '../physics/math.ts';
+import {resolvePhysicsEngine,type PhysicsEngineVersion} from '../physics/engine-version.ts';
 
 type Analysis=Parameters<typeof analyzeRoute>;
 export interface NativeRaceData {
+ physicsEngine?:PhysicsEngineVersion;
+ framesPerSecond?:10|20;
+ /** Internal cadence-aware initialization capability. Ordinary private MS91
+  * replay loading may supply it; public score proofs remain20Hz only. */
+ experimental10Hz?:boolean;
  startup:Uint8Array;packedOpponent:Uint8Array;simulation:Uint8Array;
  opponent?:{simulation:Uint8Array;tuning:RecordedRaceResources['tuning']};
  tuning:RecordedRaceResources['tuning'];raw:Analysis[0];records:Analysis[1];vectors:Analysis[2];samples:Analysis[3];objects:RecordedRaceResources['track']['objects'];
@@ -63,6 +73,12 @@ export function originalRaceTrackGeometry(memory:Uint8Array,d:number,simulation:
  * bytes; execution is entirely TypeScript, with no DOS runtime or trace playback.
  */
 export function createNativeRaceSession(data:NativeRaceData,options:{transporter?:boolean;opponentSelected?:number;configuration?:ReadonlyArray<number>;replayInputs?:Uint8Array;deferSimulationEntry?:boolean;produceAudio?:boolean;preparedOpponentPath?:readonly number[];preparedSimulationMemory?:boolean;preparedTrackMemory?:boolean}={}){
+ const framesPerSecond=data.framesPerSecond??20;
+ if(framesPerSecond!==10&&framesPerSecond!==20)throw Error('Unsupported session cadence');
+ // Do not permit a partially initialized 10 Hz session to produce a recording
+ // that current canonical storage would later interpret as 20 Hz.
+ if(framesPerSecond===10&&!(data.experimental10Hz===true&&data.physicsEngine==='ms-1991'))throw Error('10 Hz sessions require cadence-aware initialization and replay storage');
+ data=versionedRouteTables(data);
  if(options.deferSimulationEntry&&options.transporter)throw Error('Deferred simulation entry must enter the transporter through the original entry routine');
  const d=0x2d1a0,{raw,records,vectors,samples,objects,points,indices,tuning}=data;
  const prepared=prepareRaceTrack(raw,records,vectors,samples,objects,undefined,options.preparedTrackMemory?{samples:readOriginalRouteSamples(data.startup,d)}:undefined);
@@ -74,17 +90,22 @@ export function createNativeRaceSession(data:NativeRaceData,options:{transporter
  let path:number[]=[];
  if(opponentSelected&&options.preparedOpponentPath){path=Array.from(options.preparedOpponentPath);}
  else if(opponentSelected){
- memory.set(new TextEncoder().encode('opp'+opponentSelected+'.pre\0'),d+0xd06e);
- const loaded=loadCachedVleBank(memory,d,0xd06e,data.packedOpponent);
+ const opponentName=opponentCacheName(opponentSelected,data.physicsEngine)+'.pre';
+ memory.set(new TextEncoder().encode(opponentName+'\0'),d+0xd06e);
+ const loaded=loadCachedVleBank(memory,d,0xd06e,versionedOpponentResource(opponentName,data.physicsEngine)??data.packedOpponent);
  if(loaded.error||!loaded.resource)throw Error(`Opponent resource load failed: ${loaded.error}`);
  memory=writeAnalyzedTrackMemory(loaded.memory,d,raw,analyzeRoute(raw,records,vectors,samples,objects)).memory;
- const setup=prepareOpponentPathMemory(memory,d,loaded.segment*16,loaded.resource.length,prepared.route);
+ const setup=prepareOpponentPathMemory(memory,d,loaded.segment*16,loaded.resource.length,prepared.route,'mcga',data.physicsEngine);
  if(!setup.path)throw Error('Opponent could not find a route');
  path=setup.path;const released=freeResource(setup.memory,d,0,loaded.segment);
  if(released.error)throw Error('Opponent resource release failed');memory=released.memory;
  }else if(!options.preparedTrackMemory)memory=writeAnalyzedTrackMemory(memory,d,raw,analyzeRoute(raw,records,vectors,samples,objects)).memory;
- const lookup=(m:Uint8Array,entry:number,point:number)=>{const result=trackOpponentRoutePoint(raw,prepared.route,entry,point,records,points,objects,indices,m.subarray(d+0x9362,d+0x9362+511));return {...result,midpoint:result.midpoint as Vector,first:result.first as Vector,second:result.second as Vector};};
- const initialize=(m:Uint8Array,argument=0)=>initializeRaceSession(m,d,data.simulation,opponentData.simulation,{...prepared.start,transmission:m[d+0x8fc7],mode:argument,opponentSelected,opponentPath:path},(entry,point,opponent)=>opponent?lookup(m,entry,point):trackRoutePoint(raw,prepared.route,entry,point,records,points,objects)).memory;
+ const lookup=(m:Uint8Array,entry:number,point:number)=>{const result=trackOpponentRoutePoint(raw,prepared.route,entry,point,records,points,objects,indices,m.subarray(d+0x9362,d+0x9362+511),data.physicsEngine);return {...result,midpoint:result.midpoint as Vector,first:result.first as Vector,second:result.second as Vector};};
+ if(data.physicsEngine==='ms-1991')memory=growReplayCheckpoints(memory,d,framesPerSecond,data.physicsEngine);
+ const initialize=(m:Uint8Array,argument=0)=>{
+  const initialized=initializeRaceSession(m,d,data.simulation,opponentData.simulation,{...prepared.start,transmission:m[d+0x8fc7],mode:argument,opponentSelected,opponentPath:path,framesPerSecond,physicsEngine:data.physicsEngine},(entry,point,opponent)=>opponent?lookup(m,entry,point):trackRoutePoint(raw,prepared.route,entry,point,records,points,objects,data.physicsEngine)).memory;
+  return data.physicsEngine==='ms-1991'&&(argument&65535)!==65533?writeMs91BodyCaches(initialized,d,framesPerSecond,initialMs91BodyCaches(initialized,d)):initialized;
+ };
  if(options.replayInputs){
   const view=new DataView(memory.buffer),offset=view.getUint16(d+0x9c40,true),segment=view.getUint16(d+0x9c42,true);
   options.replayInputs.forEach((value,index)=>{memory[segment*16+((offset+index)&65535)]=value;});
@@ -105,7 +126,11 @@ export function createNativeRaceSession(data:NativeRaceData,options:{transporter
  const opponentSimulation=new DataView(opponentData.simulation.buffer,opponentData.simulation.byteOffset,opponentData.simulation.byteLength);
  const opponentWheels=Array.from({length:4},(_,i)=>[0,1,2].map(a=>opponentSimulation.getInt16(210+i*6+a*2,true)) as Vector);
  const opponentTrack=originalRaceTrackGeometry(memory,d,opponentSimulation,prepared.start,{raw,objects,planes:data.planes,walls:data.walls});
- const start={x:v.getInt16(d+0xa3e2+prepared.start.column*2,true),z:v.getInt16(d+0xa796+prepared.start.row*2,true),angle:prepared.start.angle};
+ track.physicsEngine=resolvePhysicsEngine(data.physicsEngine);
+ opponentTrack.physicsEngine=track.physicsEngine;
+ track.framesPerSecond=framesPerSecond;
+ opponentTrack.framesPerSecond=framesPerSecond;
+ const start={x:v.getInt16(d+0xa3e2+prepared.start.column*2,true),z:v.getInt16(d+0xa796+prepared.start.row*2,true),angle:prepared.start.angle,physicsEngine:data.physicsEngine};
  let recording:Uint8Array|undefined=options.replayInputs?memory.slice():undefined,recordedFrames=options.replayInputs?.length??0;
  const resources=(m:Uint8Array,sp=0xff00,incomingSI=0):Parameters<typeof stepRecordedTwoCarRace> extends [unknown,...infer R]?R:never=>{
   const v=new DataView(m.buffer),graph=playerRouteMemory(prepared.graph,address=>m[address],d,d/16,recordedPlayerRouteStackFrame(sp));
@@ -126,6 +151,8 @@ export function createNativeRaceSession(data:NativeRaceData,options:{transporter
    return {...result,state};
  };
  return {
+  physicsEngine:track.physicsEngine,
+  framesPerSecond,
   get state(){return state;},
   audioMemory:{
    read:()=>state.memory,
@@ -148,15 +175,26 @@ export function createNativeRaceSession(data:NativeRaceData,options:{transporter
   async enterSimulation(host:Pick<NativeRaceSimulationEntryHost,'resetMouse'|'key'>,caller:{entryStackPointer:number;incomingSI:number;afterStep?:(frame:ReturnType<typeof stepRecordedTwoCarRace>)=>void}){
    const branch=await enterNativeRaceSimulation({...host,memory:()=>state.memory,
     initialize(mode){state=readRecordedTwoCarRace(initialize(state.memory,mode),d);},
-    seekReplay(frame){state=readRecordedTwoCarRace(restoreReplayCheckpoint(state.memory,d,frame,initialize).memory,d);},
+    seekReplay(frame){state=readRecordedTwoCarRace(restoreReplayCheckpoint(state.memory,d,frame,initialize,framesPerSecond,data.physicsEngine).memory,d);},
     stepReplay(){const [player,opponent]=resources(state.memory,caller.entryStackPointer,caller.incomingSI);const frame=stepRecordedTwoCarRace(state,player,opponent);state=frame.state;caller.afterStep?.(frame);},
    },d);
-   state=readRecordedTwoCarRace(state.memory,d);return branch;
+   state=readRecordedTwoCarRace(state.memory,d);
+   // Deferred entry initializes the loaded recording and its checkpoint bank.
+   // Every deferred replay must retain initialized checkpoints, including
+   // legacy playback after a newer session. Non-deferred snapshots stay intact.
+   if(recording&&options.deferSimulationEntry)recording=state.memory.slice();
+   return branch;
   },
-  initializeLoadedReplay(){state=readRecordedTwoCarRace(initialize(state.memory,-1),d);return state;},
+  initializeLoadedReplay(){
+   state=readRecordedTwoCarRace(initialize(state.memory,-1),d);
+   // In-race loads reuse an outer allocation graph, not its previous replay's
+   // valid checkpoints. Seek must clone the newly initialized recording state.
+   if(recording)recording=state.memory.slice();
+   return state;
+  },
   restoreReplayBank(packed:Uint8Array){state=readRecordedTwoCarRace(restoreOriginalReplayBank(state.memory,d,packed),d);},
   timerTick(host:Omit<NativeRaceInputHost,'memory'>&Pick<NativeRaceTimerHost,'stackMatches'|'audioSample'>){
-   tickOriginalRaceTimer({...host,memory:()=>state.memory,capture(forced){captureNativeRaceInput({...host,memory:()=>state.memory},d,forced);}},d);
+   tickOriginalRaceTimer({...host,memory:()=>state.memory,capture(forced){captureNativeRaceInput({...host,memory:()=>state.memory},d,forced,framesPerSecond,data.physicsEngine);}},d,framesPerSecond);
    state=readRecordedTwoCarRace(state.memory,d);
   },
   /** Original13B56..13B9C catches up to the timer before rendering. Rollout
@@ -177,16 +215,16 @@ export function createNativeRaceSession(data:NativeRaceData,options:{transporter
    const next=finishOriginalStartTruck(state.memory,d,initialize);state=readRecordedTwoCarRace(next,d);
    const action=finishNativeDemoFrame({...host,memory:()=>state.memory},d);state=readRecordedTwoCarRace(state.memory,d);return action;
   },
-  crash(cause:1|2|3|4|5,selected:0|1){const effects=crashOriginalRaceMemory(state.memory,d,cause,selected);state=readRecordedTwoCarRace(state.memory,d);return effects;},
+  crash(cause:1|2|3|4|5,selected:0|1){const effects=crashOriginalRaceMemory(state.memory,d,cause,selected,framesPerSecond,track.physicsEngine);state=readRecordedTwoCarRace(state.memory,d);return effects;},
   captureInput(host:Omit<NativeRaceInputHost,'memory'>,forced=0){
-   const result=captureNativeRaceInput({...host,memory:()=>state.memory},d,forced);state=readRecordedTwoCarRace(state.memory,d);return result;
+   const result=captureNativeRaceInput({...host,memory:()=>state.memory},d,forced,framesPerSecond,data.physicsEngine);state=readRecordedTwoCarRace(state.memory,d);return result;
   },
   stepCaptured(incomingSI=0){return simulateCaptured(incomingSI);},
-  async waitForOpponent(host:Omit<NativeOpponentWaitHost,'memory'|'captureInput'|'simulate'>,caller?:{entryStackPointer:number;afterStep?:(result:ReturnType<typeof stepRecordedTwoCarRace>)=>void}){
+  async waitForOpponent(host:Omit<NativeOpponentWaitHost,'memory'|'captureInput'|'simulate'>,caller?:{entryStackPointer:number;afterStep?:(result:ReturnType<typeof stepRecordedTwoCarRace>)=>void|Promise<void>}){
    await waitForNativeOpponent({...host,memory:()=>state.memory,
-    captureInput(){captureOriginalRaceInput(state.memory,d,0);state=readRecordedTwoCarRace(state.memory,d);},
-    simulate:incomingSI=>{if(caller){const result=stepRecordedTwoCarRace(state,...resources(state.memory,caller.entryStackPointer,incomingSI));state=result.state;caller.afterStep?.(result);}else simulateCaptured(incomingSI,false);},
-   },d);
+    captureInput(){captureOriginalRaceInput(state.memory,d,0,framesPerSecond,data.physicsEngine);state=readRecordedTwoCarRace(state.memory,d);},
+    simulate:async incomingSI=>{if(caller){const result=stepRecordedTwoCarRace(state,...resources(state.memory,caller.entryStackPointer,incomingSI));state=result.state;await caller.afterStep?.(result);}else simulateCaptured(incomingSI,false);},
+   },d,framesPerSecond,track.physicsEngine);
    state=readRecordedTwoCarRace(state.memory,d);
   },
   get replaying(){return !!recording;},
@@ -271,7 +309,7 @@ export function createNativeRaceSession(data:NativeRaceData,options:{transporter
    await runNativeReplayControls({...host,memory:()=>state.memory,
     raceCommand:key=>this.commandAsync(key,host),
     scrub:async direction=>{await this.scrubReplay(direction,host,caller);},
-    seekStart:()=>{state=readRecordedTwoCarRace(restoreReplayCheckpoint(state.memory,d,0,initialize).memory,d);},
+    seekStart:()=>{state=readRecordedTwoCarRace(restoreReplayCheckpoint(state.memory,d,0,initialize,framesPerSecond,data.physicsEngine).memory,d);},
    },d);
    state=readRecordedTwoCarRace(state.memory,d);
   },
@@ -279,7 +317,7 @@ export function createNativeRaceSession(data:NativeRaceData,options:{transporter
    if(!recording)throw Error('No native replay is active');
    replaySeeking=true;
    try{await scrubNativeReplay({...host,memory:()=>state.memory,
-    prepareSeek(target){state=readRecordedTwoCarRace(restoreReplayCheckpoint(state.memory,d,target,initialize).memory,d);},
+    prepareSeek(target){state=readRecordedTwoCarRace(restoreReplayCheckpoint(state.memory,d,target,initialize,framesPerSecond,data.physicsEngine).memory,d);},
     simulate(incomingSI){
      const [player,opponent]=resources(state.memory,caller?.entryStackPointer,incomingSI);
      const result=stepRecordedTwoCarRace(state,player,opponent);state=result.state;
@@ -296,14 +334,14 @@ export function createNativeRaceSession(data:NativeRaceData,options:{transporter
    }
    if(!Number.isInteger(target)||target<0||target>recordedFrames)throw Error('Replay position is outside the recorded drive');
    const m=recording.slice();m[d+0x9aca]=1;m[d+0xa3c2]=2;
-   const result=seekRecordedTwoCarRace(readRecordedTwoCarRace(m,d),target,initialize,current=>resources(current.memory,0xfefc));
+   const result=seekRecordedTwoCarRace(readRecordedTwoCarRace(m,d),target,initialize,current=>resources(current.memory,0xfefc),undefined,framesPerSecond,data.physicsEngine);
    state=result.state;return state;
   },
   tick(input:number){
    const m=state.memory,v=new DataView(m.buffer),clock=state.player.driving.race.stats[2];
    let capture:ReturnType<typeof captureOriginalRaceInput>|undefined;
    if(!recording){
-    capture=m[d+0xaa77]?{action:'continue-prompt',recorded:false}:captureOriginalRaceInput(m,d,input);
+    capture=m[d+0xaa77]?{action:'continue-prompt',recorded:false}:captureOriginalRaceInput(m,d,input,framesPerSecond,data.physicsEngine);
     if(!capture.recorded){state=readRecordedTwoCarRace(m,d);return {state,effects:[],capture};}
     if(v.getUint16(d+0x8c26,true)!==clock)state=readRecordedTwoCarRace(m,d);
    }
