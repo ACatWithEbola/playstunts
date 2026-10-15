@@ -4,6 +4,12 @@ A native browser reconstruction of **Stunts / 4D Sports Driving**, developed by 
 
 ## Live high scores and community tracks
 
+MS 1990 and MS 1991 compete in one combined high-score directory, without an
+edition selector. Each named driver has one fastest time across both editions
+in the selected route category and overall/car ranking. The **MS 1990** or
+**MS 1991** badge identifies the winning recording's actual edition. Stored
+score/replay identities and edition-specific playback remain unchanged.
+
 ### Website languages
 
 The language selector after GitHub offers English (default), Spanish and Italian.

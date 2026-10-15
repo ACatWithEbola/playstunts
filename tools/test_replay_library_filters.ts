@@ -24,8 +24,8 @@ test('replay filters apply before pagination, with deterministic fastest and new
  for(const q of ['?page=-1','?page=1.5','?sort=oops','?car=bad%27'])assert.equal((await GET(new Request('https://example.test/api/replays'+q))).status,400);
  assert.equal(db.prepare('SELECT COUNT(*) n FROM shared_replays').get()!.n,65);db.close();
 });
-test('all and category boards each show ten drivers, retaining slower valid runs independently',()=>{
+test('all and category boards retain drivers beyond the initial ten visible rows',()=>{
  const rows:PublicScoreRow[]=Array.from({length:12},(_,i)=>{const record=Array(52).fill(0);Array.from('Driver'+i,c=>c.charCodeAt(0)).forEach((c,j)=>record[j]=c);return {id:String(i),track_hash:'track',car_code:'PMIN',ticks:100+i,record:JSON.stringify(record),created_at:i,track_name:'DEFAULT',has_replay:1,route_assessment:'full_route'};});
  rows.push({...rows[0],id:'shortcut',ticks:90,route_assessment:'shortcuts_detected'});
- const [board]=publicLeaderboards(rows,new Map());assert.equal(board.scores.length,10);assert.equal(board.cars[0].scores.length,10);assert.equal(board.categories!.full_route.scores.length,10);assert.equal(board.scores[0].id,'shortcut');assert.equal(board.categories!.full_route.scores[0].id,'0');assert.equal(board.categories!.shortcuts_detected.scores.length,1);
+ const [board]=publicLeaderboards(rows,new Map());assert.equal(board.scores.length,12);assert.equal(board.cars[0].scores.length,12);assert.equal(board.categories!.full_route.scores.length,12);assert.equal(board.scores[0].id,'shortcut');assert.equal(board.categories!.full_route.scores[0].id,'0');assert.equal(board.categories!.shortcuts_detected.scores.length,1);
 });
