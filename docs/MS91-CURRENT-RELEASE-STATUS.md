@@ -1,5 +1,30 @@
 # MS91 current release status
 
+## Combined high scores — 15 October 2026
+
+Version175 deployed successfully through Sites, source99eccb441f071737e9bfc10583881d34aa636114,
+deploymentappgdep_6ad0928c0d5c8191a00f252bf6f1dadf. GitHub main and
+feature/global-highscores contain the matching source. The directory now combines
+both MS editions, deduplicating named drivers across editions within the existing
+category/overall/car views. Per-score stored identity drives the MS1990/MS1991
+badge; no edition selector. Explicit API filters remain compatible. No migration,
+retention change, data conversion, score rewrite or replay rewrite was introduced.
+
+Mixed-edition API/mapper tests cover either edition winning, normalized driver
+names, ties, category/car ranking, legacy missing metadata and read-only storage.
+Existing ranking, replay-filter/history/import checks pass;532 website messages
+have Spanish/Italian coverage, typecheck and production build pass. Updated one
+stale test assumption from ten retained rows to twelve: UI shows ten initially,
+while server has already retained up to100. No ranking limit was changed.
+
+Live combined response:6tracks,95best car times,92replays. Both edition badges
+observed in one DEFAULT table; no edition picker and no document overflow at802px.
+Compared all fields by score ID before/after:95 publicly visible legacy records
+and1modern record unchanged, per-edition summaries unchanged. This verifies the
+public metadata projection, not full raw database equality or a backup. FAQ live
+text verified; source pushed to both branches. Full backup/recovery/comparison
+checks remain deferred; prior release checklist stays97/103 (94.2%), six deferred.
+
 ## Final released status — 14 October 2026
 
 Version174 is live at https://playstunts.com. GitHub main includes the upgrade
