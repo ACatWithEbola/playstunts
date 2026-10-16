@@ -13,7 +13,7 @@ export default function RecentRacesPanel(){
  return <section className="recent-races-panel" aria-labelledby="recent-races-heading">
 <h3 id="recent-races-heading">
 <WebsiteText text="RECENT RACES"/>
-</h3>{submissions.length>0&&<ol className="recent-pending-races">{submissions.slice(0,7).map(run=><li key={run.id}><Flag size={18} aria-hidden="true"/><div><p className="recent-race-heading"><strong>{run.driver}</strong></p><span className="verification-badge"><WebsiteText text={run.state==='rejected'?'Verification failed':'Under verification'}/></span><div className="recent-race-result"><strong>{time(run.ticks)}</strong></div><small><WebsiteText text="Track:"/> {run.track}</small><small><WebsiteText text="Car:"/> {run.car}</small></div></li>)}</ol>}{state==='loading'?<p>
+</h3>{submissions.length>0&&<ol className="recent-pending-races">{submissions.slice(0,7).map(run=><li key={run.id}><Flag size={18} aria-hidden="true"/><div><p className="recent-race-heading"><strong>{run.driver}</strong></p><span className="verification-badge"><WebsiteText text={run.state==='rejected'?'Verification failed':'Verifying...'}/></span><div className="recent-race-result"><strong>{time(run.ticks)}</strong></div><small><WebsiteText text="Track:"/> {run.track}</small><small><WebsiteText text="Car:"/> {run.car}</small></div></li>)}</ol>}{state==='loading'?<p>
 <WebsiteText text="Loading recent races…"/>
 </p>:state==='error'&&!races.length?<p>
 <WebsiteText text="Recent races are temporarily unavailable."/>

@@ -7,7 +7,7 @@ import {communityTrackWithdrawn,withdrawnCommunityTracks} from './withdrawn-comm
 export type SubmissionRow={id:string;submission:string;track_hash:string;track_name:string;car_code:string;ticks:number;record:string;physics_engine:string;state:string;created_at:number;updated_at:number;retry_at:number;verified_id:string|null;error:string};
 export function publicSubmission(row:SubmissionRow){
  const record=JSON.parse(row.record) as number[];
- return {id:row.id,trackHash:row.track_hash,track:publicScoreName(row.track_name),driver:publicScoreName(scoreString(record,0,17)),car:publicScoreName(scoreString(record,17,41)||row.car_code),ticks:row.ticks,physicsEngine:resolvePhysicsEngine(row.physics_engine),state:row.state,postedAt:row.created_at,verifiedId:row.verified_id,error:row.error};
+ return {id:row.id,trackHash:row.track_hash,track:publicScoreName(row.track_name),driver:publicScoreName(scoreString(record,0,17)),carCode:row.car_code,car:publicScoreName(scoreString(record,17,41)||row.car_code),ticks:row.ticks,physicsEngine:resolvePhysicsEngine(row.physics_engine),state:row.state,postedAt:row.created_at,verifiedId:row.verified_id,error:row.error};
 }
 export async function queueScoreSubmission(db:D1Database,raw:unknown,ip:string,now=Math.floor(Date.now()/1000)){
  const v=validateScoreSubmission(raw);if((raw as {publicReplayConsent?:unknown}).publicReplayConsent!==true)throw Error('Public replay consent is required to submit a high score');

@@ -3,9 +3,11 @@ import {WebsiteText,WebsiteElement,useWebsiteLocale} from '@/app/WebsiteLanguage
 import {useCallback,useEffect,useRef,useState} from 'react';
 import type {Leaderboard} from '@/lib/server/public-leaderboards';
 import TrackLeaderboard from './TrackLeaderboard';
-import PendingSubmissions from '../PendingSubmissions';
+import {usePublicSubmissions} from '../usePublicSubmissions';
+import {withPendingTracks} from '@/lib/game/pending-leaderboards';
 export default function Leaderboards(){
  const locale=useWebsiteLocale();
+ const {submissions}=usePublicSubmissions();
  useEffect(()=>{setQuery(new URLSearchParams(location.search).get('q')?.slice(0,80)??'');},[]);
  const [boards,setBoards]=useState<Leaderboard[]>([]),[query,setQuery]=useState(''),[sort,setSort]=useState('recent'),[checked,setChecked]=useState(0),[error,setError]=useState(''),[busy,setBusy]=useState(true),[local,setLocal]=useState(false),[page,setPage]=useState(0),[hasMore,setHasMore]=useState(false),[total,setTotal]=useState(0),[summary,setSummary]=useState({tracks:0,scores:0,replays:0});
  const requestId=useRef(0),controller=useRef<AbortController|null>(null);
@@ -38,7 +40,7 @@ export default function Leaderboards(){
   }catch{if(id===requestId.current&&!abort.signal.aborted)setAssessmentMessage('Replay checks will retry on a later refresh.');}
  },[query,sort]);
  useEffect(()=>{setLocal(['localhost','127.0.0.1'].includes(location.hostname));const initial=setTimeout(()=>void refresh(),250),interval=setInterval(()=>{if(document.visibilityState==='visible')void refresh();},3600000),focus=()=>{if(document.visibilityState==='visible')void refresh();};window.addEventListener('focus',focus);document.addEventListener('visibilitychange',focus);return()=>{clearTimeout(initial);clearInterval(interval);controller.current?.abort();requestId.current++;window.removeEventListener('focus',focus);document.removeEventListener('visibilitychange',focus);};},[refresh]);
- const filtered=boards;
+ const filtered=withPendingTracks(boards,submissions,query);
  // Read-only polling keeps visible pages current without rerunning old audits
  // or collapsing the user's pagination on every verification update.
  useEffect(()=>{
@@ -59,8 +61,7 @@ export default function Leaderboards(){
   <span className="scores-sr" role="status" aria-live="polite"><WebsiteText text={assessmentMessage}/></span>
   {error&&<p className="scores-error" role="alert">{<WebsiteText text={error}/>}{checked?<WebsiteText text={' Previously loaded times are still shown.'}/>:<WebsiteText text={''}/>}</p>}
   {!busy&&!error&&!filtered.length&&<div className="scores-empty"><span aria-hidden="true">—</span><h3>{/^[a-f0-9]{64}$/i.test(query)?<WebsiteText text="No verified times yet"/>:query?<WebsiteText text={'No matching tracks'}/>:<WebsiteText text={'The grid is waiting.'}/>}</h3><p>{/^[a-f0-9]{64}$/i.test(query)?<WebsiteText text="No verified times for this track yet. Finish a fresh race and confirm Submit score and replay; adding a track or saving an in-game time does not publish it."/>:query?<WebsiteText text={'Try another track, driver or car name.'}/>:<WebsiteText text={'Finish a qualifying race and your track’s leaderboard will appear here.'}/>}</p>{query?<button onClick={()=>setQuery('')}><WebsiteText text={"Clear search"}/></button>:<a href="/#play"><WebsiteText text={"Let’s drive →"}/></a>}</div>}
-  <PendingSubmissions query={query}/>
-  <div className="scores-boards">{filtered.map(board=><TrackLeaderboard key={board.hash} board={board} query={query}/>)}</div>
+  <div className="scores-boards">{filtered.map(board=><TrackLeaderboard key={board.hash} board={board} query={query} pending={submissions.filter(row=>row.trackHash===board.hash)}/>)}</div>
   {assessmentMessage&&assessmentMessage!=='Checking saved replay routes…'&&<p className="scores-fair"><WebsiteText text={assessmentMessage}/></p>}
   {hasMore&&<button disabled={busy} className="scores-more" onClick={()=>void refresh(page+1)}><WebsiteText text={"Load more tracks ("}/>{Math.max(0,total-boards.length)}<WebsiteText text={" remaining)"}/></button>}
   </WebsiteElement>

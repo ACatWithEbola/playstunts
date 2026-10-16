@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
-export type PublicSubmission={id:string;trackHash:string;track:string;driver:string;car:string;ticks:number;physicsEngine:string;state:string;postedAt:number;verifiedId:string|null;error:string};
+import type {PhysicsEngineVersion} from '@/lib/physics/engine-version';
+export type PublicSubmission={id:string;trackHash:string;track:string;driver:string;carCode:string;car:string;ticks:number;physicsEngine:PhysicsEngineVersion;state:string;postedAt:number;verifiedId:string|null;error:string};
 export function usePublicSubmissions(){
  const [submissions,setSubmissions]=useState<PublicSubmission[]>([]),[error,setError]=useState(false);
  useEffect(()=>{
@@ -10,7 +11,7 @@ export function usePublicSubmissions(){
    try{const response=await fetch('/api/score-submissions',{cache:'no-store',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(10000)])});if(!response.ok)throw Error('Unavailable');const body=await response.json() as {submissions:PublicSubmission[]};if(stopped)return;
     const fingerprint=JSON.stringify(body.submissions.map(s=>[s.id,s.state]));if(previous&&previous!==fingerprint)window.dispatchEvent(new Event('stunts-score-verification-changed'));previous=fingerprint;setSubmissions(body.submissions);setError(false);
     const next=body.submissions.find(s=>s.state!=='rejected');
-    if(next&&!processing){processing=true;void fetch('/api/score-submissions',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Verification':'check'},body:'{}',signal:AbortSignal.timeout(120000)}).then(()=>{if(!stopped){window.dispatchEvent(new Event('stunts-score-verification-changed'));void refresh();}}).catch(()=>{}).finally(()=>{processing=false;});}
+    if(next&&!processing){processing=true;void fetch('/api/score-submissions',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Verification':'check'},body:'{}',signal:AbortSignal.timeout(120000)}).then(async response=>{if(!response.ok)return;const result=await response.json() as {state:string};if(!stopped&&['accepted','rejected'].includes(result.state)){window.dispatchEvent(new Event('stunts-score-verification-changed'));void refresh();}}).catch(()=>{}).finally(()=>{processing=false;});}
    }catch{if(!stopped)setError(true);}finally{reading=false;}
   };
   void refresh();const interval=setInterval(()=>void refresh(),5000),changed=()=>void refresh();
