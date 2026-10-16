@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync,readdirSync} from 'node:fs';
-import {queueScoreSubmission,publicSubmission,publicSubmissionRows,processScoreSubmission,type SubmissionRow} from '../lib/server/score-submissions.ts';
+import {queueScoreSubmission,publicSubmission,publicSubmissionRows,processScoreSubmission,SCORE_VERIFICATION_SLOTS,type SubmissionRow} from '../lib/server/score-submissions.ts';
 import {finishedScoreFixture} from './global-score-fixture.ts';
 import {GLOBAL_SCORE_RULES} from '../lib/game/global-score-format.ts';
 function fixture(){
@@ -67,4 +67,17 @@ test('an older stalled check cannot keep fresh submissions behind it forever',as
  assert.equal((await processScoreSubmission(db,async()=>{throw Error('Simulation progress unavailable');})).state,'retry');
  assert.equal(row(old.id).state,'retry','Unavailable simulation is deferred, never falsely rejected or accepted');
  assert.equal(row(old.id).submission,old.submission);assert.equal(sql.prepare('SELECT COUNT(*) n FROM shared_replays').get()!.n,0);sql.close();
+});
+test('multiple visitors verify different runs concurrently within the server slot limit',{timeout:5000},async()=>{
+ const {sql,db,row}=fixture(),proof=await finishedScoreFixture(),queued:SubmissionRow[]=[];
+ for(let i=0;i<SCORE_VERIFICATION_SLOTS+1;i++){const record=[...proof.record];record[0]=65+i;queued.push(await queueScoreSubmission(db,{...proof,record,publicReplayConsent:true},'ip'));}
+ let release!:()=>void,ready!:()=>void,active=0,peak=0;const gate=new Promise<void>(resolve=>{release=resolve;}),started=new Promise<void>(resolve=>{ready=resolve;}),seen=new Set<number>();
+ const accept=async(raw:unknown)=>{const name=(raw as {record:number[]}).record[0];assert.ok(!seen.has(name),'No proof is verified twice');seen.add(name);peak=Math.max(peak,++active);if(active===SCORE_VERIFICATION_SLOTS)ready();await gate;active--;const id=name.toString(16).padStart(64,'0');sql.prepare('INSERT INTO accepted_scores VALUES (?,?,?)').run(id,GLOBAL_SCORE_RULES,1);return Response.json({accepted:true,id});};
+ const running=queued.slice(0,SCORE_VERIFICATION_SLOTS).map(run=>processScoreSubmission(db,accept,run.id));
+ await started;assert.equal(peak,3);assert.equal(sql.prepare("SELECT COUNT(*) n FROM score_submissions WHERE state='verifying'").get()!.n,3);
+ assert.equal((await processScoreSubmission(db,accept,queued.at(-1)!.id)).state,'busy');assert.equal(row(queued.at(-1)!.id).state,'queued');
+ release();assert.ok((await Promise.all(running)).every(result=>result.state==='accepted'));
+ assert.equal(sql.prepare('SELECT COUNT(*) n FROM replay_assessment_lock').get()!.n,0,'Every worker releases only its own slot');
+ assert.equal((await processScoreSubmission(db,accept,queued.at(-1)!.id)).state,'accepted');
+ for(const run of queued){assert.equal(row(run.id).submission,run.submission);assert.equal(row(run.id).state,'accepted');}sql.close();
 });

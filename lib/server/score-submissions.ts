@@ -29,20 +29,25 @@ export async function publicSubmissionRows(db:D1Database,now=Math.floor(Date.now
  const result=await db.prepare("SELECT * FROM score_submissions WHERE state<>'accepted' AND (state<>'rejected' OR updated_at>?) AND track_hash NOT IN (SELECT value FROM json_each(?)) ORDER BY created_at DESC,id LIMIT 50").bind(now-900,JSON.stringify(withdrawnCommunityTracks)).all<SubmissionRow>();
  return result.results;
 }
-/** One leased server verification at a time. The existing acceptance handler
- * remains the only writer of ranked scores, receipts and public replays. */
+export const SCORE_VERIFICATION_SLOTS=3;
+/** Bounded parallel verification. An atomic per-run claim prevents duplicate
+ * work across visitors; the acceptance handler still owns ranked writes. */
 export async function processScoreSubmission(db:D1Database,accept:(raw:unknown)=>Promise<Response>,target?:string,now=Math.floor(Date.now()/1000)){
  if(target!==undefined&&!/^[a-f0-9]{64}$/.test(target))throw Error('Invalid submission ID');
- const token=crypto.randomUUID(),lock=await db.prepare('INSERT INTO replay_assessment_lock(key,token,lease_until) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET token=excluded.token,lease_until=excluded.lease_until WHERE replay_assessment_lock.lease_until<=? RETURNING token').bind('score-submissions',token,now+120,now).first();
- if(!lock)return {state:'busy'};
+ const token=crypto.randomUUID();let lockKey:string|undefined;
+ for(let slot=0;slot<SCORE_VERIFICATION_SLOTS;slot++){
+  const key=slot===0?'score-submissions':'score-submissions:'+slot;
+  const lock=await db.prepare('INSERT INTO replay_assessment_lock(key,token,lease_until) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET token=excluded.token,lease_until=excluded.lease_until WHERE replay_assessment_lock.lease_until<=? RETURNING token').bind(key,token,now+120,now).first();
+  if(lock){lockKey=key;break;}
+ }
+ if(!lockKey)return {state:'busy'};
  let selected:string|undefined;
  try{
-  const row=await db.prepare("SELECT * FROM score_submissions WHERE state IN ('queued','verifying','retry') AND retry_at<=?"+(target?' AND id=?':'')+" ORDER BY CASE WHEN state='queued' THEN 0 ELSE 1 END,updated_at,created_at,id LIMIT 1").bind(now,...(target?[target]:[])).first<SubmissionRow>();
-  if(!row)return {state:'idle'};selected=row.id;
-  await db.prepare("UPDATE score_submissions SET state='verifying',updated_at=?,retry_at=? WHERE id=?").bind(now,now+120,row.id).run();
+  const row=await db.prepare("UPDATE score_submissions SET state='verifying',updated_at=?,retry_at=? WHERE id=(SELECT id FROM score_submissions WHERE state IN ('queued','verifying','retry') AND retry_at<=?"+(target?' AND id=?':'')+" ORDER BY CASE WHEN state='queued' THEN 0 ELSE 1 END,updated_at,created_at,id LIMIT 1) AND state IN ('queued','verifying','retry') AND retry_at<=? RETURNING *").bind(now,now+120,now,...(target?[target]:[]),now).first<SubmissionRow>();
+  if(!row){if(target){const active=await db.prepare("SELECT id FROM score_submissions WHERE id=? AND state='verifying' AND retry_at>?").bind(target,now).first();if(active)return {state:'busy'};}return {state:'idle'};}selected=row.id;
   const response=await accept(JSON.parse(row.submission)),result=await response.json() as {accepted?:boolean;id?:string;error?:string};
   const finished=Math.floor(Date.now()/1000);
-  const owns=await db.prepare('SELECT token FROM replay_assessment_lock WHERE key=? AND token=?').bind('score-submissions',token).first();
+  const owns=await db.prepare('SELECT token FROM replay_assessment_lock WHERE key=? AND token=?').bind(lockKey,token).first();
   if(!owns)return {state:'busy'};
   if(response.ok&&result.accepted&&/^[a-f0-9]{64}$/.test(result.id??'')){
    // Recover safely if acceptance committed but the queue status write failed.
@@ -55,7 +60,7 @@ export async function processScoreSubmission(db:D1Database,accept:(raw:unknown)=
   await db.prepare('UPDATE score_submissions SET state=?,error=?,updated_at=?,retry_at=? WHERE id=?').bind(rejected?'rejected':'retry',rejected?'This run could not be verified. A copy is retained.':'Verification is delayed. It will retry automatically.',finished,finished+(response.status===429?3600:30),row.id).run();
   return {state:rejected?'rejected':'retry',id:row.id};
  }catch(error){
-  if(selected)await db.prepare("UPDATE score_submissions SET state='retry',error=?,updated_at=?,retry_at=? WHERE id=? AND EXISTS (SELECT 1 FROM replay_assessment_lock WHERE key=? AND token=?)").bind('Verification is delayed. It will retry automatically.',now,now+30,selected,'score-submissions',token).run();
+  if(selected)await db.prepare("UPDATE score_submissions SET state='retry',error=?,updated_at=?,retry_at=? WHERE id=? AND EXISTS (SELECT 1 FROM replay_assessment_lock WHERE key=? AND token=?)").bind('Verification is delayed. It will retry automatically.',now,now+30,selected,lockKey,token).run();
   console.warn('Queued verification deferred',selected,error instanceof Error?error.message:'Unknown failure');return {state:'retry'};
- }finally{await db.prepare('DELETE FROM replay_assessment_lock WHERE key=? AND token=?').bind('score-submissions',token).run();}
+ }finally{await db.prepare('DELETE FROM replay_assessment_lock WHERE key=? AND token=?').bind(lockKey,token).run();}
 }
