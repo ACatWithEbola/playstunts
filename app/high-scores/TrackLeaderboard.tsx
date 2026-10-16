@@ -1,4 +1,5 @@
 'use client';
+import TrackIdentity from '../TrackIdentity';
 import ReplayDownload from './ScoreReplayDownload';
 import {WebsiteText,WebsiteElement,useWebsiteLocale} from '@/app/WebsiteLanguage';
 import {useEffect,useRef,useState} from 'react';
@@ -29,7 +30,7 @@ export default function TrackLeaderboard({board,query=''}:{board:Leaderboard;que
  const shown=Math.max(visible,searchVisible(scores,query));
  return <details ref={trackPanel} className="scores-board" aria-labelledby={'track-'+board.hash}>
   <summary className="scores-track-toggle"><ChevronDown className="scores-track-chevron" size={22} aria-hidden="true"/>
-  <header><div><span className="scores-track-label"><Flag size={12} aria-hidden="true"/><WebsiteText text={" TRACK LEADERBOARD"}/></span><h3 id={'track-'+board.hash}>{board.name}</h3></div><div className="scores-record"><div className="scores-record-driver">{record&&<><strong><span className="leader-trophy" aria-hidden="true"><RankTrophy rank={1}/></span>{record.driver}</strong><span>{record.car}</span></>}</div><span className="scores-best"><small><WebsiteText text="VALID TRACK RECORD"/></small><strong className={record?'leader-time':undefined}>{record?time(record.ticks):'—'}</strong>{record&&<RouteBadge assessment="full_route"/>}</span></div></header>
+  <header><div><span className="scores-track-label"><Flag size={12} aria-hidden="true"/><WebsiteText text={" TRACK LEADERBOARD"}/></span><h3 id={'track-'+board.hash}>{board.name}</h3><TrackIdentity hash={board.hash}/></div><div className="scores-record"><div className="scores-record-driver">{record&&<><strong><span className="leader-trophy" aria-hidden="true"><RankTrophy rank={1}/></span>{record.driver}</strong><span>{record.car}</span></>}</div><span className="scores-best"><small><WebsiteText text="VALID TRACK RECORD"/></small><strong className={record?'leader-time':undefined}>{record?time(record.ticks):'—'}</strong>{record&&<RouteBadge assessment="full_route"/>}</span></div></header>
   </summary>
   {!!carRecords.length&&<details className="scores-car-records">
    <summary><h4><WebsiteText text="CAR RECORDS"/></h4><ChevronDown size={20} aria-hidden="true"/></summary><p><WebsiteText text="Best valid time for each car · fastest first"/></p>

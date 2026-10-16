@@ -4,7 +4,19 @@ import {prepareSharedTrackImport} from '../lib/game/shared-track-import.ts';
 import {ORIGINAL_STARTER_TRACKS} from '../lib/game/original-starter-tracks.ts';
 import type {NativeStoredFile} from '../lib/game/native-file-store.ts';
 import {ms91DemoTrack} from '../lib/game/ms91-demo-track.ts';
+import {scoreHash} from '../lib/game/global-score-format.ts';
 const track=ORIGINAL_STARTER_TRACKS.find(track=>track.name==='DEFAULT')!,bytes=Uint8Array.from(track.raw),hash='a'.repeat(64);
+test('same-name community layouts retain separate content identities under a safe DOS alias',async()=>{
+ const other=bytes.slice();other[0]^=1;
+ const identity=await scoreHash(other),existing:NativeStoredFile[]=[{key:'C:\\HELL666.TRK',bytes:bytes.slice()}];
+ const before=structuredClone(existing),added=prepareSharedTrackImport('HELL666',identity,other,'C:\\',existing);
+ assert.equal(added.selected,'HELL6'+identity.slice(0,3).toUpperCase());
+ assert.equal(await scoreHash(added.files[0].bytes),identity);
+ assert.notEqual(identity,await scoreHash(bytes));
+ assert.deepEqual(existing,before);
+ const retained=[...existing,...added.files];
+ assert.deepEqual(prepareSharedTrackImport('HELL666',identity,other,'C:\\',retained),{selected:added.selected,files:[]});
+});
 test('shared imports also preserve the bundled 1991 demonstration track',()=>{
  const demo=ms91DemoTrack(),before=demo.bytes.slice();
  assert.deepEqual(prepareSharedTrackImport(demo.name,hash,demo.bytes,'C:\\',[]),{selected:demo.name,files:[]});
