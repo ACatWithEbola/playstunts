@@ -48,5 +48,10 @@ test('actual Recent Races component renders at most seven and refreshes after ve
  tree=render();assert.equal(requests,2);assert.equal(find(tree,'li').length,7);
  assert.equal(find(tree,'span').filter(n=>n.props.className==='verification-badge').length,3);
  intervals.get(1)!();await new Promise(resolve=>setImmediate(resolve));assert.equal(requests,3);
+ serverRaces[0].event='improved';listeners.get('stunts-score-verification-changed')!();await new Promise(resolve=>setImmediate(resolve));
+ let labels=find(render(),'span').flatMap(node=>[node.props.children].flat(Infinity)).map(node=>node?.props?.text);
+ assert.ok(labels.includes('set a new personal best'));assert.ok(!labels.includes('set a new high score'));
+ serverRaces[0].event='record';listeners.get('stunts-score-verification-changed')!();await new Promise(resolve=>setImmediate(resolve));
+ labels=find(render(),'span').flatMap(node=>[node.props.children].flat(Infinity)).map(node=>node?.props?.text);assert.ok(labels.includes('set a new high score'));
  cleanup?.();assert.equal(listeners.size,0);assert.equal(intervals.size,0);
 });

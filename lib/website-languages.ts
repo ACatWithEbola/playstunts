@@ -44,6 +44,7 @@ export const websiteTranslations:Record<string,readonly [string,string]>={
 "RECENT RACES":["CARRERAS RECIENTES","GARE RECENTI"],
 "set a new valid track record":["estableció un nuevo récord válido del circuito","ha stabilito un nuovo record valido della pista"],
 "improved their time":["mejoró su tiempo","ha migliorato il proprio tempo"],
+"set a new personal best":["estableció una nueva marca personal","ha stabilito un nuovo record personale"],
 "completed a valid run":["completó una carrera válida","ha completato una gara valida"],
 "submitted a run":["envió una carrera","ha inviato una gara"],
 "Loading recent races…":["Cargando carreras recientes…","Caricamento delle gare recenti…"],

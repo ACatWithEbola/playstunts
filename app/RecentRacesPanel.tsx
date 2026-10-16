@@ -21,7 +21,7 @@ export default function RecentRacesPanel(){
 <p className="recent-race-heading">
 <strong>{race.driver}</strong>{' '}
 <span className={'recent-race-status '+(race.event==='record'||race.event==='improved'?'recent-status-positive':!valid?'recent-status-invalid':'')}>
-<WebsiteText text={race.event==='record'?'set a new high score':race.event==='improved'?'improved their time':valid?'finished at':'ran an invalid run'}/>
+<WebsiteText text={race.event==='record'?'set a new high score':race.event==='improved'?'set a new personal best':valid?'finished at':'ran an invalid run'}/>
 </span>
 </p>
 <div className="recent-race-result">
