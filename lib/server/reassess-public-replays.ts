@@ -6,7 +6,6 @@ import {retainAcceptedScoresSQL} from './leaderboard-ranking.ts';
 import {retainRunHistorySQL} from './run-history.ts';
 import {replayScoresSQL} from './shared-replay-retention.ts';
 import {readRaceEngine} from './race-engine-metadata.ts';
-import {engineScopedRetention} from './engine-scoped-retention.ts';
 
 const pendingSQL='SELECT COUNT(*) AS pending FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE s.rules=? AND r.assessment_version<>?';
 /** One public, already accepted recording per request. A database-wide lease
@@ -29,7 +28,6 @@ export async function reassessNextPublicReplay(db:D1Database,load:()=>Promise<Na
   const finished=Math.floor(Date.now()/1000);
   const owns=await db.prepare('SELECT token FROM replay_assessment_lock WHERE key=? AND token=? AND lease_until>?').bind('public-replays',token,finished).first();
   if(!owns)return {state:'busy',pending:await pending(),changed:false};
-  const retention=engineScopedRetention(physicsEngine);
   const guard=(query:string)=>query+' AND EXISTS (SELECT 1 FROM replay_assessment_lock WHERE key=? AND token=?)';
   const committed=await db.batch([
    db.prepare('UPDATE global_scores SET route_assessment=? WHERE id=? AND rules=? AND EXISTS (SELECT 1 FROM replay_assessment_lock WHERE key=? AND token=?)').bind(result.routeAssessment,row.id,GLOBAL_SCORE_RULES,'public-replays',token),
@@ -37,9 +35,9 @@ export async function reassessNextPublicReplay(db:D1Database,load:()=>Promise<Na
    db.prepare(guard(retainAcceptedScoresSQL)).bind(GLOBAL_SCORE_RULES,row.track_hash,'public-replays',token),
    db.prepare(guard('UPDATE run_history SET route_assessment=? WHERE id=?')).bind(result.routeAssessment,row.id,'public-replays',token),
    db.prepare(guard(retainRunHistorySQL)).bind(GLOBAL_SCORE_RULES,row.track_hash,'public-replays',token),
-   db.prepare(guard(retention.history)).bind(GLOBAL_SCORE_RULES,row.track_hash,GLOBAL_SCORE_RULES,row.track_hash,'public-replays',token),
-   db.prepare(guard(retention.car)).bind(GLOBAL_SCORE_RULES,row.track_hash,GLOBAL_SCORE_RULES,row.track_hash,'public-replays',token),
-   db.prepare(guard(retention.shared)).bind('public-replays',token),
+   // Reclassification is not an insertion. Preserve all existing scores,
+   // recordings and history, even if two retained runs now share a category.
+   // Display ranking deduplicates them without deleting either proof.
   ]);
   if(!committed[1].meta.changes)return {state:'busy',pending:await pending(),changed:false};
   return {state:'updated',pending:await pending(),changed:true};

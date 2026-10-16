@@ -42,15 +42,37 @@ function excursion(to:number,options:{air?:boolean;short?:boolean;partial?:boole
  const check=createShortcutAssessment(graph);check.observe(position(0),road);
  const start=position(0),end=position(to),frames=options.short?2:12;
  for(let i=0;i<frames;i++)check.observe(start.map((n,a)=>n+(end[a]-n)*(i+1)/(frames+1)),options.partial?[1,4,4,4]:grass);
- if(options.air)check.observe(position(3),[0,0,0,0]);
+ if(options.air)check.observe(position(to).map((v,k)=>k===1?v+10000:v),[0,0,0,0]);
  for(let i=0;i<4;i++)check.observe(position(to),road);
  if(check.result()==='shortcuts_detected')assert.ok(['branch_switch','grass_transfer'].includes(check.reason()));
  else assert.equal(check.reason(),'');
  return check.result();
 }
 test('substantial grass transfer to a non-neighbouring section is detected',()=>assert.equal(excursion(4),'shortcuts_detected'));
-test('same section, neighbouring corner cut, brief excursion, curb and jump do not accuse a shortcut',()=>{
- for(const result of [excursion(0),excursion(1),excursion(2),excursion(4,{short:true}),excursion(4,{partial:true}),excursion(4,{air:true})])assert.equal(result,'not_assessed');
+test('same section, neighbouring corner cut, brief excursion and curb do not accuse a shortcut',()=>{
+ for(const result of [excursion(0),excursion(1),excursion(2),excursion(4,{short:true}),excursion(4,{partial:true}),excursion(1,{air:true})])assert.equal(result,'not_assessed');
+});
+test('flight does not excuse a substantial grass shortcut between distant road sections',()=>assert.equal(excursion(4,{air:true}),'shortcuts_detected'));
+test('ordinary airborne jumps without grass and straight-road jumps remain unaccused',()=>{
+ const check=createShortcutAssessment(graph);check.observe(position(0),road);
+ for(let i=1;i<=20;i++)check.observe(position(0).map((n,k)=>n+(position(4)[k]-n)*i/21),[0,0,0,0]);
+ for(let i=0;i<4;i++)check.observe(position(4),road);
+ assert.equal(check.result(),'not_assessed');
+ const straight={...graph,columns:[0,1,2,3,4,5,6,7],rows:Array(8).fill(0)},jump=createShortcutAssessment(straight);
+ jump.observe([32768,0,29.5*65536],road);
+ for(let i=1;i<=40;i++)jump.observe([32768+4*65536*i/41,0,29.5*65536],i>10&&i<25?[0,0,0,0]:grass);
+ for(let i=0;i<4;i++)jump.observe([4.5*65536,0,29.5*65536],road);
+ assert.equal(jump.result(),'not_assessed');
+});
+test('brief road grazing and ambiguous crossing during a grass transfer retain the departure evidence',()=>{
+ const crossed={...graph,columns:[0,0,0,1,2,2,2,1,5,5],rows:[0,1,2,2,2,1,0,0,5,5],primary:[1,2,3,4,5,6,7,0,9,8],alternate:Array(10).fill(65535),footprints:Array(10).fill(0)};
+ const check=createShortcutAssessment(crossed);check.observe(position(0),road);
+ for(let i=1;i<=12;i++)check.observe(position(0).map((v,k)=>v+(position(4)[k]-v)*i/13),grass);
+ check.observe(position(2),road); // Not enough frames to establish a re-entry.
+ check.observe([5.5*65536,0,24.5*65536],road); // Ambiguous overlap.
+ // The large actual detour above makes geometric shortcut evidence inconclusive.
+ for(let i=0;i<4;i++)check.observe(position(4),road);
+ assert.equal(check.result(),'not_assessed','Do not omit intermediate travel and invent a distance saving');
 });
 test('ambiguous overlapping road footprints cannot accuse a shortcut',()=>{
  const check=createShortcutAssessment({...graph,columns:[0,0,2,3,4,5,6,7]});check.observe(position(0),road);

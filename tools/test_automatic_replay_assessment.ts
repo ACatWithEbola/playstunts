@@ -40,6 +40,18 @@ test('simultaneous refreshes share a global lease and expired leases can recover
  sql.exec("UPDATE shared_replays SET assessment_version=''; INSERT INTO replay_assessment_lock VALUES ('public-replays','expired',1)");
  assert.equal((await reassessNextPublicReplay(db,load,async()=>result as never)).state,'updated');sql.close();
 });
+test('moving an accepted score into an occupied exploit category never prunes scores or replays',async()=>{
+ const {sql,db,result,load}=fixture();
+ sql.prepare('INSERT INTO global_scores SELECT ?,rules,track_hash,car_code,?,record,created_at,driver_key,? FROM global_scores WHERE id=?').run('other',2000,'shortcuts_detected','accepted');
+ sql.prepare('INSERT INTO shared_replays(id,replay,track_name,created_at) VALUES (?,?,?,?)').run('other','[9,8,7]','THE_EDGE',125);
+ const before=sql.prepare('SELECT id,ticks,record,created_at,driver_key FROM global_scores ORDER BY id').all();
+ const recordings=sql.prepare('SELECT id,replay,track_name,created_at FROM shared_replays ORDER BY id').all();
+ assert.equal((await reassessNextPublicReplay(db,load,async()=>({...result,routeAssessment:'shortcuts_detected',assessmentReason:'branch_switch'}) as never)).state,'updated');
+ assert.deepEqual(sql.prepare('SELECT id,ticks,record,created_at,driver_key FROM global_scores ORDER BY id').all(),before);
+ assert.deepEqual(sql.prepare('SELECT id,replay,track_name,created_at FROM shared_replays ORDER BY id').all(),recordings);
+ assert.equal(sql.prepare('SELECT route_assessment FROM global_scores WHERE id=?').get('accepted')!.route_assessment,'shortcuts_detected');
+ sql.close();
+});
 test('verification failure or identity mismatch preserves score and retries later',async()=>{
  const {sql,db,result,load}=fixture(),before=sql.prepare('SELECT * FROM global_scores').get();let calls=0;
  const fail=async()=>{calls++;throw Error('Test resource unavailable');};
@@ -52,7 +64,7 @@ test('verification failure or identity mismatch preserves score and retries late
  assert.deepEqual(sql.prepare('SELECT * FROM global_scores').get(),before);assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM global_scores').get()!.n,1);sql.close();
 });
 test('failure at each reassessment batch stage rolls back retained data and permits retry',async()=>{
- for(let stage=0;stage<8;stage++){
+ for(let stage=0;stage<5;stage++){
   const {sql,db,result,load}=fixture();
   sql.exec('INSERT INTO run_history SELECT * FROM global_scores');
   sql.prepare('INSERT INTO race_engines VALUES (?,?)').run('accepted','ms-1991');

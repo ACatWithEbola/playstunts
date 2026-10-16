@@ -1,11 +1,10 @@
 import type {PlayerRouteGraph} from '../physics/player-route-lookup.ts';
 
 export type RouteAssessment='full_route'|'shortcuts_detected'|'not_assessed';
-/** Informational only. Never used to qualify, reject, rank or penalise a run.
- * Require sustained ground/grass contact between physically distinct,
- * non-neighbouring road sections. Ambiguous crossings, jumps, short corner
- * cuts and stunt execution not proven by this detector remain unassessed.
- * No claim of "Full route" is made merely because no shortcut was found.
+/** Classifies accepted runs without rejecting or modifying their recordings.
+ * Require sustained grass travel plus a proven road detour or branch switch.
+ * Flight does not erase that evidence; ordinary jumps without a grass transfer,
+ * short corners and ambiguous endpoints remain unproven.
  */
 export function createShortcutAssessment(graph:PlayerRouteGraph){
  const neighbors=graph.primary.map(()=>new Set<number>());
@@ -36,25 +35,28 @@ export function createShortcutAssessment(graph:PlayerRouteGraph){
   // A crossing can contain independent routes in the same footprint.
   return matches.length===1?matches[0]:null;
  };
- let anchor:{node:number;position:number[]}|null=null,grassFrames=0,grassDistance=0,lastGrass:readonly number[]|null=null,airborne=false;
+ let anchor:{node:number;position:number[]}|null=null,grassFrames=0,grassDistance=0,lastGrass:readonly number[]|null=null;
  let firstReentry:number[]|null=null;
  let candidate:number|null=null,candidateFrames=0,detected=false,reason='';
- const reset=()=>{grassFrames=0;grassDistance=0;lastGrass=null;airborne=false;candidate=null;candidateFrames=0;firstReentry=null;};
+ const reset=()=>{grassFrames=0;grassDistance=0;lastGrass=null;candidate=null;candidateFrames=0;firstReentry=null;};
  return {
   observe(position:readonly number[],surfaces:readonly number[]){
    if(detected)return;
    const road=surfaces.some(surface=>surface>=1&&surface<=3),grass=surfaces.length===4&&surfaces.every(surface=>surface===4);
    if(grass){candidate=null;candidateFrames=0;firstReentry=null;grassFrames++;const previous=lastGrass??anchor?.position;if(previous)grassDistance+=Math.hypot(position[0]-previous[0],position[2]-previous[2])/64;lastGrass=[...position];return;}
-   if(!road){if(grassFrames)airborne=true;return;}
+   // Include flight/ambiguous road travel in the actual travelled distance,
+   // so a winding excursion cannot appear artificially shorter than the road.
+   if(grassFrames&&lastGrass){grassDistance+=Math.hypot(position[0]-lastGrass[0],position[2]-lastGrass[2])/64;lastGrass=[...position];}
+   if(!road)return;
    const node=nodeAt(position);
-   if(node===null){anchor=null;reset();return;}
+   if(node===null){if(!grassFrames){anchor=null;reset();}else{candidate=null;candidateFrames=0;firstReentry=null;}return;}
    if(!grassFrames){anchor={node,position:[...position]};reset();return;}
    if(candidate!==node){candidate=node;candidateFrames=1;firstReentry=[...position];}else candidateFrames++;
    // Four road frames confirm a real re-entry rather than a wheel grazing it.
    if(candidateFrames<4)return;
-   if(anchor&&!airborne&&grassFrames>=8&&grassDistance>=512&&firstReentry&&lastGrass){
+   if(anchor&&grassFrames>=8&&grassDistance>=512&&firstReentry&&lastGrass){
     const path=roadDistance(anchor.node,node),start=[anchor.position[0]/64,anchor.position[2]/64],end=[firstReentry[0]/64,firstReentry[2]/64];
-    const travelled=grassDistance+Math.hypot(firstReentry[0]-lastGrass[0],firstReentry[2]-lastGrass[2])/64;
+    const travelled=grassDistance;
     // Parallel grass travel along the same road is not a section shortcut.
     // Also allow a generous whole-tile margin for ordinary corner cuts.
     if(switchesArm(anchor.node,node)){detected=true;reason='branch_switch';}
