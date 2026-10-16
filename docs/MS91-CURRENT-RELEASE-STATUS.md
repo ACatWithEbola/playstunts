@@ -1,5 +1,55 @@
 # MS91 current release status
 
+## Public shortcut review — 16 October 2026
+
+Detector versionoriginal-accepted-finish-2026-10-16-9 retains substantial
+grass-transfer evidence through flight and ambiguous intermediate road cells.
+Short road grazes do not erase a pending excursion. Actual travelled distance
+includes flight/ambiguous cells, preventing invented geometric distance savings.
+A proven switch between distinct route branches needs sustained grass contact
+and stable unique departure/re-entry, but not a half-tile grass gap. Ordinary
+jumps without grass, same-arm travel, nearby corners and ambiguous endpoints
+remain unproven. Original driving/finish/time physics are unchanged.
+
+Reassessment now changes classifications without pruning any scores, public
+recordings or history. Existing byte-identical proofs remain retained even when
+the same driver has multiple results in a category. Optional bound score-ID
+target verifies an already accepted public replay, never accepts a supplied
+classification/upload, uses the global lease and validates its original identity.
+
+Regression evidence:20 route tests,11 atomic reassessment/preservation/lease/
+target tests, recorded-engine read/ranking/badge tests, TypeScript and production
+build pass. Five external public recordings replayed locally: Jean de Pippel
+DEFAULT1153ticks (57.65s), BERNIES Indy2003ticks (100.15s), and BERNIES P962
+2144ticks (107.20s) all reproduce the original times and detectbranch_switch.
+Marco legacyDEFAULT1289ticks and BERNIES2757ticks retainfull_route. Downloaded
+original files are read-only test inputs outside the repository, not bundled
+public source assets. No bug-fix narrative added to FAQ or README.
+
+Final runtime sourcee04a5c7ecb7e8791eb9fa33320a2a97d3e704fe9 deployed through
+Sites as version178, deploymentappgdep_6ad20d89f2ec8191911cc89fe42f985c.
+Both GitHub main and feature/global-highscores updated. No schema migration,
+reset, historical time/driver/recorded-edition conversion or replay replacement.
+Prior release checklist remains97/103 (94.2%), six backup/data-proof checks
+deferred; public-download comparisons do not substitute for a complete DB backup.
+
+Live targeted server verification with detector9 completed200/updated/pending0
+for all three reviewed IDs. DEFAULTa6d02cea045bf3bd32b09159a0a79727faab7d4796b3b6636f2ac483066c2a11
+and BERNIES83998bb13e52157ff797a6ae41995a15a76b44fa4d9d24d7d05bf114ef94a93d
+appear in Exploit detected, preserving1153/2003ticks. BERNIES P962
+7eac81d2ccd130eca0d30185b8712af62efcf06331d9019578b6a331cd83cacb
+also appears in its exploit car ranking at2144ticks; overall shows the driver's
+faster Indy recording only. Valid record headers now showMarco64.45/137.85.
+Browser tables and download links inspected. Screenshots retained privately.
+
+Before/after complete public-library pagination returned160recordings in both
+snapshots. Every originalID, public metadata digest, byte length and full exported
+RPL SHA256 matches after final reclassification:zero missing/changed. These
+read-only public downloads are not a raw production DB backup. No recording,
+score or history was pruned by the reclassification transaction. Ordinary
+versioned background rechecks continue independently; no full backlog completion
+claim is made. FAQ/README deliberately contain no bug-fix narrative.
+
 ## Combined high scores — 15 October 2026
 
 Version175 deployed successfully through Sites, source99eccb441f071737e9bfc10583881d34aa636114,
