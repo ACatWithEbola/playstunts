@@ -1,4 +1,11 @@
 import {integer,sqliteTable,text,index} from 'drizzle-orm/sqlite-core';
+// Unverified submissions are isolated from accepted scores and public replays.
+export const scoreSubmissions=sqliteTable('score_submissions',{
+ id:text('id').primaryKey(),submission:text('submission').notNull(),trackHash:text('track_hash').notNull(),trackName:text('track_name').notNull(),
+ carCode:text('car_code').notNull(),ticks:integer('ticks').notNull(),record:text('record').notNull(),physicsEngine:text('physics_engine').notNull(),
+ state:text('state').notNull().default('queued'),createdAt:integer('created_at').notNull(),updatedAt:integer('updated_at').notNull(),
+ retryAt:integer('retry_at').notNull().default(0),verifiedId:text('verified_id'),error:text('error').notNull().default(''),
+},t=>[index('score_submissions_state_created').on(t.state,t.createdAt),index('score_submissions_track').on(t.trackHash,t.state)]);
 // Immutable engine sidecar. Absence identifies legacy without rewriting rows.
 export const raceEngines=sqliteTable('race_engines',{
  id:text('id').primaryKey(),physicsEngine:text('physics_engine').notNull(),

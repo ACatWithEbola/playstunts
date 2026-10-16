@@ -3,6 +3,7 @@ import {WebsiteText,WebsiteElement,useWebsiteLocale} from '@/app/WebsiteLanguage
 import {useCallback,useEffect,useRef,useState} from 'react';
 import type {Leaderboard} from '@/lib/server/public-leaderboards';
 import TrackLeaderboard from './TrackLeaderboard';
+import PendingSubmissions from '../PendingSubmissions';
 export default function Leaderboards(){
  const locale=useWebsiteLocale();
  useEffect(()=>{setQuery(new URLSearchParams(location.search).get('q')?.slice(0,80)??'');},[]);
@@ -38,6 +39,17 @@ export default function Leaderboards(){
  },[query,sort]);
  useEffect(()=>{setLocal(['localhost','127.0.0.1'].includes(location.hostname));const initial=setTimeout(()=>void refresh(),250),interval=setInterval(()=>{if(document.visibilityState==='visible')void refresh();},3600000),focus=()=>{if(document.visibilityState==='visible')void refresh();};window.addEventListener('focus',focus);document.addEventListener('visibilitychange',focus);return()=>{clearTimeout(initial);clearInterval(interval);controller.current?.abort();requestId.current++;window.removeEventListener('focus',focus);document.removeEventListener('visibilitychange',focus);};},[refresh]);
  const filtered=boards;
+ // Read-only polling keeps visible pages current without rerunning old audits
+ // or collapsing the user's pagination on every verification update.
+ useEffect(()=>{
+  const abort=new AbortController();let reading=false;
+  const update=async()=>{if(reading||document.hidden)return;reading=true;try{
+   const pages=await Promise.all(Array.from({length:page+1},async(_,p)=>{const response=await fetch('/api/leaderboards?'+new URLSearchParams({q:query,sort,page:String(p)}),{cache:'no-store',signal:AbortSignal.any([abort.signal,AbortSignal.timeout(15000)])});if(!response.ok)throw Error('Unavailable');return response.json() as Promise<{boards:Leaderboard[];totalTracks:number;summary:{tracks:number;scores:number;replays:number};hasMore:boolean;checkedAt:number}>;}));
+   if(abort.signal.aborted)return;setBoards(pages.flatMap(p=>p.boards));setTotal(pages[0].totalTracks);setSummary(pages[0].summary);setHasMore(pages.at(-1)!.hasMore);setChecked(pages[0].checkedAt);
+  }catch{/* Keep the last successful verified ranking. */}finally{reading=false;}};
+  const timer=setInterval(()=>void update(),15000),changed=()=>void update();window.addEventListener('stunts-score-verification-changed',changed);
+  return()=>{abort.abort();clearInterval(timer);window.removeEventListener('stunts-score-verification-changed',changed);};
+ },[query,sort,page]);
  return <>
   <section className="scores-hero" aria-labelledby="scores-heading"><div><span className="scores-eyebrow"><i aria-hidden="true"/><WebsiteText text={" GLOBAL HIGH SCORES"}/></span><h2 id="scores-heading"><WebsiteText text={"HIGH SCORES."}/><br/><WebsiteText text={"WORLDWIDE."}/></h2></div><div className="scores-summary"><div><strong>{summary.tracks.toLocaleString()}</strong><span><WebsiteText text={"TRACKS RANKED"}/></span></div><div><strong>{summary.scores.toLocaleString()}</strong><span><WebsiteText text={"BEST CAR TIMES"}/></span></div><div><strong>{summary.replays.toLocaleString()}</strong><span><WebsiteText text={"WATCHABLE REPLAYS"}/></span></div></div></section>
   {local&&<aside className="scores-local"><WebsiteText text={"LOCAL PREVIEW · These are isolated local test scores, not the live leaderboard."}/></aside>}
@@ -46,7 +58,8 @@ export default function Leaderboards(){
   <div className="scores-tools"><div className="scores-search"><label htmlFor="score-search"><WebsiteText text={"FIND A TRACK, DRIVER OR CAR"}/></label><WebsiteElement as="input" id="score-search" type="search" value={query} onChange={event=>{setQuery(event.target.value);}} placeholder="Search the leaderboards…"/></div><div className="scores-sort"><label htmlFor="score-sort"><WebsiteText text={"SORT TRACKS"}/></label><select id="score-sort" value={sort} onChange={event=>{setSort(event.target.value);}}><option value="recent"><WebsiteText text={"Recently updated"}/></option><option value="name"><WebsiteText text={"Track name A–Z"}/></option></select><svg className="scores-sort-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg></div><button className="scores-refresh" disabled={busy} onClick={()=>void refresh()}><WebsiteText text={'Refresh scores'}/> <span aria-hidden="true">↻</span></button></div>
   <span className="scores-sr" role="status" aria-live="polite"><WebsiteText text={assessmentMessage}/></span>
   {error&&<p className="scores-error" role="alert">{<WebsiteText text={error}/>}{checked?<WebsiteText text={' Previously loaded times are still shown.'}/>:<WebsiteText text={''}/>}</p>}
-  {!busy&&!error&&!filtered.length&&<div className="scores-empty"><span aria-hidden="true">—</span><h3>{query?<WebsiteText text={'No matching tracks'}/>:<WebsiteText text={'The grid is waiting.'}/>}</h3><p>{/^[a-f0-9]{64}$/i.test(query)?<WebsiteText text="No submitted times for this track yet. Finish a fresh race and confirm Submit score and replay; adding a track or saving an in-game time does not publish it."/>:query?<WebsiteText text={'Try another track, driver or car name.'}/>:<WebsiteText text={'Finish a qualifying race and your track’s leaderboard will appear here.'}/>}</p>{query?<button onClick={()=>setQuery('')}><WebsiteText text={"Clear search"}/></button>:<a href="/#play"><WebsiteText text={"Let’s drive →"}/></a>}</div>}
+  {!busy&&!error&&!filtered.length&&<div className="scores-empty"><span aria-hidden="true">—</span><h3>{/^[a-f0-9]{64}$/i.test(query)?<WebsiteText text="No verified times yet"/>:query?<WebsiteText text={'No matching tracks'}/>:<WebsiteText text={'The grid is waiting.'}/>}</h3><p>{/^[a-f0-9]{64}$/i.test(query)?<WebsiteText text="No verified times for this track yet. Finish a fresh race and confirm Submit score and replay; adding a track or saving an in-game time does not publish it."/>:query?<WebsiteText text={'Try another track, driver or car name.'}/>:<WebsiteText text={'Finish a qualifying race and your track’s leaderboard will appear here.'}/>}</p>{query?<button onClick={()=>setQuery('')}><WebsiteText text={"Clear search"}/></button>:<a href="/#play"><WebsiteText text={"Let’s drive →"}/></a>}</div>}
+  <PendingSubmissions query={query}/>
   <div className="scores-boards">{filtered.map(board=><TrackLeaderboard key={board.hash} board={board} query={query}/>)}</div>
   {assessmentMessage&&assessmentMessage!=='Checking saved replay routes…'&&<p className="scores-fair"><WebsiteText text={assessmentMessage}/></p>}
   {hasMore&&<button disabled={busy} className="scores-more" onClick={()=>void refresh(page+1)}><WebsiteText text={"Load more tracks ("}/>{Math.max(0,total-boards.length)}<WebsiteText text={" remaining)"}/></button>}

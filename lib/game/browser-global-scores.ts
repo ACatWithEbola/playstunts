@@ -20,18 +20,39 @@ export async function createGlobalScoreClient(persistence:NativeFilePersistence,
   return Uint8Array.from(value.file);
  };
  const send=async(key:string,submission:GlobalScoreSubmission,hash:string)=>{
+  let serverQueued=false;
   try{
-   const response=await request(GLOBAL_SCORE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Score':GLOBAL_SCORE_RULES},body:JSON.stringify({...submission,publicReplayConsent:true}),signal:AbortSignal.timeout(30000)});
+   let response=await request(GLOBAL_SCORE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Score':GLOBAL_SCORE_RULES,'X-Stunts-Queue':'1'},body:JSON.stringify({...submission,publicReplayConsent:true}),signal:AbortSignal.timeout(30000)});
+   if(response.status===202){
+    let receipt=await response.json() as {submissionId:string;state:string;verifiedId?:string;error?:string};
+    if(!/^[a-f0-9]{64}$/.test(receipt.submissionId))throw Error('Invalid submission receipt');
+    serverQueued=true;notice('Under verification. Your run is saved on the server and is not ranked yet.');
+    if(typeof window!=='undefined')window.dispatchEvent(new Event('stunts-score-submission-changed'));
+    if(!['accepted','rejected'].includes(receipt.state)){
+     await request('/api/score-submissions',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Verification':'check'},body:JSON.stringify({id:receipt.submissionId}),signal:AbortSignal.timeout(30000)});
+     const status=await request('/api/score-submissions?id='+receipt.submissionId,{cache:'no-store',signal:AbortSignal.timeout(10000)});if(!status.ok)throw Error('Status unavailable');receipt={...receipt,...await status.json()};
+    }
+    if(receipt.state==='accepted'&&/^[a-f0-9]{64}$/.test(receipt.verifiedId??'')){
+     const board=await request(GLOBAL_SCORE_ENDPOINT+'?track='+hash+'&engine='+resolvePhysicsEngine(submission.physicsEngine),{cache:'no-store',signal:AbortSignal.timeout(10000)});if(!board.ok)throw Error('Board unavailable');
+     response=Response.json({...await board.json() as {rules:string;file:number[]},id:receipt.verifiedId});
+     if(typeof window!=='undefined')window.dispatchEvent(new Event('stunts-score-verification-changed'));
+    }else if(receipt.state==='rejected')response=Response.json({error:receipt.error}, {status:422});
+    else {notice(receipt.state==='retry'?'Verification is delayed. It will retry automatically.':'Under verification. Your run is saved on the server and is not ranked yet.');return 'pending';}
+   }
  if(response.ok){const copy=response.clone(),result=await copy.json() as {id?:string;ranked?:boolean};await put('BOARD:'+hash+engineSuffix(resolvePhysicsEngine(submission.physicsEngine)),await responseFile(response));if(result.id&&/^[a-f0-9]{64}$/.test(result.id)){await put('VERIFIED:'+result.id,encoder.encode(JSON.stringify(submission)));await put('SHARED:'+result.id,encoder.encode('true'));if(typeof window!=='undefined'){window.dispatchEvent(new Event('stunts-verified-replays'));window.dispatchEvent(new Event('stunts-public-replay-shared'));}}await put(key,new Uint8Array());notice('Run verified. Its replay is public while ranked or among your five most recent verified runs.');return 'accepted';}
    if([400,403,413,422].includes(response.status)){await put('REJECTED:'+key.slice(8),stored.get(key)??encoder.encode(JSON.stringify({submission,hash})));await put(key,new Uint8Array());notice('This run could not be verified for the global leaderboard. A copy was kept in this browser.');return 'rejected';}
   }catch{/* Keep offline results queued across reloads. */}
-  notice('Your high score is waiting to be uploaded. It will retry when this browser is online.');return 'pending';
+  notice(serverQueued?'Under verification. Your run is saved on the server and is not ranked yet.':'Your high score is waiting to be uploaded. It will retry when this browser is online.');return 'pending';
  };
  let flushing:Promise<void>|undefined;
  const flush=()=>flushing??=(async()=>{for(const [key,bytes] of [...stored]){if(!key.startsWith('PENDING:')||!bytes.length)continue;try{const pending=pendingProof(bytes);if(pending.publicReplayConsent!==true)continue;if(await scoreHash(Uint8Array.from(pending.submission.replay.slice(24,0x722)))!==pending.hash)continue;await send(key,pending.submission,pending.hash);}catch{/* Keep damaged or unwritable private evidence unchanged; continue other runs. */}}})().finally(()=>{flushing=undefined;});
+ const retry=()=>{if(typeof document==='undefined'||!document.hidden)void flush().catch(()=>{});};
+ const automatic=typeof window!=='undefined'&&typeof window.addEventListener==='function';
+ const timer=automatic?setInterval(retry,10000):undefined;
+ if(automatic){window.addEventListener('online',retry);window.addEventListener('focus',retry);}
  return {
   flush,
-  close(){persistence.close?.();},
+  close(){if(timer)clearInterval(timer);if(automatic){window.removeEventListener('online',retry);window.removeEventListener('focus',retry);}persistence.close?.();},
   async retainedRecords(track:Uint8Array,physicsEngine:PhysicsEngineVersion=LEGACY_PHYSICS){
    const engine=resolvePhysicsEngine(physicsEngine);
    const hash=await scoreHash(track),records:number[][]=[];

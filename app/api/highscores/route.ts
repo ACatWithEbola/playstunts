@@ -1,5 +1,6 @@
 import {boundedRequestText} from '@/lib/server/bounded-request-body';
-import {env} from 'cloudflare:workers';
+import {queueScoreSubmission,publicSubmission,processScoreSubmission} from '@/lib/server/score-submissions';
+import {env,waitUntil} from 'cloudflare:workers';
 import {GLOBAL_SCORE_RULES,scoreHash,scoreString,validateScoreSubmission,sharedScoreFile} from '@/lib/game/global-score-format';
 import {publicScoreName} from '@/lib/game/public-score-name';
 import {verifyGlobalScore} from '@/lib/server/verify-global-score';
@@ -32,6 +33,12 @@ export async function POST(request:Request){
  const {DB:db,ASSETS:assets}=bindings(),now=Math.floor(Date.now()/1000);
  if((raw as {validateOnly?:unknown}).validateOnly!==true&&(raw as {publicReplayConsent?:unknown}).publicReplayConsent!==true)return reply({error:'Public replay consent is required to submit a high score'},422);
  try{
+  if(request.headers.get('x-stunts-queue')==='1'){
+   try{const queued=await queueScoreSubmission(db,raw,request.headers.get('cf-connecting-ip')??'local');
+    if(!['accepted','rejected'].includes(queued.state))waitUntil(processScoreSubmission(db,value=>POST(new Request(new URL('/api/highscores',url),{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Score':GLOBAL_SCORE_RULES,'Origin':url.origin,'CF-Connecting-IP':request.headers.get('cf-connecting-ip')??'local'},body:JSON.stringify(value)})),queued.id));
+    return reply({submissionId:queued.id,...publicSubmission(queued)},202);}
+   catch(error){if(error instanceof Error&&/limit reached/i.test(error.message))return reply({error:error.message},429);throw error;}
+  }
   const bucket=((raw as {validateOnly?:unknown}).validateOnly===true?'assessment:':'')+await scoreHash(new TextEncoder().encode((request.headers.get('cf-connecting-ip')??'local')+':'+Math.floor(now/3600)));
   const limit=await db.prepare('INSERT INTO score_requests(bucket,count,expires_at) VALUES (?,1,?) ON CONFLICT(bucket) DO UPDATE SET count=count+1 RETURNING count').bind(bucket,now+7200).first<{count:number}>();
   if(!limit||limit.count>20)return reply({error:'Submission limit reached; try later'},429);
