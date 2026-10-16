@@ -91,6 +91,11 @@ test('dual-way switching is detected even when both arms are neighbours of the f
  const pos=(node:number)=>[(fork.columns[node]+.5)*65536,0,(29-fork.rows[node]+.5)*65536];
  const cross=(to:number)=>{const check=createShortcutAssessment(fork),a=pos(1),b=pos(to);check.observe(a,road);for(let i=1;i<=20;i++)check.observe(a.map((n,k)=>n+(b[k]-n)*i/21),grass);for(let i=0;i<4;i++)check.observe(b,road);return check.result();};
  assert.equal(cross(4),'shortcuts_detected');assert.equal(cross(2),'not_assessed');assert.equal(cross(1),'not_assessed');
+ // A narrow grass gap can skip an entire branch even below half a tile.
+ const narrow=createShortcutAssessment(fork),a=[.9*65536,0,28.5*65536],b=[1.1*65536,0,28.5*65536];
+ narrow.observe(a,road);for(let i=1;i<=12;i++)narrow.observe(a.map((n,k)=>n+(b[k]-n)*i/13),grass);
+ for(let i=0;i<4;i++)narrow.observe(b,road);
+ assert.equal(narrow.result(),'shortcuts_detected');assert.equal(narrow.reason(),'branch_switch');
 });
 test('original engine/grip power-gear grass behaviour is detected for all four known cars',()=>{
  for(const id of ['PMIN','FGTO','VETT','ANSX','COUN']){

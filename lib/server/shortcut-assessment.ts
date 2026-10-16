@@ -54,13 +54,13 @@ export function createShortcutAssessment(graph:PlayerRouteGraph){
    if(candidate!==node){candidate=node;candidateFrames=1;firstReentry=[...position];}else candidateFrames++;
    // Four road frames confirm a real re-entry rather than a wheel grazing it.
    if(candidateFrames<4)return;
-   if(anchor&&grassFrames>=8&&grassDistance>=512&&firstReentry&&lastGrass){
+   if(anchor&&grassFrames>=8&&firstReentry&&lastGrass){
     const path=roadDistance(anchor.node,node),start=[anchor.position[0]/64,anchor.position[2]/64],end=[firstReentry[0]/64,firstReentry[2]/64];
     const travelled=grassDistance;
     // Parallel grass travel along the same road is not a section shortcut.
     // Also allow a generous whole-tile margin for ordinary corner cuts.
     if(switchesArm(anchor.node,node)){detected=true;reason='branch_switch';}
-    else if(!nearby(anchor.node,node)&&path!==null&&path-distance(start,centers[anchor.node])-distance(end,centers[node])-travelled>=1024){detected=true;reason='grass_transfer';}
+    else if(grassDistance>=512&&!nearby(anchor.node,node)&&path!==null&&path-distance(start,centers[anchor.node])-distance(end,centers[node])-travelled>=1024){detected=true;reason='grass_transfer';}
    }
    anchor={node,position:[...position]};reset();
   },
