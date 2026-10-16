@@ -1,12 +1,14 @@
 import {boundedRequestText} from '@/lib/server/bounded-request-body';
 import {env} from 'cloudflare:workers';
-import {scoreHash} from '@/lib/game/global-score-format';
-import {validateTrackEncoding} from '@/lib/game/upload-validation';
+import {GLOBAL_SCORE_RULES,MAX_RANKED_FRAMES,scoreHash} from '@/lib/game/global-score-format';
+import {validateTrackEncoding,validateReplayEncoding} from '@/lib/game/upload-validation';
+import {communityTrackCatalogueSQL,communityReplayTrackDownloadSQL} from '@/lib/server/community-replay-tracks';
 import {validateSharedTrack} from '@/lib/server/shared-track-validation';
 import {globalScoreData} from '@/lib/server/global-score-data';
 import {withdrawnCommunityTracks,communityTrackWithdrawn} from '@/lib/server/withdrawn-community-tracks';
 const bindings=()=>env as unknown as {DB:D1Database;ASSETS:Fetcher};
 const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+const trackFilename=(name:string,hash:string)=>/^[A-Z0-9_-]{1,8}$/.test(name)?name:hash.slice(0,8).toUpperCase();
 export async function GET(request:Request){
  const url=new URL(request.url),hash=url.searchParams.get('id'),before=url.searchParams.get('before');
  if(hash&&communityTrackWithdrawn(hash))return reply({error:'Track not found'},404);
@@ -14,8 +16,16 @@ export async function GET(request:Request){
   const db=bindings().DB;
   if(hash){
    if(!/^[a-f0-9]{64}$/.test(hash))return reply({error:'Invalid track'},400);
-   const row=await db.prepare('SELECT name,bytes FROM shared_tracks WHERE hash=?').bind(hash).first<{name:string;bytes:string}>();
-   if(!row)return reply({error:'Track not found'},404);
+   const shared=await db.prepare('SELECT name,bytes FROM shared_tracks WHERE hash=?').bind(hash).first<{name:string;bytes:string}>();
+   let row=shared;
+   if(!row){
+    const recorded=await db.prepare(communityReplayTrackDownloadSQL).bind(GLOBAL_SCORE_RULES,hash).first<{name:string;replay:string}>();
+    if(!recorded)return reply({error:'Track not found'},404);
+    const replay:unknown=JSON.parse(recorded.replay);
+    if(!Array.isArray(replay)||replay.length>0x722+MAX_RANKED_FRAMES||replay.some(value=>!Number.isInteger(value)||value<0||value>255))throw Error('Invalid stored replay bytes');
+    const bytes=Uint8Array.from(replay);validateReplayEncoding(bytes,MAX_RANKED_FRAMES);
+    row={name:trackFilename(recorded.name,hash),bytes:JSON.stringify(Array.from(bytes.subarray(24,0x722)))};
+   }
    const retained:unknown=JSON.parse(row.bytes);
    if(!/^[A-Z0-9_-]{1,8}$/.test(row.name)||!Array.isArray(retained)||retained.length!==1802||retained.some(value=>!Number.isInteger(value)||value<0||value>255))throw Error('Invalid stored track bytes or name');
    const bytes=Uint8Array.from(retained);validateTrackEncoding(bytes);
@@ -23,8 +33,8 @@ export async function GET(request:Request){
    return new Response(bytes,{headers:{'Content-Type':'application/octet-stream','Content-Disposition':'attachment; filename="'+row.name+'.TRK"','Cache-Control':'public, max-age=31536000, immutable','X-Content-Type-Options':'nosniff'}});
   }
   let timestamp=Number.MAX_SAFE_INTEGER,lastHash='';if(before){const parts=before.split(':');if(parts.length!==2||!/^\d{1,16}$/.test(parts[0])||!/^[a-f0-9]{64}$/.test(parts[1]))return reply({error:'Invalid page'},400);timestamp=Number(parts[0]);lastHash=parts[1];}
-  const rows=await db.prepare('SELECT hash,name,created_at FROM shared_tracks WHERE hash NOT IN ('+withdrawnCommunityTracks.map(()=>'?').join(',')+') AND (created_at < ? OR (created_at = ? AND hash > ?)) ORDER BY created_at DESC,hash LIMIT 21').bind(...withdrawnCommunityTracks,timestamp,timestamp,lastHash).all<{hash:string;name:string;created_at:number}>();
-  const tracks=rows.results.slice(0,20),last=tracks.at(-1);return reply({tracks,next:rows.results.length>20&&last?last.created_at+':'+last.hash:null});
+  const rows=await db.prepare('SELECT hash,name,created_at FROM ('+communityTrackCatalogueSQL+') WHERE hash NOT IN ('+withdrawnCommunityTracks.map(()=>'?').join(',')+') AND (created_at < ? OR (created_at = ? AND hash > ?)) ORDER BY created_at DESC,hash LIMIT 21').bind(GLOBAL_SCORE_RULES,...withdrawnCommunityTracks,timestamp,timestamp,lastHash).all<{hash:string;name:string;created_at:number}>();
+  const tracks=rows.results.slice(0,20).map(row=>({...row,name:trackFilename(row.name,row.hash)})),last=tracks.at(-1);return reply({tracks,next:rows.results.length>20&&last?last.created_at+':'+last.hash:null});
  }catch(error){console.error('Shared track read failed',error);return reply({error:'Shared tracks temporarily unavailable'},503);}
 }
 export async function POST(request:Request){
