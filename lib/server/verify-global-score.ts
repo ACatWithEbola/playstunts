@@ -36,7 +36,9 @@ export async function verifyGlobalScore(value:unknown,data:NativeDemoData){
   prepared.session.originalMemory.writeMemory(prepared.session.state.memory);
   const beforeCar=prepared.session.state.player.driving.car;
   if(!prepared.session.state.done)grassExploit.observe(beforeCar.engine,beforeCar.grip.surfaces,input);
-  prepared.session.advanceCaptured({entryStackPointer:0xeee2,incomingSI:0});
+  // One captured tick normally advances one frame. Never let a stalled
+  // catch-up loop monopolize the server; defer it rather than accept/reject it.
+  prepared.session.advanceCaptured({entryStackPointer:0xeee2,incomingSI:0,maxFrames:8});
   const carState=prepared.session.state.player.driving.car;
   if(!prepared.session.state.done){assessment.observe(carState.pose.position,carState.grip.surfaces);witness.observe(carState.pose.position,carState.grip.surfaces);}
   completedInputs++;if(prepared.session.state.player.driving.car.grip.crash===3)break;

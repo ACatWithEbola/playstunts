@@ -37,7 +37,7 @@ export async function processScoreSubmission(db:D1Database,accept:(raw:unknown)=
  if(!lock)return {state:'busy'};
  let selected:string|undefined;
  try{
-  const row=await db.prepare("SELECT * FROM score_submissions WHERE state IN ('queued','verifying','retry') AND retry_at<=?"+(target?' AND id=?':'')+' ORDER BY created_at,id LIMIT 1').bind(now,...(target?[target]:[])).first<SubmissionRow>();
+  const row=await db.prepare("SELECT * FROM score_submissions WHERE state IN ('queued','verifying','retry') AND retry_at<=?"+(target?' AND id=?':'')+" ORDER BY CASE WHEN state='queued' THEN 0 ELSE 1 END,updated_at,created_at,id LIMIT 1").bind(now,...(target?[target]:[])).first<SubmissionRow>();
   if(!row)return {state:'idle'};selected=row.id;
   await db.prepare("UPDATE score_submissions SET state='verifying',updated_at=?,retry_at=? WHERE id=?").bind(now,now+120,row.id).run();
   const response=await accept(JSON.parse(row.submission)),result=await response.json() as {accepted?:boolean;id?:string;error?:string};

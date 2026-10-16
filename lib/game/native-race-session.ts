@@ -199,13 +199,14 @@ export function createNativeRaceSession(data:NativeRaceData,options:{transporter
   },
   /** Original13B56..13B9C catches up to the timer before rendering. Rollout
    * handoff is deliberately deferred until the displayed frame is complete. */
-  advanceCaptured(caller:{entryStackPointer:number;incomingSI:number},afterStep?:(result:ReturnType<typeof stepRecordedTwoCarRace>)=>void){
+  advanceCaptured(caller:{entryStackPointer:number;incomingSI:number;maxFrames?:number},afterStep?:(result:ReturnType<typeof stepRecordedTwoCarRace>)=>void){
    const effects:ReturnType<typeof stepRecordedTwoCarRace>['effects'][number][]=[],audioRequests:ReturnType<typeof stepRecordedTwoCarRace>['audioRequests'][number][]=[];let frames=0;
    // Browser IRQ pumping may occur inside an asynchronous scrub. The source
    // outer catch-up loop cannot run while its nested seek caller owns frames.
    if(replaySeeking)return {frames,effects,audioRequests};
    const word=(at:number)=>new DataView(state.memory.buffer,state.memory.byteOffset,state.memory.byteLength).getUint16(d+at,true);
    while(word(0x8c26)!==word(0x73b2)){
+    if(caller.maxFrames!==undefined&&frames>=caller.maxFrames)throw Error('Simulation progress unavailable');
     const m=state.memory;if((m[d+0x12c]||m[d+0x4602])&&m[d+0xa3c2]===0)fixOriginalMouseRecording(m,d);
     const [player,opponent]=resources(m,caller.entryStackPointer,caller.incomingSI),result=stepRecordedTwoCarRace(state,player,opponent);state=result.state;frames++;effects.push(...result.effects);audioRequests.push(...result.audioRequests);afterStep?.(result);
    }

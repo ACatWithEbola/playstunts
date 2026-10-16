@@ -54,3 +54,17 @@ test('unconfirmed acceptance is retried and existing scores, recordings and engi
  assert.equal((await processScoreSubmission(db,async()=>Response.json({accepted:true,id:'b'.repeat(64)}),queued.id)).state,'retry');assert.equal(row(queued.id).state,'retry');
  assert.deepEqual(['global_scores','shared_replays','race_engines'].map(t=>sql.prepare('SELECT * FROM '+t).all()),before);sql.close();
 });
+test('an older stalled check cannot keep fresh submissions behind it forever',async()=>{
+ const {sql,db,row}=fixture(),proof=await finishedScoreFixture();
+ const old=await queueScoreSubmission(db,{...proof,publicReplayConsent:true},'ip');
+ const record=[...proof.record];record[0]=78;
+ const fresh=await queueScoreSubmission(db,{...proof,record,publicReplayConsent:true},'ip');
+ sql.prepare("UPDATE score_submissions SET state='verifying',retry_at=0,updated_at=1 WHERE id=?").run(old.id);
+ let seen=0;
+ assert.equal((await processScoreSubmission(db,async raw=>{seen=(raw as {record:number[]}).record[0];return Response.json({error:'Simulation progress unavailable'},{status:503});})).state,'retry');
+ assert.equal(seen,78,'Fresh work precedes an expired stalled attempt');
+ assert.equal(row(fresh.id).state,'retry');assert.equal(row(old.id).state,'verifying');
+ assert.equal((await processScoreSubmission(db,async()=>{throw Error('Simulation progress unavailable');})).state,'retry');
+ assert.equal(row(old.id).state,'retry','Unavailable simulation is deferred, never falsely rejected or accepted');
+ assert.equal(row(old.id).submission,old.submission);assert.equal(sql.prepare('SELECT COUNT(*) n FROM shared_replays').get()!.n,0);sql.close();
+});
