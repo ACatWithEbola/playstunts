@@ -52,6 +52,19 @@ test('moving an accepted score into an occupied exploit category never prunes sc
  assert.equal(sql.prepare('SELECT route_assessment FROM global_scores WHERE id=?').get('accepted')!.route_assessment,'shortcuts_detected');
  sql.close();
 });
+test('targeted review verifies only an existing accepted public replay, never a client category',async()=>{
+ const {sql,db,result,load}=fixture(),target='a'.repeat(64),older='b'.repeat(64);
+ sql.prepare('UPDATE global_scores SET id=? WHERE id=?').run(target,'accepted');
+ sql.prepare('UPDATE shared_replays SET id=? WHERE id=?').run(target,'accepted');
+ sql.prepare('INSERT INTO global_scores SELECT ?,rules,track_hash,car_code,ticks,record,created_at,driver_key,route_assessment FROM global_scores WHERE id=?').run(older,target);
+ sql.prepare('INSERT INTO shared_replays(id,replay,track_name,created_at) VALUES (?,?,?,?)').run(older,'[9,8,7]','OTHER',1);
+ let calls=0;const verify=async(raw:unknown)=>{calls++;assert.deepEqual((raw as {replay:number[]}).replay,[1,2,3]);return {...result,id:target,routeAssessment:'shortcuts_detected',assessmentReason:'branch_switch'} as never;};
+ assert.equal((await reassessNextPublicReplay(db,load,verify,target)).pending,0);
+ assert.equal(calls,1);assert.equal(sql.prepare('SELECT assessment_version FROM shared_replays WHERE id=?').get(older)!.assessment_version,'');
+ assert.equal((await reassessNextPublicReplay(db,load,verify,'c'.repeat(64))).state,'idle');assert.equal(calls,1);
+ await assert.rejects(()=>reassessNextPublicReplay(db,load,verify,"' OR 1=1"),/Invalid public replay ID/);
+ assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM shared_replays').get()!.n,2);sql.close();
+});
 test('verification failure or identity mismatch preserves score and retries later',async()=>{
  const {sql,db,result,load}=fixture(),before=sql.prepare('SELECT * FROM global_scores').get();let calls=0;
  const fail=async()=>{calls++;throw Error('Test resource unavailable');};

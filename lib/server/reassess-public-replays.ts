@@ -11,15 +11,17 @@ const pendingSQL='SELECT COUNT(*) AS pending FROM shared_replays r JOIN ('+repla
 /** One public, already accepted recording per request. A database-wide lease
  * prevents concurrent visitors duplicating native replay work. No submissions,
  * private recordings, times, driver identities or posting dates are rewritten. */
-export async function reassessNextPublicReplay(db:D1Database,load:()=>Promise<NativeDemoData>,verify=verifyGlobalScore){
- const pending=async()=> (await db.prepare(pendingSQL).bind(GLOBAL_SCORE_RULES,ROUTE_ASSESSMENT_VERSION).first<{pending:number}>())?.pending??0;
+export async function reassessNextPublicReplay(db:D1Database,load:()=>Promise<NativeDemoData>,verify=verifyGlobalScore,targetId?:string){
+ if(targetId!==undefined&&!/^[a-f0-9]{64}$/.test(targetId))throw Error('Invalid public replay ID');
+ const target=targetId===undefined?'':' AND r.id=?',targetArgs=targetId===undefined?[]:[targetId];
+ const pending=async()=> (await db.prepare(pendingSQL+target).bind(GLOBAL_SCORE_RULES,ROUTE_ASSESSMENT_VERSION,...targetArgs).first<{pending:number}>())?.pending??0;
  if(!await pending())return {state:'idle',pending:0,changed:false};
  const now=Math.floor(Date.now()/1000),token=crypto.randomUUID();
  const lock=await db.prepare('INSERT INTO replay_assessment_lock(key,token,lease_until) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET token=excluded.token,lease_until=excluded.lease_until WHERE replay_assessment_lock.lease_until<=? RETURNING token').bind('public-replays',token,now+120,now).first();
  if(!lock)return {state:'busy',pending:await pending(),changed:false};
  let selected:string|undefined;
  try{
-  const row=await db.prepare('SELECT r.id,r.replay,s.record,s.ticks,s.track_hash,s.car_code FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE s.rules=? AND r.assessment_version<>? AND r.assessment_retry_at<=? ORDER BY r.assessment_retry_at,r.created_at,r.id LIMIT 1').bind(GLOBAL_SCORE_RULES,ROUTE_ASSESSMENT_VERSION,now).first<{id:string;replay:string;record:string;ticks:number;track_hash:string;car_code:string}>();
+  const row=await db.prepare('SELECT r.id,r.replay,s.record,s.ticks,s.track_hash,s.car_code FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE s.rules=? AND r.assessment_version<>? AND r.assessment_retry_at<=?'+target+' ORDER BY r.assessment_retry_at,r.created_at,r.id LIMIT 1').bind(GLOBAL_SCORE_RULES,ROUTE_ASSESSMENT_VERSION,now,...targetArgs).first<{id:string;replay:string;record:string;ticks:number;track_hash:string;car_code:string}>();
   if(!row)return {state:'idle',pending:await pending(),changed:false};
   selected=row.id;
   const physicsEngine=await readRaceEngine(db,row.id);

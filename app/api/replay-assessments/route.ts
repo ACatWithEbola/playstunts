@@ -7,9 +7,12 @@ export async function POST(request:Request){
  const url=new URL(request.url),origin=request.headers.get('origin');
  if(origin&&origin!==url.origin||request.headers.get('x-stunts-assessment')!=='refresh'||request.headers.get('content-type')?.split(';')[0]!=='application/json')return reply({error:'Invalid assessment request'},403);
  try{
-  // This endpoint accepts no replay, score ID or client classification.
+  // Optional review target must already have a public, accepted recording.
+  // No uploaded replay or client classification is accepted.
+  const target=url.searchParams.get('score')??undefined;
+  if(target!==undefined&&!/^[a-f0-9]{64}$/.test(target))return reply({error:'Invalid public replay ID'},400);
   if(await boundedRequestText(request,2)!=='{}')return reply({error:'Assessment requests do not accept uploads'},400);
   const {DB,ASSETS}=env as unknown as {DB:D1Database;ASSETS:Fetcher};
-  return reply(await reassessNextPublicReplay(DB,()=>globalScoreData(ASSETS,url.origin)));
+  return reply(await reassessNextPublicReplay(DB,()=>globalScoreData(ASSETS,url.origin),undefined,target));
  }catch(error){console.error('Public replay assessment temporarily unavailable',error);return reply({error:'Replay checks will retry on a later refresh'},503);}
 }
