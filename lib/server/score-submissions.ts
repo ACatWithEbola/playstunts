@@ -43,7 +43,10 @@ export async function processScoreSubmission(db:D1Database,accept:(raw:unknown)=
  if(!lockKey)return {state:'busy'};
  let selected:string|undefined;
  try{
-  const row=await db.prepare("UPDATE score_submissions SET state='verifying',updated_at=?,retry_at=? WHERE id=(SELECT id FROM score_submissions WHERE state IN ('queued','verifying','retry') AND retry_at<=?"+(target?' AND id=?':'')+" ORDER BY CASE WHEN state='queued' THEN 0 ELSE 1 END,updated_at,created_at,id LIMIT 1) AND state IN ('queued','verifying','retry') AND retry_at<=? RETURNING *").bind(now,now+120,now,...(target?[target]:[]),now).first<SubmissionRow>();
+  // Recover old HTTP 429 pauses without bypassing normal transient backoff or
+  // active verification leases. Both selection and atomic claim use this guard.
+  const ready="(retry_at<=? OR (state='retry' AND retry_at=updated_at+3600))";
+  const row=await db.prepare("UPDATE score_submissions SET state='verifying',updated_at=?,retry_at=? WHERE id=(SELECT id FROM score_submissions WHERE state IN ('queued','verifying','retry') AND "+ready+(target?' AND id=?':'')+" ORDER BY CASE WHEN state='queued' THEN 0 ELSE 1 END,updated_at,created_at,id LIMIT 1) AND state IN ('queued','verifying','retry') AND "+ready+" RETURNING *").bind(now,now+120,now,...(target?[target]:[]),now).first<SubmissionRow>();
   if(!row){if(target){const active=await db.prepare("SELECT id FROM score_submissions WHERE id=? AND state='verifying' AND retry_at>?").bind(target,now).first();if(active)return {state:'busy'};}return {state:'idle'};}selected=row.id;
   const response=await accept(JSON.parse(row.submission)),result=await response.json() as {accepted?:boolean;id?:string;error?:string};
   const finished=Math.floor(Date.now()/1000);

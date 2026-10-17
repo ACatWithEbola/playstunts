@@ -66,7 +66,7 @@ test('shipped score reads select engine before ranking and never mutate retained
  const before={scores:db.prepare('SELECT * FROM global_scores ORDER BY id').all(),engines:db.prepare('SELECT * FROM race_engines ORDER BY id').all()};
  let reads=0;
  const binding={prepare(sql:string){assert.match(sql,/^SELECT /);reads++;let args:unknown[]=[];return {bind(...values:unknown[]){args=values;return this;},async all(){return {results:db.prepare(sql).all(...args as never[])}}};}};
- const source=readFileSync(new URL('../app/api/highscores/route.ts',import.meta.url),'utf8').split('export async function POST')[0].replace(/^import .*;\n/gm,'').replace(/export async function/g,'async function');
+ const source=readFileSync(new URL('../lib/server/highscore-handler.ts',import.meta.url),'utf8').split('export async function POST')[0].replace(/^import .*;\n/gm,'').replace(/export async function/g,'async function');
  const deps={env:{DB:binding},GLOBAL_SCORE_RULES,scoreString,sharedScoreFile,publicScoreName,engineScopedRanking,rankedScoresSQL,bestCarScoresSQL,categoryCarScoresSQL,categoryScoresSQL,resolvePhysicsEngine};
  const GET=new Function(...Object.keys(deps),stripTypeScriptTypes(source)+';return GET;')(...Object.values(deps)) as (request:Request)=>Promise<Response>;
  for(const engine of engines)for(const category of [undefined,...categories])for(const car of [undefined,...cars]){

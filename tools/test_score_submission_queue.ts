@@ -11,6 +11,21 @@ function fixture(){
  const row=(id:string)=>sql.prepare('SELECT * FROM score_submissions WHERE id=?').get(id) as SubmissionRow;
  return {sql,db,row};
 }
+test('legacy rate-limit pauses recover immediately through verification without bypassing other retry delays',async()=>{
+ const {sql,db,row}=fixture(),proof={...await finishedScoreFixture(),publicReplayConsent:true};
+ const queued=await queueScoreSubmission(db,proof,'ip'),now=Math.floor(Date.now()/1000),verifiedId='4'.repeat(64);
+ sql.prepare("UPDATE score_submissions SET state='retry',updated_at=?,retry_at=? WHERE id=?").run(now,now+3600,queued.id);
+ let checks=0;
+ const accept=async(raw:unknown)=>{checks++;assert.deepEqual(raw,JSON.parse(queued.submission));sql.prepare('INSERT INTO accepted_scores VALUES (?,?,?)').run(verifiedId,GLOBAL_SCORE_RULES,now);return Response.json({accepted:true,id:verifiedId});};
+ assert.equal((await processScoreSubmission(db,accept,queued.id,now)).state,'accepted');
+ assert.equal(checks,1);assert.equal(row(queued.id).verified_id,verifiedId);assert.equal(row(queued.id).submission,queued.submission);
+ assert.equal((await processScoreSubmission(db,accept,queued.id,now)).state,'idle');
+ sql.prepare("UPDATE score_submissions SET state='retry',updated_at=?,retry_at=? WHERE id=?").run(now,now+30,queued.id);
+ assert.equal((await processScoreSubmission(db,accept,queued.id,now)).state,'idle','Normal transient backoff remains enforced');
+ sql.prepare("UPDATE score_submissions SET state='verifying',updated_at=?,retry_at=? WHERE id=?").run(now,now+3600,queued.id);
+ assert.equal((await processScoreSubmission(db,accept,queued.id,now)).state,'busy','Active leases are not mistaken for old rate-limit pauses');
+ assert.equal(checks,1);sql.close();
+});
 test('queue migration is additive and preserves existing score and replay bytes',()=>{
  const sql=new DatabaseSync(':memory:');const files=readdirSync(new URL('../drizzle/',import.meta.url)).filter(n=>n.endsWith('.sql')).sort();
  for(const name of files.filter(n=>!n.startsWith('0012_')))sql.exec(readFileSync(new URL('../drizzle/'+name,import.meta.url),'utf8'));

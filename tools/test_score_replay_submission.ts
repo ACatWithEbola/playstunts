@@ -21,7 +21,7 @@ test('score submission requires consent and atomically retains its public record
  const binding={prepare(sql:string){let args:unknown[]=[];return {bind(...values:unknown[]){args=values;return this;},async first(){return db.prepare(sql).get(...args as never[]);},async all(){return {results:db.prepare(sql).all(...args as never[])};},run(){if(failAt&&sql.startsWith(failAt))throw Error('Storage unavailable');return db.prepare(sql).run(...args as never[]);}};},async batch(statements:{run:()=>unknown}[]){db.exec('BEGIN');try{const rows=statements.map(s=>s.run());db.exec('COMMIT');return rows;}catch(e){db.exec('ROLLBACK');throw e;}}};
  const record=Array(52).fill(0);record[0]=65;record[50]=100;
  let verified={physicsEngine:'ms-1990' as 'ms-1990'|'bb-1991'|'ms-1991',id:'a'.repeat(64),trackHash:'b'.repeat(64),carCode:'PMIN',ticks:100,record,routeAssessment:'full_route',replay:new Uint8Array(2000)};
- const source=readFileSync(new URL('../app/api/highscores/route.ts',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/export async function/g,'async function');
+ const source=readFileSync(new URL('../lib/server/highscore-handler.ts',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace(/export async function/g,'async function');
 const deps={assertRaceEngineIdentity,resolvePhysicsEngine,engineScopedRanking,LEGACY_PHYSICS,engineScopedRetention,raceEngineStatements,boundedRequestText,env:{DB:binding,ASSETS:{}},GLOBAL_SCORE_RULES,scoreHash:async()=> 'bucket',scoreString,validateScoreSubmission:()=>{},sharedScoreFile,publicScoreName:(s:string)=>s,verifyGlobalScore:async()=>verified,globalScoreData:async()=>({}),retainRunHistorySQL,pruneRunHistorySQL,pruneSharedReplaysSQL,ROUTE_ASSESSMENT_VERSION,...ranking};
  const post=new Function(...Object.keys(deps),stripTypeScriptTypes(source)+';return POST;')(...Object.values(deps)) as (r:Request)=>Promise<Response>;
  const get=new Function(...Object.keys(deps),stripTypeScriptTypes(source)+';return GET;')(...Object.values(deps)) as (r:Request)=>Promise<Response>;
@@ -100,5 +100,26 @@ const deps={assertRaceEngineIdentity,resolvePhysicsEngine,engineScopedRanking,LE
  failAt=undefined;
  assert.equal((await send(true)).status,200,'A clean retry after each rollback must still accept the same proof');
  assert.equal(db.prepare('SELECT physics_engine FROM race_engines WHERE id=?').get(verified.id)!.physics_engine,'ms-1991');
+ // An admitted queue proof must not inherit the worker/viewer's public limit.
+ // Client-controlled headers and payload flags must never select this path.
+ db.exec('UPDATE score_requests SET count=999');
+ const requestsBefore=db.prepare('SELECT * FROM score_requests ORDER BY bucket').all();
+ const forged=await post(new Request('https://example.test/api/highscores',{method:'POST',headers:{'Content-Type':'application/json','X-Stunts-Score':GLOBAL_SCORE_RULES,'X-Stunts-Admitted':'1','X-Stunts-Internal':'1'},body:JSON.stringify({replay:Array(24).fill(0),publicReplayConsent:true,admitted:true})}));
+ assert.equal(forged.status,429,'HTTP callers cannot bypass public admission');
+ const afterPublicAttempt=db.prepare('SELECT * FROM score_requests ORDER BY bucket').all();
+ assert.notDeepEqual(afterPublicAttempt,requestsBefore);
+ let checks=0,invalid=false;
+ const internalDeps={...deps,verifyGlobalScore:async()=>{checks++;if(invalid)throw Error('Replay does not verify the submitted finish time');return verified;}};
+ const accept=new Function(...Object.keys(internalDeps),stripTypeScriptTypes(source)+';return acceptQueuedScore;')(...Object.values(internalDeps)) as (raw:unknown,origin:string)=>Promise<Response>;
+ const proof={replay:Array(24).fill(0),publicReplayConsent:true};
+ const retainedBefore=protectedSnapshot();
+ assert.equal((await accept(proof,'https://example.test')).status,200);
+ assert.equal(checks,1,'Internal continuation still runs the full verifier');
+ assert.deepEqual(protectedSnapshot(),retainedBefore,'Idempotent continuation preserves existing score and recording rows');
+ assert.deepEqual(db.prepare('SELECT * FROM score_requests ORDER BY bucket').all(),afterPublicAttempt,'Verification consumes no second submission allowance');
+ invalid=true;
+ assert.equal((await accept(proof,'https://example.test')).status,422,'Invalid queued proofs cannot be accepted');
+ assert.equal((await accept({...proof,publicReplayConsent:false},'https://example.test')).status,422);
+ assert.deepEqual(protectedSnapshot(),retainedBefore);
  db.close();
 });
