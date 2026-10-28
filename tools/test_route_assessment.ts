@@ -79,6 +79,24 @@ test('ambiguous overlapping road footprints cannot accuse a shortcut',()=>{
  for(let i=0;i<12;i++)check.observe([32768+i*4096,0,29.5*65536],grass);
  for(let i=0;i<4;i++)check.observe(position(4),road);assert.equal(check.result(),'not_assessed');
 });
+test('road-edge contact outside a route footprint cannot erase the next grass transfer',()=>{
+ const detour={primary:[1,2,3,4,5,6,7,0],alternate:Array(8).fill(65535),columns:[0,0,4,4,5,5,-1,-1],rows:[0,4,4,0,0,8,8,0],footprints:Array(8).fill(0)};
+ const from=[.5*65536,0,29.5*65536],edge=[.5*65536,0,30.1*65536],to=[4.5*65536,0,29.5*65536];
+ const check=createShortcutAssessment(detour);check.observe(from,road);
+ for(let i=1;i<=6;i++)check.observe(from.map((n,k)=>n+(edge[k]-n)*i/6),road);
+ for(let i=1;i<=20;i++)check.observe(edge.map((n,k)=>n+(to[k]-n)*i/21),grass);
+ for(let i=0;i<4;i++)check.observe(to,road);
+ assert.equal(check.result(),'shortcuts_detected');assert.equal(check.reason(),'grass_transfer');
+});
+test('all unmapped road travel counts toward distance, not just the later grass',()=>{
+ const detour={primary:[1,2,3,4,5,6,7,0],alternate:Array(8).fill(65535),columns:[0,0,4,4,5,5,-1,-1],rows:[0,4,4,0,0,8,8,0],footprints:Array(8).fill(0)};
+ const from=[.5*65536,0,29.5*65536],edge=[.5*65536,0,30.1*65536],far=[50*65536,0,50*65536],to=[4.5*65536,0,29.5*65536];
+ const check=createShortcutAssessment(detour);check.observe(from,road);
+ check.observe(edge,road);check.observe(far,road);check.observe(edge,road);
+ for(let i=1;i<=20;i++)check.observe(edge.map((n,k)=>n+(to[k]-n)*i/21),grass);
+ for(let i=0;i<4;i++)check.observe(to,road);
+ assert.equal(check.result(),'not_assessed','A winding road-edge detour must not invent a shortcut saving');
+});
 test('two-second parallel grass travel along the same straight road is not a shortcut',()=>{
  const straight={...graph,columns:[0,1,2,3,4,5,6,7],rows:Array(8).fill(0)},check=createShortcutAssessment(straight);
  check.observe([32768,0,29.5*65536],road);

@@ -1,3 +1,3 @@
 /** Bump when route evidence or exploit classification changes. Successful
  * assessments (including inconclusive ones) run once per public replay/version. */
-export const ROUTE_ASSESSMENT_VERSION='original-accepted-finish-2026-10-16-9';
+export const ROUTE_ASSESSMENT_VERSION='original-accepted-finish-2026-10-28-10';

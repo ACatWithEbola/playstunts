@@ -33,23 +33,30 @@ export function createShortcutAssessment(graph:PlayerRouteGraph){
   const column=Math.floor(position[0]/65536),row=29-Math.floor(position[2]/65536),matches:number[]=[];
   graph.columns.forEach((x,i)=>{const z=graph.rows[i],flags=graph.footprints[i];if(column>=x&&column<=x+((flags&2)?1:0)&&row>=z&&row<=z+((flags&1)?1:0))matches.push(i);});
   // A crossing can contain independent routes in the same footprint.
-  return matches.length===1?matches[0]:null;
+  // Distinguish a collision-road edge outside every footprint (-1) from
+  // multiple independent crossing routes (null), which remain ambiguous.
+  return matches.length===1?matches[0]:matches.length===0?-1:null;
  };
- let anchor:{node:number;position:number[]}|null=null,grassFrames=0,grassDistance=0,lastGrass:readonly number[]|null=null;
+ let anchor:{node:number;position:number[]}|null=null,grassFrames=0,grassDistance=0,lastGrass:readonly number[]|null=null,previous:readonly number[]|null=null;
  let firstReentry:number[]|null=null;
  let candidate:number|null=null,candidateFrames=0,detected=false,reason='';
  const reset=()=>{grassFrames=0;grassDistance=0;lastGrass=null;candidate=null;candidateFrames=0;firstReentry=null;};
  return {
   observe(position:readonly number[],surfaces:readonly number[]){
    if(detected)return;
+   // Collision road contact can extend beyond its route tile's footprint.
+   // Keep the last unambiguous anchor across that gap, but charge every step
+   // of intervening travel so a winding detour cannot invent a distance saving.
+   if(anchor&&previous)grassDistance+=Math.hypot(position[0]-previous[0],position[2]-previous[2])/64;
+   previous=[...position];
    const road=surfaces.some(surface=>surface>=1&&surface<=3),grass=surfaces.length===4&&surfaces.every(surface=>surface===4);
-   if(grass){candidate=null;candidateFrames=0;firstReentry=null;grassFrames++;const previous=lastGrass??anchor?.position;if(previous)grassDistance+=Math.hypot(position[0]-previous[0],position[2]-previous[2])/64;lastGrass=[...position];return;}
+   if(grass){candidate=null;candidateFrames=0;firstReentry=null;grassFrames++;lastGrass=[...position];return;}
    // Include flight/ambiguous road travel in the actual travelled distance,
    // so a winding excursion cannot appear artificially shorter than the road.
-   if(grassFrames&&lastGrass){grassDistance+=Math.hypot(position[0]-lastGrass[0],position[2]-lastGrass[2])/64;lastGrass=[...position];}
+   if(grassFrames&&lastGrass)lastGrass=[...position];
    if(!road)return;
    const node=nodeAt(position);
-   if(node===null){if(!grassFrames){anchor=null;reset();}else{candidate=null;candidateFrames=0;firstReentry=null;}return;}
+   if(node===null||node===-1){if(node===null&&!grassFrames){anchor=null;reset();}else{candidate=null;candidateFrames=0;firstReentry=null;}return;}
    if(!grassFrames){anchor={node,position:[...position]};reset();return;}
    if(candidate!==node){candidate=node;candidateFrames=1;firstReentry=[...position];}else candidateFrames++;
    // Four road frames confirm a real re-entry rather than a wheel grazing it.
