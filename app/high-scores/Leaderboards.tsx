@@ -5,6 +5,9 @@ import type {Leaderboard} from '@/lib/server/public-leaderboards';
 import TrackLeaderboard from './TrackLeaderboard';
 import {usePublicSubmissions} from '../usePublicSubmissions';
 import {withPendingTracks} from '@/lib/game/pending-leaderboards';
+import {ORIGINAL_STARTER_TRACKS} from '@/lib/game/original-starter-tracks';
+// VANCOUVR is embedded in the original February 1991 demonstration replay.
+const officialHashes=new Set([...ORIGINAL_STARTER_TRACKS.map(track=>track.sha256),'3068c4fa59d826232dbfc11dd6e7d4aa1fc57d4a195862f09b1d7589e5857020']);
 export default function Leaderboards(){
  const locale=useWebsiteLocale();
  const {submissions}=usePublicSubmissions();
@@ -61,7 +64,7 @@ export default function Leaderboards(){
   <span className="scores-sr" role="status" aria-live="polite"><WebsiteText text={assessmentMessage}/></span>
   {error&&<p className="scores-error" role="alert">{<WebsiteText text={error}/>}{checked?<WebsiteText text={' Previously loaded times are still shown.'}/>:<WebsiteText text={''}/>}</p>}
   {!busy&&!error&&!filtered.length&&<div className="scores-empty"><span aria-hidden="true">—</span><h3>{/^[a-f0-9]{64}$/i.test(query)?<WebsiteText text="No verified times yet"/>:query?<WebsiteText text={'No matching tracks'}/>:<WebsiteText text={'The grid is waiting.'}/>}</h3><p>{/^[a-f0-9]{64}$/i.test(query)?<WebsiteText text="No verified times for this track yet. Finish a fresh race and confirm Submit score and replay; adding a track or saving an in-game time does not publish it."/>:query?<WebsiteText text={'Try another track, driver or car name.'}/>:<WebsiteText text={'Finish a qualifying race and your track’s leaderboard will appear here.'}/>}</p>{query?<button onClick={()=>setQuery('')}><WebsiteText text={"Clear search"}/></button>:<a href="/#play"><WebsiteText text={"Let’s drive →"}/></a>}</div>}
-  <div className="scores-boards">{filtered.map(board=><TrackLeaderboard key={board.hash} board={board} query={query} pending={submissions.filter(row=>row.trackHash===board.hash)}/>)}</div>
+  <div className="scores-track-columns">{([{title:'OFFICIAL TRACKS',description:'Tracks from the original game and demo',official:true},{title:'COMMUNITY TRACKS',description:'Tracks created and shared by players',official:false}] as const).map(group=>{const tracks=filtered.filter(board=>officialHashes.has(board.hash)===group.official);return <section key={group.title} className="scores-track-column" aria-label={group.title}><header className="scores-column-header"><div><span className="scores-column-kicker">{group.official?'THE ORIGINAL GAME':'PLAYER CREATED'}</span><h3>{group.title}</h3><p>{group.description}</p></div><span className="scores-column-count">{tracks.length}</span></header><div className="scores-boards">{tracks.map(board=><TrackLeaderboard key={board.hash} board={board} query={query} pending={submissions.filter(row=>row.trackHash===board.hash)}/>)}</div>{!busy&&!tracks.length&&<p className="scores-column-empty">{query?'No matching tracks in this section.':'No tracks to show yet.'}</p>}</section>;})}</div>
   {assessmentMessage&&assessmentMessage!=='Checking saved replay routes…'&&<p className="scores-fair"><WebsiteText text={assessmentMessage}/></p>}
   {hasMore&&<button disabled={busy} className="scores-more" onClick={()=>void refresh(page+1)}><WebsiteText text={"Load more tracks ("}/>{Math.max(0,total-boards.length)}<WebsiteText text={" remaining)"}/></button>}
   </WebsiteElement>
