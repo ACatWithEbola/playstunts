@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {beginReplayFrame} from '../lib/game/begin-replay-frame.ts';
 import {restoreReplayCheckpoint} from '../lib/game/restore-replay-checkpoint.ts';
-import {writeMs91BodyCaches,readMs91BodyCaches} from '../lib/game/ms91-body-cache-memory.ts';
+import {writeMs91BodyCaches,writeMs91BodyCachesInPlace,readMs91BodyCaches} from '../lib/game/ms91-body-cache-memory.ts';
 const d=0x20000;
 for(const rate of [10,20] as const){
  let memory=new Uint8Array(0x100000),v=new DataView(memory.buffer);
@@ -15,6 +15,8 @@ for(const rate of [10,20] as const){
   for(let sign=0;sign<48;sign++)memory[d+0x8eb0+sign]=(sign+index)%2;
   v.setUint16(d+0x8c26,frame,true);memory[d+0x8eaa]=1;
   const caches:[Uint8Array,Uint8Array]=[new Uint8Array(24).fill(index+1),new Uint8Array(24).fill(index+71)];
+  const owned=memory.slice(),copied=writeMs91BodyCaches(memory,d,rate,caches),inPlace=writeMs91BodyCachesInPlace(owned,d,rate,caches);
+  assert.equal(inPlace,owned);assert.notEqual(copied,memory);assert.deepEqual(inPlace,copied);
   memory=writeMs91BodyCaches(memory,d,rate,caches);
   const saved=beginReplayFrame(memory,d,rate,'ms-1991');assert.equal(saved.checkpoint,index);memory=saved.memory;
   expected.set(index,{state:memory.slice(d+0x8ae6,d+0x8ae6+1072),caches});

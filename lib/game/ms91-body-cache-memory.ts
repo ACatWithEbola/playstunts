@@ -36,3 +36,8 @@ export function writeMs91BodyCaches(before:Uint8Array,d:number,rate:10|20,caches
  if(caches.some(c=>c.length!==24))throw Error('Both body caches must contain24 bytes');
  const at=address(before,d,rate),memory=before.slice();memory.set(caches[0],at);memory.set(caches[1],at+24);return memory;
 }
+/** Only use when the caller already owns a fresh, unshared memory image. */
+export function writeMs91BodyCachesInPlace(memory:Uint8Array,d:number,rate:10|20,caches:readonly [Uint8Array,Uint8Array]){
+ if(caches.some(c=>c.length!==24))throw Error('Both body caches must contain24 bytes');
+ const at=address(memory,d,rate);memory.set(caches[0],at);memory.set(caches[1],at+24);return memory;
+}

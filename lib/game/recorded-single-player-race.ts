@@ -8,7 +8,7 @@ import {restoreReplayCheckpoint} from './restore-replay-checkpoint.ts';
 import {readPlayerDrivingState} from './initialized-player-driving.ts';
 import type {Vector} from '../physics/math.ts';
 import {beginReplayFrame} from './begin-replay-frame.ts';
-import {readMs91BodyCaches,decodeMs91BodyCache,encodeMs91BodyCache,writeMs91BodyCaches} from './ms91-body-cache-memory.ts';
+import {readMs91BodyCaches,decodeMs91BodyCache,encodeMs91BodyCache,writeMs91BodyCachesInPlace} from './ms91-body-cache-memory.ts';
 import {advanceRaceClock} from './race-clock.ts';
 import {idleRaceStep} from './idle-race-step.ts';
 import {stepSinglePlayerRaceTick} from './single-player-race-tick.ts';
@@ -68,7 +68,9 @@ export function stepRecordedSinglePlayerRace(before:RecordedPlayerRace,resources
  memory.set(writePlayerRaceState(memory.subarray(before.dataSegment,before.dataSegment+65536),before.player,player,camera,done,carUpdated),before.dataSegment);
  if(bodyCaches){
   if(!player.driving.car.bodyPlaneCache)throw Error('Modern player lost its body cache during simulation');
-  memory=writeMs91BodyCaches(memory,before.dataSegment,fps,[encodeMs91BodyCache(player.driving.car.bodyPlaneCache),bodyCaches[1]]);
+  // beginReplayFrame supplied a fresh image, so updating its cache in place
+  // preserves the caller's old state without cloning the whole image again.
+  writeMs91BodyCachesInPlace(memory,before.dataSegment,fps,[encodeMs91BodyCache(player.driving.car.bodyPlaneCache),bodyCaches[1]]);
  }
  const originalCar=before.player.driving.car;
  const contactCalled=carUpdated&&!(originalCar.grip.crash&&originalCar.engine.roadSpeed===0&&originalCar.engine.speed===0&&originalCar.suspension.rc1.every(n=>n===0));
