@@ -26,6 +26,11 @@ export async function reassessNextPublicReplay(db:D1Database,load:()=>Promise<Na
   const row=await db.prepare('SELECT r.id,r.replay,s.record,s.ticks,s.track_hash,s.car_code FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE s.rules=? AND '+stale+' AND r.assessment_retry_at<=?'+target+' ORDER BY r.assessment_retry_at,r.created_at,r.id LIMIT 1').bind(GLOBAL_SCORE_RULES,ROUTE_ASSESSMENT_VERSION,now,...targetArgs).first<{id:string;replay:string;record:string;ticks:number;track_hash:string;car_code:string}>();
   if(!row)return {state:'idle',pending:await pending(),changed:false};
   selected=row.id;
+  // Persist a retry deadline before expensive work. If the request is killed,
+  // its finally block cannot run; the next lease holder can skip this replay
+  // and process others instead of repeatedly restarting the same long job.
+  const claimed=await db.prepare('UPDATE shared_replays SET assessment_retry_at=? WHERE id=? AND assessment_version<>? AND EXISTS (SELECT 1 FROM replay_assessment_lock WHERE key=? AND token=? AND lease_until>?)').bind(now+3600,selected,ROUTE_ASSESSMENT_VERSION,'public-replays',token,now).run();
+  if(!claimed.meta.changes)return {state:'busy',pending:await pending(),changed:false};
   const physicsEngine=await readRaceEngine(db,row.id);
   const result=await verify({physicsEngine,record:JSON.parse(row.record),replay:JSON.parse(row.replay),rules:GLOBAL_SCORE_RULES,flags:1,continued:false},await load());
   if(result.id!==row.id||result.ticks!==row.ticks||result.trackHash!==row.track_hash||result.carCode!==row.car_code)throw Error('Public replay does not match its accepted score');

@@ -8,7 +8,7 @@ import {GLOBAL_SCORE_RULES} from '../lib/game/global-score-format.ts';
 function fixture(){
  const sql=new DatabaseSync(':memory:');
  for(const file of readdirSync(new URL('../drizzle/',import.meta.url)).filter(f=>/^\d+.*\.sql$/.test(f)).sort())sql.exec(readFileSync(new URL('../drizzle/'+file,import.meta.url),'utf8'));
- const db={prepare(query:string){let args:unknown[]=[];return {bind(...values:unknown[]){args=values;return this;},async first(){return sql.prepare(query).get(...args as never[]);},async all(){return {results:sql.prepare(query).all(...args as never[])};},async run(){return sql.prepare(query).run(...args as never[]);}};},async batch(statements:{run:()=>Promise<unknown>}[]){sql.exec('BEGIN');try{const rows=[];for(const s of statements){const result=await s.run() as {changes:number|bigint};rows.push({success:true,meta:{changes:Number(result.changes)}});}sql.exec('COMMIT');return rows;}catch(e){sql.exec('ROLLBACK');throw e;}}} as unknown as D1Database;
+ const db={prepare(query:string){let args:unknown[]=[];return {bind(...values:unknown[]){args=values;return this;},async first(){return sql.prepare(query).get(...args as never[]);},async all(){return {results:sql.prepare(query).all(...args as never[])};},async run(){const r=sql.prepare(query).run(...args as never[]);return {...r,meta:{changes:Number(r.changes)}};}};},async batch(statements:{run:()=>Promise<unknown>}[]){sql.exec('BEGIN');try{const rows=[];for(const s of statements){const result=await s.run() as {changes:number|bigint};rows.push({success:true,meta:{changes:Number(result.changes)}});}sql.exec('COMMIT');return rows;}catch(e){sql.exec('ROLLBACK');throw e;}}} as unknown as D1Database;
  sql.prepare('INSERT INTO global_scores VALUES (?,?,?,?,?,?,?,?,?)').run('accepted',GLOBAL_SCORE_RULES,'track','FGTO',2517,'[77,0]',123,'name:marco','not_assessed');
  sql.prepare('INSERT INTO shared_replays(id,replay,track_name,created_at) VALUES (?,?,?,?)').run('accepted','[1,2,3]','THE_EDGE',124);
  const result={id:'accepted',trackHash:'track',carCode:'FGTO',ticks:2517,routeAssessment:'full_route',assessmentReason:'full_route'};
@@ -107,12 +107,11 @@ test('failure at each reassessment batch stage rolls back retained data and perm
 });
 test('failed superseded assessment cannot postpone the replacement worker',async()=>{
  const {sql,db,load}=fixture();
- const before=sql.prepare('SELECT * FROM shared_replays').all();
  await reassessNextPublicReplay(db,load,async()=>{
   sql.prepare('UPDATE replay_assessment_lock SET token=?').run('replacement-owner');
   throw Error('Superseded verifier failed');
  });
- assert.deepEqual(sql.prepare('SELECT * FROM shared_replays').all(),before,'Stale failure must not change retry metadata');
+ assert.ok(Number(sql.prepare('SELECT assessment_retry_at FROM shared_replays').get()!.assessment_retry_at)>0,'Original claim remains deferred after ownership changes');
  assert.equal(sql.prepare('SELECT token FROM replay_assessment_lock').get()!.token,'replacement-owner');
  sql.close();
 });
@@ -148,7 +147,7 @@ test('lost or expired assessment lease cannot update retained data or delete a r
   const {sql,db,result,load}=fixture();
   sql.prepare('INSERT INTO race_engines VALUES (?,?)').run('accepted','ms-1991');
   const tables=['global_scores','accepted_scores','run_history','shared_replays','race_engines'];
-  const snapshot=()=>tables.map(table=>sql.prepare('SELECT * FROM '+table+' ORDER BY id').all());
+  const snapshot=()=>tables.map(table=>sql.prepare('SELECT * FROM '+table+' ORDER BY id').all().map(row=>table==='shared_replays'?{...row,assessment_retry_at:0}:row));
   const before=snapshot();
   const answer=await reassessNextPublicReplay(db,load,async()=>{
    if(mode==='expired')sql.exec('UPDATE replay_assessment_lock SET lease_until=0');
@@ -176,5 +175,19 @@ test('lease takeover immediately before the write batch cannot rewrite history',
  assert.equal(answer.state,'busy');assert.equal(answer.changed,false);
  assert.deepEqual(sql.prepare('SELECT * FROM run_history').all(),before,'Every write, not just the first two, must require current ownership');
  assert.equal(sql.prepare('SELECT token FROM replay_assessment_lock').get()!.token,'new-owner');
+ sql.close();
+});
+
+test('abandoned verification leaves a retry deadline so another replay progresses',async()=>{
+ const {sql,db,result,load}=fixture();
+ sql.prepare('INSERT INTO global_scores SELECT ?,rules,track_hash,car_code,ticks,record,created_at,driver_key,route_assessment FROM global_scores WHERE id=?').run('second','accepted');
+ sql.prepare('INSERT INTO shared_replays(id,replay,track_name,created_at) VALUES (?,?,?,?)').run('second','[4,5,6]','THE_EDGE',125);
+ let started!:()=>void; const ready=new Promise<void>(r=>started=r);
+ void reassessNextPublicReplay(db,load,async()=>{started();return await new Promise<never>(()=>{});});
+ await ready;assert.ok(Number(sql.prepare("SELECT assessment_retry_at FROM shared_replays WHERE id='accepted'").get()!.assessment_retry_at)>0);
+ sql.exec("UPDATE replay_assessment_lock SET lease_until=0");
+ const next=await reassessNextPublicReplay(db,load,async()=>({...result,id:'second'}) as never);
+ assert.equal(next.state,'updated');assert.equal(next.pending,1);
+ assert.equal(sql.prepare("SELECT assessment_version FROM shared_replays WHERE id='accepted'").get()!.assessment_version,'');
  sql.close();
 });
