@@ -11,6 +11,7 @@ import {routeEvidenceGates} from './route-evidence-gates.ts';
 import {createGrassSpeedExploit} from './grass-speed-exploit.ts';
 import {resolvePhysicsEngine,LEGACY_PHYSICS} from '../physics/engine-version.ts';
 import {versionedRouteTables} from '../game/versioned-route-tables.ts';
+import {createDefaultRouteBypass} from './default-route-bypass.ts';
 
 /** Re-run the original inputs with server-owned car/track physics. A claimed
  * time alone, a crashed replay or a different car cannot enter the board. */
@@ -19,6 +20,7 @@ export async function verifyGlobalScore(value:unknown,data:NativeDemoData){
  const physicsEngine=resolvePhysicsEngine(submission.physicsEngine);
  validateReplayEncoding(replay,MAX_RANKED_FRAMES);
  const configuration=Array.from(replay.slice(0,24)),track=Array.from(replay.slice(24,0x722));
+ const trackHash=await scoreHash(Uint8Array.from(track)),defaultBypass=createDefaultRouteBypass(trackHash);
  const carCode=String.fromCharCode(...configuration.slice(0,4)),car=data.cars.find(c=>c.id===carCode);
  if(!car||configuration[5]>1||configuration[6]>6)throw Error('Invalid race configuration');
  const raceData=versionedRouteTables({...data,physicsEngine,framesPerSecond:20 as const});
@@ -40,7 +42,7 @@ export async function verifyGlobalScore(value:unknown,data:NativeDemoData){
   // catch-up loop monopolize the server; defer it rather than accept/reject it.
   prepared.session.advanceCaptured({entryStackPointer:0xeee2,incomingSI:0,maxFrames:8});
   const carState=prepared.session.state.player.driving.car;
-  if(!prepared.session.state.done){assessment.observe(carState.pose.position,carState.grip.surfaces);witness.observe(carState.pose.position,carState.grip.surfaces);}
+  if(!prepared.session.state.done){assessment.observe(carState.pose.position,carState.grip.surfaces);witness.observe(carState.pose.position,carState.grip.surfaces);defaultBypass.observe(carState.pose.position);}
   completedInputs++;if(prepared.session.state.player.driving.car.grip.crash===3)break;
  }
  const memory=prepared.session.state.memory;
@@ -58,10 +60,11 @@ export async function verifyGlobalScore(value:unknown,data:NativeDemoData){
  // Website-only checkpoints, grass duration and structure traversal cannot
  // add new disqualifications. Only the agreed detected exceptions affect
  // the label; geometric witness telemetry remains diagnostic, not a rule.
- const routeAssessment=assessment.result()==='shortcuts_detected'||grassExploit.result()?'shortcuts_detected':'full_route';
- const assessmentReason=grassExploit.result()?'grass_speed':assessment.reason()||'full_route';
+ const bypass=defaultBypass.result(!!panel.playerTime);
+ const routeAssessment=assessment.result()==='shortcuts_detected'||grassExploit.result()||bypass?'shortcuts_detected':'full_route';
+ const assessmentReason=grassExploit.result()?'grass_speed':assessment.reason()||(bypass?'default_route_bypass':'full_route');
  // Legacy hashes stay byte-for-byte identical. New-engine IDs are domain
  // separated so identical controls cannot overwrite a legacy acceptance.
  const identity=Uint8Array.from([...canonicalReplay,...record,...(physicsEngine===LEGACY_PHYSICS?[]:new TextEncoder().encode('\0physics:'+physicsEngine))]);
- return {physicsEngine,record,carCode,ticks:panel.playerTime,replay:canonicalReplay,routeAssessment,assessmentReason,routeEvidence:{gates:witness.progress(),fullRoute:witness.result(!!panel.playerTime),grassUncertain:grassExploit.uncertain()},trackHash:await scoreHash(Uint8Array.from(track)),id:await scoreHash(identity)};
+ return {physicsEngine,record,carCode,ticks:panel.playerTime,replay:canonicalReplay,routeAssessment,assessmentReason,routeEvidence:{gates:witness.progress(),fullRoute:witness.result(!!panel.playerTime),grassUncertain:grassExploit.uncertain()},trackHash,id:await scoreHash(identity)};
 }
