@@ -10,6 +10,10 @@ import {readRaceEngine} from './race-engine-metadata.ts';
 // community tracks. Earlier public assessments need a fresh verification.
 const stale='r.assessment_version<>?';
 const pendingSQL='SELECT COUNT(*) AS pending FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE s.rules=? AND '+stale;
+// After the replay-memory optimizations, retry deadlines created by the older
+// verifier can be tried once immediately. A new claim is deferred for an hour
+// and therefore lies beyond this fixed cutoff, preserving the retry backoff.
+const PRE_OPTIMIZATION_RETRY_CUTOFF=1794720552;
 /** One public, already accepted recording per request. A database-wide lease
  * prevents concurrent visitors duplicating native replay work. No submissions,
  * private recordings, times, driver identities or posting dates are rewritten. */
@@ -23,7 +27,8 @@ export async function reassessNextPublicReplay(db:D1Database,load:()=>Promise<Na
  if(!lock)return {state:'busy',pending:await pending(),changed:false};
  let selected:string|undefined;
  try{
-  const row=await db.prepare('SELECT r.id,r.replay,s.record,s.ticks,s.track_hash,s.car_code FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE s.rules=? AND '+stale+' AND r.assessment_retry_at<=?'+target+' ORDER BY r.assessment_retry_at,r.created_at,r.id LIMIT 1').bind(GLOBAL_SCORE_RULES,ROUTE_ASSESSMENT_VERSION,now,...targetArgs).first<{id:string;replay:string;record:string;ticks:number;track_hash:string;car_code:string}>();
+  const readyBefore=Math.max(now,PRE_OPTIMIZATION_RETRY_CUTOFF);
+  const row=await db.prepare('SELECT r.id,r.replay,s.record,s.ticks,s.track_hash,s.car_code FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE s.rules=? AND '+stale+' AND r.assessment_retry_at<=?'+target+' ORDER BY r.assessment_retry_at,r.created_at,r.id LIMIT 1').bind(GLOBAL_SCORE_RULES,ROUTE_ASSESSMENT_VERSION,readyBefore,...targetArgs).first<{id:string;replay:string;record:string;ticks:number;track_hash:string;car_code:string}>();
   if(!row)return {state:'idle',pending:await pending(),changed:false};
   selected=row.id;
   // Persist a retry deadline before expensive work. If the request is killed,

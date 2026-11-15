@@ -191,3 +191,14 @@ test('abandoned verification leaves a retry deadline so another replay progresse
  assert.equal(sql.prepare("SELECT assessment_version FROM shared_replays WHERE id='accepted'").get()!.assessment_version,'');
  sql.close();
 });
+
+test('a pre-optimization retry is attempted once and a new failure remains deferred',async()=>{
+ const {sql,db,load}=fixture();
+ // This was a valid one-hour retry deadline before the faster verifier.
+ sql.prepare('UPDATE shared_replays SET assessment_retry_at=?').run(1794720552);
+ let calls=0;const fail=async()=>{calls++;throw Error('Still exceeds budget');};
+ assert.equal((await reassessNextPublicReplay(db,load,fail)).state,'retry');
+ assert.equal((await reassessNextPublicReplay(db,load,fail)).state,'idle');
+ assert.equal(calls,1);assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM shared_replays').get()!.n,1);
+ sql.close();
+});
