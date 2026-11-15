@@ -23,6 +23,9 @@ export function readRecordedTwoCarRace(memory:Uint8Array,dataSegment:number):Rec
 export function stepRecordedTwoCarRace(before:RecordedTwoCarRace,playerResources:RecordedRaceResources,opponentResources:TwoCarRaceResources['opponent']){
  const caller=playerResources.caller;if(!caller)throw Error('Shared race requires original caller stack context');
  const fps=playerResources.track.framesPerSecond??20;
+ // The single-player caller reads the recording itself. Avoid constructing
+ // and discarding an entire checkpoint/memory copy when no opponent exists.
+ if(before.memory[before.dataSegment+0x8fc8]===0){const result=stepRecordedSinglePlayerRace(before,playerResources);return {...result,state:{...before,...result.state}};}
  if(before.memory[before.dataSegment+0x8fc8]!==0&&(opponentResources.track.framesPerSecond??20)!==fps)throw Error('Both cars must use the same recording cadence');
  const prefix=beginReplayFrame(before.memory,before.dataSegment,fps,playerResources.track.physicsEngine);let memory=prefix.memory;
  if(!prefix.active||memory[before.dataSegment+0x8fc8]===0){const result=stepRecordedSinglePlayerRace(before,playerResources);return {...result,state:{...before,...result.state}};}
