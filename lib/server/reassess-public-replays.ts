@@ -6,13 +6,9 @@ import {retainAcceptedScoresSQL} from './leaderboard-ranking.ts';
 import {retainRunHistorySQL} from './run-history.ts';
 import {replayScoresSQL} from './shared-replay-retention.ts';
 import {readRaceEngine} from './race-engine-metadata.ts';
-import {DEFAULT_TRACK_HASH} from './default-route-bypass.ts';
-
-// The current revision adds only a DEFAULT-specific rule. Other tracks already
-// assessed by the preceding revision need not be queued again. Older and
-// failed assessments still run; newly submitted current-version runs stay done.
-const previousVersion='original-accepted-finish-2026-10-28-10';
-const stale="r.assessment_version<>? AND (s.track_hash='"+DEFAULT_TRACK_HASH+"' OR r.assessment_version<>'"+previousVersion+"')";
+// The current major-bypass check applies to all track layouts, including
+// community tracks. Earlier public assessments need a fresh verification.
+const stale='r.assessment_version<>?';
 const pendingSQL='SELECT COUNT(*) AS pending FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE s.rules=? AND '+stale;
 /** One public, already accepted recording per request. A database-wide lease
  * prevents concurrent visitors duplicating native replay work. No submissions,

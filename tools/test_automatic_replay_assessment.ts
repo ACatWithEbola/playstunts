@@ -5,7 +5,6 @@ import {readFileSync,readdirSync} from 'node:fs';
 import {reassessNextPublicReplay} from '../lib/server/reassess-public-replays.ts';
 import {ROUTE_ASSESSMENT_VERSION} from '../lib/server/route-assessment-version.ts';
 import {GLOBAL_SCORE_RULES} from '../lib/game/global-score-format.ts';
-import {DEFAULT_TRACK_HASH} from '../lib/server/default-route-bypass.ts';
 function fixture(){
  const sql=new DatabaseSync(':memory:');
  for(const file of readdirSync(new URL('../drizzle/',import.meta.url)).filter(f=>/^\d+.*\.sql$/.test(f)).sort())sql.exec(readFileSync(new URL('../drizzle/'+file,import.meta.url),'utf8'));
@@ -15,12 +14,10 @@ function fixture(){
  const result={id:'accepted',trackHash:'track',carCode:'FGTO',ticks:2517,routeAssessment:'full_route',assessmentReason:'full_route'};
  return {sql,db,result,load:async()=>({}) as never};
 }
-test('DEFAULT-only revision queues DEFAULT without rechecking already current unrelated tracks',async()=>{
+test('major-bypass revision queues earlier public assessments on other tracks too',async()=>{
  const {sql,db,result,load}=fixture();
  sql.prepare('UPDATE shared_replays SET assessment_version=?').run('original-accepted-finish-2026-10-28-10');
- let calls=0;const verify=async()=>{calls++;return {...result,trackHash:DEFAULT_TRACK_HASH} as never;};
- assert.equal((await reassessNextPublicReplay(db,load,verify)).state,'idle');assert.equal(calls,0);
- sql.prepare('UPDATE global_scores SET track_hash=?').run(DEFAULT_TRACK_HASH);
+ let calls=0;const verify=async()=>{calls++;return result as never;};
  assert.equal((await reassessNextPublicReplay(db,load,verify)).state,'updated');assert.equal(calls,1);
  assert.equal(sql.prepare('SELECT assessment_version FROM shared_replays').get()!.assessment_version,ROUTE_ASSESSMENT_VERSION);
  sql.close();

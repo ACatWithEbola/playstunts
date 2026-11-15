@@ -12,6 +12,7 @@ import {createGrassSpeedExploit} from './grass-speed-exploit.ts';
 import {resolvePhysicsEngine,LEGACY_PHYSICS} from '../physics/engine-version.ts';
 import {versionedRouteTables} from '../game/versioned-route-tables.ts';
 import {createDefaultRouteBypass} from './default-route-bypass.ts';
+import {createRouteEnvelope} from './route-envelope.ts';
 
 /** Re-run the original inputs with server-owned car/track physics. A claimed
  * time alone, a crashed replay or a different car cannot enter the board. */
@@ -27,6 +28,7 @@ export async function verifyGlobalScore(value:unknown,data:NativeDemoData){
  const prepared=await createNativeManualRaceSession(raceData,{configuration,track,name:'GLOBAL',camera:0,graphics:2,soundEnabled:false},{resetMouse(){}}),d=0x2d1a0;
  prepared.session.skipIntroduction();
  const preparedRoute=prepareRaceTrack(track,raceData.records,raceData.vectors,raceData.samples,raceData.objects),assessment=createShortcutAssessment(preparedRoute.graph);
+ const envelope=createRouteEnvelope(preparedRoute.graph);
  const gates=routeEvidenceGates(track,preparedRoute,raceData);
  const witness=createFullRouteWitness(preparedRoute.graph,gates);
  const grassExploit=createGrassSpeedExploit(car);
@@ -42,7 +44,8 @@ export async function verifyGlobalScore(value:unknown,data:NativeDemoData){
   // catch-up loop monopolize the server; defer it rather than accept/reject it.
   prepared.session.advanceCaptured({entryStackPointer:0xeee2,incomingSI:0,maxFrames:8});
   const carState=prepared.session.state.player.driving.car;
-  if(!prepared.session.state.done){assessment.observe(carState.pose.position,carState.grip.surfaces);witness.observe(carState.pose.position,carState.grip.surfaces);defaultBypass.observe(carState.pose.position);}
+  defaultBypass.observe(carState.pose.position);envelope.observe(carState.pose.position);
+  if(!prepared.session.state.done){assessment.observe(carState.pose.position,carState.grip.surfaces);witness.observe(carState.pose.position,carState.grip.surfaces);}
   completedInputs++;if(prepared.session.state.player.driving.car.grip.crash===3)break;
  }
  const memory=prepared.session.state.memory;
@@ -60,11 +63,15 @@ export async function verifyGlobalScore(value:unknown,data:NativeDemoData){
  // Website-only checkpoints, grass duration and structure traversal cannot
  // add new disqualifications. Only the agreed detected exceptions affect
  // the label; geometric witness telemetry remains diagnostic, not a rule.
- const bypass=defaultBypass.result(!!panel.playerTime);
+ // Missing narrow gate evidence alone is inconclusive. A major bypass is
+ // detected only when every complete graph route leaves a generously padded
+ // bounding box of the entire recorded drive, and no full route was proven.
+ const fullRoute=witness.result(!!panel.playerTime);
+ const bypass=defaultBypass.result(!!panel.playerTime)||(!fullRoute&&envelope.result(!!panel.playerTime));
  const routeAssessment=assessment.result()==='shortcuts_detected'||grassExploit.result()||bypass?'shortcuts_detected':'full_route';
- const assessmentReason=grassExploit.result()?'grass_speed':assessment.reason()||(bypass?'default_route_bypass':'full_route');
+ const assessmentReason=grassExploit.result()?'grass_speed':assessment.reason()||(bypass?'major_route_bypass':'full_route');
  // Legacy hashes stay byte-for-byte identical. New-engine IDs are domain
  // separated so identical controls cannot overwrite a legacy acceptance.
  const identity=Uint8Array.from([...canonicalReplay,...record,...(physicsEngine===LEGACY_PHYSICS?[]:new TextEncoder().encode('\0physics:'+physicsEngine))]);
- return {physicsEngine,record,carCode,ticks:panel.playerTime,replay:canonicalReplay,routeAssessment,assessmentReason,routeEvidence:{gates:witness.progress(),fullRoute:witness.result(!!panel.playerTime),grassUncertain:grassExploit.uncertain()},trackHash,id:await scoreHash(identity)};
+ return {physicsEngine,record,carCode,ticks:panel.playerTime,replay:canonicalReplay,routeAssessment,assessmentReason,routeEvidence:{gates:witness.progress(),fullRoute,grassUncertain:grassExploit.uncertain(),envelopeBypass:envelope.result(!!panel.playerTime)},trackHash,id:await scoreHash(identity)};
 }
