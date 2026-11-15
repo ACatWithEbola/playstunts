@@ -55,3 +55,15 @@ test('Recent races deduplicate, limit to seven, exclude withdrawals and classify
  assert.equal(recentRace({...base,driver_key:'',previous_best:1700}).event,'valid');
  db.close();
 });
+
+test('reassessment updates historical activity without calling an exploit a personal best',()=>{
+ const db=new DatabaseSync(':memory:');for(const file of readdirSync(new URL('../drizzle/',import.meta.url)).filter(f=>/^\d+.*\.sql$/.test(f)).sort())db.exec(readFileSync(new URL('../drizzle/'+file,import.meta.url),'utf8'));
+ const add=(id:string,ticks:number,stamp:number,assessment:string)=>db.prepare('INSERT INTO run_history VALUES (?,?,?,?,?,?,?,?,?)').run(id,GLOBAL_SCORE_RULES,'track','PMIN',ticks,record('Driver'),stamp,'driver',assessment);
+ add('old-exploit',1100,1,'shortcuts_detected');add('rechecked',1000,2,'full_route');
+ const read=()=>recentRace((db.prepare(recentRacesSQL).all(GLOBAL_SCORE_RULES,'[]') as RecentRaceRow[]).find(row=>row.id==='rechecked')!);
+ assert.equal(read().valid,true);
+ db.prepare('UPDATE run_history SET route_assessment=? WHERE id=?').run('shortcuts_detected','rechecked');
+ const after=read();assert.equal(after.valid,false);assert.equal(after.event,'submitted');assert.equal(after.improvement,null);
+ assert.equal((db.prepare('SELECT COUNT(*) AS n FROM run_history').get() as {n:number}).n,2);
+ db.close();
+});

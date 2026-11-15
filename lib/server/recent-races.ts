@@ -18,6 +18,6 @@ export function recentRace(row:RecentRaceRow){
  // Track records match the combined board across all cars and editions.
  // Personal improvements still require an older comparable driver/car/edition run.
  // Legacy/pruned history and simultaneous submissions get a neutral message.
- const event=valid&&row.previous_record!==null&&row.ticks<row.previous_record&&row.ticks===row.current_record?'record':row.driver_key&&!row.driver_key.startsWith('anonymous:')&&row.previous_best!==null&&row.ticks<row.previous_best?'improved':valid?'valid':'submitted';
+ const event=valid&&row.previous_record!==null&&row.ticks<row.previous_record&&row.ticks===row.current_record?'record':valid&&row.driver_key&&!row.driver_key.startsWith('anonymous:')&&row.previous_best!==null&&row.ticks<row.previous_best?'improved':valid?'valid':'submitted';
  return {id:row.id,driver:publicScoreName(scoreString(record,0,17))||'—',track:publicScoreName(row.track_name??'Track '+row.track_hash.slice(0,8).toUpperCase()),car:publicScoreName(scoreString(record,17,41))||row.car_code,ticks:row.ticks,postedAt:row.created_at,event,valid,improvement:event==='improved'?row.previous_best!-row.ticks:null};
 }
