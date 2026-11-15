@@ -6,8 +6,14 @@ import {retainAcceptedScoresSQL} from './leaderboard-ranking.ts';
 import {retainRunHistorySQL} from './run-history.ts';
 import {replayScoresSQL} from './shared-replay-retention.ts';
 import {readRaceEngine} from './race-engine-metadata.ts';
+import {DEFAULT_TRACK_HASH} from './default-route-bypass.ts';
 
-const pendingSQL='SELECT COUNT(*) AS pending FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE s.rules=? AND r.assessment_version<>?';
+// The current revision adds only a DEFAULT-specific rule. Other tracks already
+// assessed by the preceding revision need not be queued again. Older and
+// failed assessments still run; newly submitted current-version runs stay done.
+const previousVersion='original-accepted-finish-2026-10-28-10';
+const stale="r.assessment_version<>? AND (s.track_hash='"+DEFAULT_TRACK_HASH+"' OR r.assessment_version<>'"+previousVersion+"')";
+const pendingSQL='SELECT COUNT(*) AS pending FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE s.rules=? AND '+stale;
 /** One public, already accepted recording per request. A database-wide lease
  * prevents concurrent visitors duplicating native replay work. No submissions,
  * private recordings, times, driver identities or posting dates are rewritten. */
@@ -21,7 +27,7 @@ export async function reassessNextPublicReplay(db:D1Database,load:()=>Promise<Na
  if(!lock)return {state:'busy',pending:await pending(),changed:false};
  let selected:string|undefined;
  try{
-  const row=await db.prepare('SELECT r.id,r.replay,s.record,s.ticks,s.track_hash,s.car_code FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE s.rules=? AND r.assessment_version<>? AND r.assessment_retry_at<=?'+target+' ORDER BY r.assessment_retry_at,r.created_at,r.id LIMIT 1').bind(GLOBAL_SCORE_RULES,ROUTE_ASSESSMENT_VERSION,now,...targetArgs).first<{id:string;replay:string;record:string;ticks:number;track_hash:string;car_code:string}>();
+  const row=await db.prepare('SELECT r.id,r.replay,s.record,s.ticks,s.track_hash,s.car_code FROM shared_replays r JOIN ('+replayScoresSQL+') s ON s.id=r.id WHERE s.rules=? AND '+stale+' AND r.assessment_retry_at<=?'+target+' ORDER BY r.assessment_retry_at,r.created_at,r.id LIMIT 1').bind(GLOBAL_SCORE_RULES,ROUTE_ASSESSMENT_VERSION,now,...targetArgs).first<{id:string;replay:string;record:string;ticks:number;track_hash:string;car_code:string}>();
   if(!row)return {state:'idle',pending:await pending(),changed:false};
   selected=row.id;
   const physicsEngine=await readRaceEngine(db,row.id);
