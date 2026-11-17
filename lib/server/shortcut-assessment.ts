@@ -38,7 +38,7 @@ export function createShortcutAssessment(graph:PlayerRouteGraph){
   return matches.length===1?matches[0]:matches.length===0?-1:null;
  };
  let anchor:{node:number;position:number[]}|null=null,grassFrames=0,grassDistance=0,lastGrass:readonly number[]|null=null,previous:readonly number[]|null=null;
- let firstReentry:number[]|null=null;
+ let firstReentry:number[]|null=null,roadCandidate:number|null=null,roadCandidateFrames=0;
  let candidate:number|null=null,candidateFrames=0,detected=false,reason='';
  const reset=()=>{grassFrames=0;grassDistance=0;lastGrass=null;candidate=null;candidateFrames=0;firstReentry=null;};
  return {
@@ -50,14 +50,21 @@ export function createShortcutAssessment(graph:PlayerRouteGraph){
    if(anchor&&previous)grassDistance+=Math.hypot(position[0]-previous[0],position[2]-previous[2])/64;
    previous=[...position];
    const road=surfaces.some(surface=>surface>=1&&surface<=3),grass=surfaces.length===4&&surfaces.every(surface=>surface===4);
-   if(grass){candidate=null;candidateFrames=0;firstReentry=null;grassFrames++;lastGrass=[...position];return;}
+   if(grass){roadCandidate=null;roadCandidateFrames=0;candidate=null;candidateFrames=0;firstReentry=null;grassFrames++;lastGrass=[...position];return;}
    // Include flight/ambiguous road travel in the actual travelled distance,
    // so a winding excursion cannot appear artificially shorter than the road.
    if(grassFrames&&lastGrass)lastGrass=[...position];
-   if(!road)return;
+   if(!road){roadCandidate=null;roadCandidateFrames=0;return;}
    const node=nodeAt(position);
-   if(node===null||node===-1){if(node===null&&!grassFrames){anchor=null;reset();}else{candidate=null;candidateFrames=0;firstReentry=null;}return;}
-   if(!grassFrames){anchor={node,position:[...position]};reset();return;}
+   if(node===null||node===-1){roadCandidate=null;roadCandidateFrames=0;if(node===null&&!grassFrames){anchor=null;reset();}else{candidate=null;candidateFrames=0;firstReentry=null;}return;}
+   if(!grassFrames){
+    if(!anchor||anchor.node===node){anchor={node,position:[...position]};roadCandidate=null;roadCandidateFrames=0;reset();return;}
+    // A wheel can briefly touch a different branch at takeoff. Require a
+    // sustained road contact before replacing the established departure.
+    if(roadCandidate!==node){roadCandidate=node;roadCandidateFrames=1;}else roadCandidateFrames++;
+    if(roadCandidateFrames>=4){anchor={node,position:[...position]};roadCandidate=null;roadCandidateFrames=0;reset();}
+    return;
+   }
    if(candidate!==node){candidate=node;candidateFrames=1;firstReentry=[...position];}else candidateFrames++;
    // Four road frames confirm a real re-entry rather than a wheel grazing it.
    if(candidateFrames<4)return;

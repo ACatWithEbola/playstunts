@@ -115,6 +115,22 @@ test('dual-way switching is detected even when both arms are neighbours of the f
  for(let i=0;i<4;i++)narrow.observe(b,road);
  assert.equal(narrow.result(),'shortcuts_detected');assert.equal(narrow.reason(),'branch_switch');
 });
+test('a momentary takeoff contact on the other branch cannot hide a grass branch switch',()=>{
+ const fork={primary:[1,2,3,7,5,6,7,0],alternate:[4,65535,65535,65535,65535,65535,65535,65535],columns:[0,0,0,0,1,1,1,1],rows:[0,1,2,3,1,2,3,4],footprints:Array(8).fill(0)};
+ const pos=(node:number)=>[(fork.columns[node]+.5)*65536,0,(29-fork.rows[node]+.5)*65536];
+ const check=createShortcutAssessment(fork),from=pos(1),other=pos(4),to=pos(5);
+ for(let i=0;i<8;i++)check.observe(from,road);
+ check.observe(other,[0,0,1,1]);
+ for(let i=0;i<12;i++)check.observe(other.map((n,k)=>n+(to[k]-n)*i/12),grass);
+ for(let i=0;i<4;i++)check.observe(to,road);
+ assert.equal(check.result(),'shortcuts_detected');assert.equal(check.reason(),'branch_switch');
+ const normal=createShortcutAssessment(fork);
+ for(let i=0;i<8;i++)normal.observe(from,road);
+ normal.observe(other,[0,0,1,1]);
+ for(let i=0;i<12;i++)normal.observe(other,[0,0,0,0]);
+ for(let i=0;i<8;i++)normal.observe(to,road);
+ assert.equal(normal.result(),'not_assessed','A jump without a grass transfer stays unaccused');
+});
 test('original engine/grip power-gear grass behaviour is detected for all four known cars',()=>{
  for(const id of ['PMIN','FGTO','VETT','ANSX','COUN']){
   const tuning=fixtureData.cars.find((car:{id:string})=>car.id===id)!,ratio=tuning.gearRatios[tuning.gears],initial=id==='ANSX'?51968:61740,check=createGrassSpeedExploit(tuning);
